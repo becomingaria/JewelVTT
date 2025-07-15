@@ -4,33 +4,37 @@ An infinite whiteboard application built with React, TypeScript, and Vite. Featu
 
 ## Features
 
-- **Infinite Canvas**: Expand in all directions from center origin (0,0)
-- **Zoom Controls**: Scroll to zoom in/out (10% - 500%)
-- **Pan Navigation**: Click and drag to navigate the canvas
-- **Grid System**: 32x32 pixel squares with coordinate display
-- **Coordinate System**: Centered at origin with red axis markers
-- **Responsive**: Adapts to window size changes
+-   **Infinite Canvas**: Expand in all directions from center origin (0,0)
+-   **Zoom Controls**: Scroll to zoom in/out (10% - 500%)
+-   **Pan Navigation**: Click and drag to navigate the canvas
+-   **Grid System**: 32x32 pixel squares with coordinate display
+-   **Coordinate System**: Centered at origin with red axis markers
+-   **Responsive**: Adapts to window size changes
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js (v20.19.0 or >=22.12.0 recommended)
-- npm
+
+-   Node.js (v20.19.0 or >=22.12.0 recommended)
+-   npm
 
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd pixel-vtt
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -39,17 +43,18 @@ The application will be available at `http://localhost:3000`
 
 ## Controls
 
-- **Mouse Wheel**: Zoom in/out
-- **Click + Drag**: Pan around the canvas
-- **Grid Coordinates**: Displayed when zoomed in enough
+-   **Mouse Wheel**: Zoom in/out
+-   **Click + Drag**: Pan around the canvas
+-   **Grid Coordinates**: Displayed when zoomed in enough
 
 ## Development
 
 This project uses:
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Canvas API** for rendering the infinite grid
-- **ESLint** for code quality
+
+-   **React 18** with TypeScript
+-   **Vite** for fast development and building
+-   **Canvas API** for rendering the infinite grid
+-   **ESLint** for code quality
 
 ### Project Structure
 
@@ -66,28 +71,29 @@ src/
 
 ## Scripts
 
-- `npm run dev` - Start development server on port 3000
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
+-   `npm run dev` - Start development server on port 3000
+-   `npm run build` - Build for production
+-   `npm run preview` - Preview production build
+-   `npm run lint` - Run ESLint
 
 ## Technical Details
 
-- **Grid Size**: 32x32 pixels per square
-- **Coordinate System**: Origin at center (0,0)
-- **Zoom Range**: 10% to 500%
-- **Performance**: Efficient viewport culling for large canvases
+-   **Grid Size**: 32x32 pixels per square
+-   **Coordinate System**: Origin at center (0,0)
+-   **Zoom Range**: 10% to 500%
+-   **Performance**: Efficient viewport culling for large canvases
     ],
     languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
+    parserOptions: {
+    project: ['./tsconfig.node.json', './tsconfig.app.json'],
+    tsconfigRootDir: import.meta.dirname,
     },
-  },
-])
-```
+    // other options...
+    },
+    },
+    ])
+
+````
 
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
@@ -116,4 +122,4 @@ export default tseslint.config([
     },
   },
 ])
-```
+````
