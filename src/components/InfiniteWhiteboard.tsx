@@ -1,10 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react"
+import type { Point } from "../types/humbug.types"
+import { HumbugManager } from "./HumbugManager"
 import "./InfiniteWhiteboard.css"
-
-interface Point {
-    x: number
-    y: number
-}
 
 interface ViewPort {
     x: number
@@ -231,6 +228,17 @@ export const InfiniteWhiteboard: React.FC = () => {
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
             />
+            
+            {/* Humbug Manager for interactive elements - positioned above canvas */}
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'all' }}>
+                <HumbugManager
+                    scale={viewport.zoom}
+                    containerRef={containerRef}
+                    screenToWorld={screenToWorld}
+                    worldToScreen={worldToScreen}
+                />
+            </div>
+            
             <div className='viewport-info'>
                 <div>Zoom: {(viewport.zoom * 100).toFixed(0)}%</div>
                 <div>

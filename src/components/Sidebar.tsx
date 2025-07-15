@@ -8,13 +8,35 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const handleImportBoard = () => {
-    console.log('Import Board clicked');
-    // TODO: Implement import functionality
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const jsonData = event.target?.result as string;
+          const importFn = (window as unknown as { importHumbugs?: (data: string) => void }).importHumbugs;
+          if (importFn) {
+            importFn(jsonData);
+          } else {
+            console.log('Import Board clicked - Function not available yet');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
   };
 
   const handleExportBoard = () => {
-    console.log('Export Board clicked');
-    // TODO: Implement export functionality
+    const exportFn = (window as unknown as { exportHumbugs?: () => void }).exportHumbugs;
+    if (exportFn) {
+      exportFn();
+    } else {
+      console.log('Export Board clicked - Function not available yet');
+    }
   };
 
   return (
