@@ -11,6 +11,14 @@
     cursor: grabbing;
 }
 
+.infinite-whiteboard-container.shift-pan-mode {
+    cursor: grab !important;
+}
+
+.infinite-whiteboard-container.shift-pan-mode:active {
+    cursor: grabbing !important;
+}
+
 .infinite-whiteboard-canvas {
     display: block;
     width: 100%;

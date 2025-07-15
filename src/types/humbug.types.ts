@@ -17,6 +17,7 @@ export interface HumbugBase {
   rotation: number; // in degrees
   locked: boolean;
   zIndex: number;
+  opacity: number; // 0.0 to 1.0
   createdAt: number;
   updatedAt: number;
 }
@@ -61,10 +62,18 @@ export interface ContextMenuOption {
   icon: string;
 }
 
+export interface HumbugContextMenuOption {
+  label: string;
+  action: 'edit' | 'lock' | 'unlock' | 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward' | 'delete';
+  icon: string;
+}
+
 export interface DragTail {
+  humbugId: string;
   startPoint: Point;
-  endPoint: Point;
+  currentPoint: Point;
   markers: Point[];
+  distance: number; // in grid units
 }
 
 export interface HumbugState {
@@ -74,5 +83,10 @@ export interface HumbugState {
   contextMenu: {
     isOpen: boolean;
     position: Point;
+  };
+  humbugContextMenu: {
+    isOpen: boolean;
+    position: Point;
+    humbugId: string | null;
   };
 }

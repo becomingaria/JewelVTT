@@ -17,7 +17,8 @@ export function createDefaultHumbug(type: HumbugType, position: Point): Humbug {
     position,
     rotation: 0,
     locked: false,
-    zIndex: Date.now(),
+    zIndex: 100, // Start at 100 to leave room for background elements
+    opacity: 1.0,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

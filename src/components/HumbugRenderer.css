@@ -22,11 +22,18 @@
   overflow: hidden;
   resize: none;
   outline: none;
+  pointer-events: none; /* Let parent humbug handle pointer events */
 }
 
 .humbug-image-content {
   border-radius: 4px;
   object-fit: cover;
+  user-select: none;
+  pointer-events: none; /* Prevent image from intercepting mouse events */
+  -webkit-user-drag: none; /* Webkit browsers */
+  -khtml-user-drag: none; /* Konqueror */
+  -moz-user-drag: none; /* Firefox */
+  -o-user-drag: none; /* Opera */
 }
 
 .humbug-map-pin-content {
@@ -34,6 +41,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  pointer-events: none; /* Let parent humbug handle pointer events */
 }
 
 .map-pin-label {
@@ -48,6 +56,7 @@
 .humbug-solid-color-content {
   border: 1px solid #ccc;
   border-radius: 4px;
+  pointer-events: none; /* Let parent humbug handle pointer events */
   min-width: 20px;
   min-height: 20px;
 }
@@ -92,6 +101,11 @@
 .rotate-handle {
   top: -10px;
   right: -10px;
+  cursor: grab;
+}
+
+.rotate-handle:active {
+  cursor: grabbing;
 }
 
 .delete-handle {
@@ -104,6 +118,87 @@
 .rotate-handle:hover,
 .delete-handle:hover {
   transform: scale(1.1);
+}
+
+/* Resize handles */
+.resize-handle {
+  position: absolute;
+  background: #007acc;
+  border: 1px solid white;
+  pointer-events: auto;
+}
+
+.corner-handle {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.edge-handle {
+  background: #007acc;
+  border: 1px solid white;
+}
+
+/* Corner handles */
+.nw-handle {
+  top: -4px;
+  left: -4px;
+  cursor: nw-resize;
+}
+
+.ne-handle {
+  top: -4px;
+  right: -4px;
+  cursor: ne-resize;
+}
+
+.sw-handle {
+  bottom: -4px;
+  left: -4px;
+  cursor: sw-resize;
+}
+
+.se-handle {
+  bottom: -4px;
+  right: -4px;
+  cursor: se-resize;
+}
+
+/* Edge handles */
+.n-handle {
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 4px;
+  cursor: n-resize;
+}
+
+.s-handle {
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 4px;
+  cursor: s-resize;
+}
+
+.e-handle {
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  cursor: e-resize;
+}
+
+.w-handle {
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  cursor: w-resize;
 }
 
 .lock-indicator {

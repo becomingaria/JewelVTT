@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react"
-import type { Point } from "../types/humbug.types"
+import type { Point, Humbug } from "../types/humbug.types"
 import { HumbugManager } from "./HumbugManager"
+import { exportBoardAsPNG, importBoardFromPNG } from "../utils/export.utils"
 import "./InfiniteWhiteboard.css"
 
 interface ViewPort {
@@ -13,12 +14,23 @@ const GRID_SIZE = 32 // 32x32 pixel squares
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 5
 
-export const InfiniteWhiteboard: React.FC = () => {
+interface InfiniteWhiteboardProps {
+  showGridLines?: boolean;
+  showDragTails?: boolean;
+}
+
+export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({ 
+  showGridLines = true,
+  showDragTails = true
+}) => {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
+    const humbugManagerRef = useRef<any>(null) // Will hold reference to HumbugManager's methods
     const [viewport, setViewport] = useState<ViewPort>({ x: 0, y: 0, zoom: 1 })
     const [isDragging, setIsDragging] = useState(false)
     const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 })
+    const [contextMenuEvent, setContextMenuEvent] = useState<React.MouseEvent | null>(null)
+    const [isShiftHeld, setIsShiftHeld] = useState(false)
 
     // Convert screen coordinates to world coordinates
     const screenToWorld = useCallback(
@@ -59,6 +71,8 @@ export const InfiniteWhiteboard: React.FC = () => {
 
             // Clear canvas
             ctx.clearRect(0, 0, width, height)
+
+            if (!showGridLines) return;
 
             // Calculate visible grid range
             const topLeft = screenToWorld(0, 0)
@@ -114,7 +128,7 @@ export const InfiniteWhiteboard: React.FC = () => {
             ctx.arc(origin.x, origin.y, 4, 0, Math.PI * 2)
             ctx.fill()
         },
-        [viewport, screenToWorld, worldToScreen]
+        [viewport, screenToWorld, worldToScreen, showGridLines]
     )
 
     // Render function
@@ -156,6 +170,8 @@ export const InfiniteWhiteboard: React.FC = () => {
 
     // Handle mouse down
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        // Only start panning if shift key is held or if clicking on empty space
+        // (humbugs will stopPropagation if shift is not held)
         setIsDragging(true)
         setLastMousePos({ x: e.clientX, y: e.clientY })
     }, [])
@@ -182,6 +198,14 @@ export const InfiniteWhiteboard: React.FC = () => {
     // Handle mouse up
     const handleMouseUp = useCallback(() => {
         setIsDragging(false)
+    }, [])
+
+    // Handle right-click - delegate to HumbugManager
+    const handleContextMenu = useCallback((e: React.MouseEvent) => {
+        e.preventDefault()
+        setContextMenuEvent(e)
+        // Clear the event after a short delay to allow the HumbugManager to process it
+        setTimeout(() => setContextMenuEvent(null), 100)
     }, [])
 
     // Resize canvas to match container
@@ -218,8 +242,78 @@ export const InfiniteWhiteboard: React.FC = () => {
         render()
     }, [render])
 
+    // Handle export/import events from TopBar
+    useEffect(() => {
+        const handleExport = async () => {
+            if (containerRef.current) {
+                const windowGlobal = window as unknown as { exportHumbugData?: () => void };
+                windowGlobal.exportHumbugData?.();
+            }
+        };
+
+        const handleImport = async (event: Event) => {
+            const customEvent = event as CustomEvent<File>;
+            const file = customEvent.detail;
+            const boardData = await importBoardFromPNG(file);
+            
+            if (boardData) {
+                const windowGlobal = window as unknown as { importHumbugData?: (humbugs: unknown[]) => void };
+                windowGlobal.importHumbugData?.(boardData.humbugs);
+                
+                // Restore viewport
+                setViewport(boardData.viewport);
+            }
+        };
+
+        window.addEventListener('exportBoard', handleExport);
+        window.addEventListener('importBoard', handleImport);
+
+        return () => {
+            window.removeEventListener('exportBoard', handleExport);
+            window.removeEventListener('importBoard', handleImport);
+        };
+    }, [viewport]);
+
+    // Callback to handle export request from HumbugManager
+    const handleExportRequest = useCallback(async (humbugs: Humbug[], currentViewport: { x: number; y: number; zoom: number }) => {
+        if (containerRef.current) {
+            await exportBoardAsPNG(containerRef.current, humbugs, viewport);
+        }
+    }, [viewport]);
+
+    // Callback to handle import completion
+    const handleImportRequest = useCallback((humbugs: Humbug[]) => {
+        console.log(`Imported ${humbugs.length} humbugs successfully`);
+    }, []);
+
+    // Track shift key state for panning
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') {
+                setIsShiftHeld(true);
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') {
+                setIsShiftHeld(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
+
     return (
-        <div className='infinite-whiteboard-container' ref={containerRef}>
+        <div 
+            className={`infinite-whiteboard-container ${isShiftHeld ? 'shift-pan-mode' : ''}`} 
+            ref={containerRef}
+        >
             <canvas
                 ref={canvasRef}
                 className='infinite-whiteboard-canvas'
@@ -227,14 +321,19 @@ export const InfiniteWhiteboard: React.FC = () => {
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
+                onContextMenu={handleContextMenu}
             />
             
-            {/* Humbug Manager for interactive elements - positioned above canvas */}
+            {/* Humbug Manager for interactive elements */}
             <HumbugManager
                 scale={viewport.zoom}
                 containerRef={containerRef}
                 screenToWorld={screenToWorld}
                 worldToScreen={worldToScreen}
+                contextMenuEvent={contextMenuEvent}
+                showDragTails={showDragTails}
+                onExportRequest={handleExportRequest}
+                onImportRequest={handleImportRequest}
             />
             
             <div className='viewport-info'>

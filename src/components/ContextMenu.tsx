@@ -7,6 +7,8 @@ interface ContextMenuProps {
   isOpen: boolean;
   onClose: () => void;
   onCreateHumbug: (type: HumbugType, position: Point) => void;
+  snapToGrid: boolean;
+  onToggleSnapToGrid: () => void;
 }
 
 const CONTEXT_MENU_OPTIONS: ContextMenuOption[] = [
@@ -21,6 +23,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   isOpen,
   onClose,
   onCreateHumbug,
+  snapToGrid,
+  onToggleSnapToGrid,
 }) => {
   if (!isOpen) return null;
 
@@ -56,6 +60,22 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               <span className="option-label">{option.label}</span>
             </button>
           ))}
+        </div>
+        
+        <div className="context-menu-separator" />
+        
+        <div className="context-menu-options">
+          <button
+            className="context-menu-option toggle-option"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSnapToGrid();
+            }}
+          >
+            <span className="option-icon">{snapToGrid ? '🔳' : '⬜'}</span>
+            <span className="option-label">Snap to Grid</span>
+            <span className="toggle-indicator">{snapToGrid ? 'ON' : 'OFF'}</span>
+          </button>
         </div>
       </div>
     </>

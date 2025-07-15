@@ -106,3 +106,43 @@
 .sidebar-button:active {
   transform: translateY(0);
 }
+
+.sidebar-section {
+  margin-bottom: 24px;
+}
+
+.sidebar-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 4px;
+}
+
+.sidebar-toggle {
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.toggle-icon {
+  font-size: 16px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.toggle-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  background-color: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 30px;
+  text-align: center;
+}
+
+.sidebar-toggle:hover .toggle-status {
+  background-color: #dee2e6;
+}
