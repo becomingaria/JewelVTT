@@ -230,14 +230,12 @@ export const InfiniteWhiteboard: React.FC = () => {
             />
             
             {/* Humbug Manager for interactive elements - positioned above canvas */}
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'all' }}>
-                <HumbugManager
-                    scale={viewport.zoom}
-                    containerRef={containerRef}
-                    screenToWorld={screenToWorld}
-                    worldToScreen={worldToScreen}
-                />
-            </div>
+            <HumbugManager
+                scale={viewport.zoom}
+                containerRef={containerRef}
+                screenToWorld={screenToWorld}
+                worldToScreen={worldToScreen}
+            />
             
             <div className='viewport-info'>
                 <div>Zoom: {(viewport.zoom * 100).toFixed(0)}%</div>

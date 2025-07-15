@@ -120,29 +120,6 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     }));
   }, []);
 
-  // Click outside to deselect - only handle if not interacting with humbugs
-  const handleContainerClick = useCallback((e: React.MouseEvent) => {
-    // Only handle click if it's not on a humbug or context menu
-    if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.humbug-renderer') === null) {
-      setState(prev => ({
-        ...prev,
-        selectedHumbugId: null,
-      }));
-    }
-  }, []);
-
-  // Handle mouse down - let canvas handle if not on a humbug
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // If clicking on a humbug, handle it here
-    const humbugElement = (e.target as HTMLElement).closest('.humbug-renderer');
-    if (humbugElement) {
-      e.stopPropagation(); // Prevent canvas from handling
-      return;
-    }
-    
-    // Otherwise, let the canvas handle panning
-  }, []);
-
   // Mouse move handler for dragging
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -220,53 +197,61 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
   }, [exportHumbugs, importHumbugs]);
 
   return (
-    <>
-      {/* Context menu layer - always captures right clicks */}
+    <div
+      style={{ 
+        position: 'absolute', 
+        top: 0,
+        left: 0,
+        width: '100%', 
+        height: '100%',
+        pointerEvents: 'none' // Allow canvas events to pass through
+      }}
+    >
+      {/* Invisible layer that only captures right-click for context menu */}
       <div
         style={{ 
           position: 'absolute', 
           width: '100%', 
           height: '100%',
-          pointerEvents: 'all',
-          zIndex: 2000
+          pointerEvents: 'auto', // Enable to capture right-clicks
+          zIndex: 1
         }}
-        onContextMenu={handleContextMenu}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          handleContextMenu(e);
+        }}
+        onMouseDown={(e) => {
+          // Only handle right-clicks, let left-clicks pass through for canvas panning
+          if (e.button === 2) { // Right click
+            e.stopPropagation();
+          }
+        }}
       />
       
-      {/* Humbug content layer */}
-      <div
-        style={{ 
-          position: 'relative', 
-          width: '100%', 
-          height: '100%',
-          pointerEvents: 'none' // Allow events to pass through by default
-        }}
-        onClick={handleContainerClick}
-        onMouseDown={handleMouseDown}
-      >
-        {/* Render all humbugs */}
-        {state.humbugs.map((humbug) => (
-          <HumbugRenderer
-            key={humbug.id}
-            humbug={humbug}
-            isSelected={state.selectedHumbugId === humbug.id}
-            onSelect={selectHumbug}
-            onMove={moveHumbug}
-            onRotate={rotateHumbug}
-            onDelete={deleteHumbug}
-            onEdit={editHumbug}
-            scale={scale}
-          />
-        ))}
+      {/* Render all humbugs */}
+      {state.humbugs.map((humbug) => (
+        <HumbugRenderer
+          key={humbug.id}
+          humbug={humbug}
+          isSelected={state.selectedHumbugId === humbug.id}
+          onSelect={selectHumbug}
+          onMove={moveHumbug}
+          onRotate={rotateHumbug}
+          onDelete={deleteHumbug}
+          onEdit={editHumbug}
+          scale={scale}
+        />
+      ))}
 
-        {/* Context Menu */}
+      {/* Context Menu - highest z-index for interaction */}
+      {state.contextMenu.isOpen && (
         <ContextMenu
           position={state.contextMenu.position}
           isOpen={state.contextMenu.isOpen}
           onClose={closeContextMenu}
           onCreateHumbug={createHumbug}
         />
-      </div>
-    </>
+      )}
+    </div>
   );
 };
