@@ -1,6 +1,6 @@
-# Design Guidelines for Pixel VTT
+# Design Guidelines for Jewel VTT
 
-This document outlines the design system guidelines for the Pixel VTT infinite whiteboard application. These guidelines ensure visual consistency, accessibility, and maintainability across all UI components.
+This document outlines the design system guidelines for the Jewel VTT infinite whiteboard application. These guidelines ensure visual consistency, accessibility, and maintainability across all UI components.
 
 ## Color Palette
 

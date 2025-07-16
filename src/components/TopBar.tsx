@@ -30,8 +30,8 @@ export const TopBar: React.FC<TopBarProps> = ({ onSidebarToggle }) => {
                 </div>
                 <div className='logo-container'>
                     <img
-                        src='/pixelvtt.png'
-                        alt='Pixel VTT Logo'
+                        src='/jewelvtt.png'
+                        alt='Jewel VTT Logo'
                         className='logo'
                     />
                 </div>

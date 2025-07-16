@@ -14,10 +14,114 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 18px 24px; /* Increased padding to make total height ~60px */
+    padding: 18px 24px;
     max-width: 1200px;
     margin: 0 auto;
-    gap: 12px;
+    gap: 24px;
+}
+
+.color-picker-section {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.current-color {
+    width: 40px;
+    height: 40px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.current-color:hover {
+    transform: scale(1.05);
+}
+
+.color-picker-dropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    margin-bottom: 8px;
+}
+
+.color-input {
+    width: 60px;
+    height: 40px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.preset-colors {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.preset-color {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.preset-color:hover {
+    transform: scale(1.1);
+}
+
+.tool-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.tool-button {
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.tool-button:hover {
+    background: #e9ecef;
+    border-color: #3498db;
+}
+
+.tool-button.active {
+    background: #3498db;
+    border-color: #2980b9;
+    color: white;
+}
+
+.dump-button {
+    background: #ff6b6b !important;
+    border-color: #e55555 !important;
+    color: white;
+}
+
+.dump-button:hover {
+    background: #e55555 !important;
+    border-color: #d63031 !important;
 }
 
 .apron-placeholder {

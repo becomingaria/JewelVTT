@@ -19,6 +19,15 @@
     cursor: grabbing !important;
 }
 
+/* Paint tool cursors */
+.infinite-whiteboard-container.paint-mode {
+    cursor: cell; /* Use cell cursor for paint mode */
+}
+
+.infinite-whiteboard-container.eraser-mode {
+    cursor: not-allowed; /* Use not-allowed cursor for eraser mode */
+}
+
 .infinite-whiteboard-canvas {
     display: block;
     width: 100%;

@@ -852,7 +852,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `pixel-vtt-board-${Date.now()}.json`
+        a.download = `jewel-vtt-board-${Date.now()}.json`
         a.click()
         URL.revokeObjectURL(url)
     }, [state.humbugs])

@@ -1,4 +1,4 @@
-# Pixel VTT
+# Jewel VTT
 
 An infinite whiteboard application built with React, TypeScript, and Vite. Features an expandable canvas with zoom and pan capabilities, similar to Miro.
 
@@ -24,7 +24,7 @@ An infinite whiteboard application built with React, TypeScript, and Vite. Featu
 
 ```bash
 git clone <repository-url>
-cd pixel-vtt
+cd jewel-vtt
 ```
 
 2. Install dependencies:

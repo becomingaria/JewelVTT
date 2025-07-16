@@ -135,7 +135,7 @@ export async function exportBoardAsPNG(
             // For now, we'll embed the JSON in a comment-like structure
             // In a real implementation, you'd use proper PNG chunk handling
             const jsonString = JSON.stringify(exportData)
-            const metadataComment = `Pixel-VTT-Data:${btoa(jsonString)}`
+            const metadataComment = `Jewel-VTT-Data:${btoa(jsonString)}`
 
             // Create download
             const finalBlob = new Blob([uint8Array], { type: "image/png" })
@@ -143,13 +143,13 @@ export async function exportBoardAsPNG(
 
             const a = document.createElement("a")
             a.href = url
-            a.download = `pixel-vtt-board-${Date.now()}.png`
+            a.download = `jewel-vtt-board-${Date.now()}.png`
             a.click()
 
             URL.revokeObjectURL(url)
 
             // Store metadata separately for import
-            localStorage.setItem(`pixel-vtt-metadata-${Date.now()}`, jsonString)
+            localStorage.setItem(`jewel-vtt-metadata-${Date.now()}`, jsonString)
         }, "image/png")
     } catch (error) {
         console.error("Failed to export board:", error)
@@ -167,12 +167,12 @@ export async function importBoardFromPNG(
 
         // Try to find matching metadata in localStorage
         const keys = Object.keys(localStorage).filter((key) =>
-            key.startsWith("pixel-vtt-metadata-")
+            key.startsWith("jewel-vtt-metadata-")
         )
 
         if (keys.length === 0) {
             alert(
-                "No board data found. Please ensure you're importing a file exported from Pixel VTT."
+                "No board data found. Please ensure you're importing a file exported from Jewel VTT."
             )
             return null
         }
@@ -193,7 +193,7 @@ export async function importBoardFromPNG(
     } catch (error) {
         console.error("Failed to import board:", error)
         alert(
-            "Failed to import board. The file may be corrupted or not a valid Pixel VTT export."
+            "Failed to import board. The file may be corrupted or not a valid Jewel VTT export."
         )
         return null
     }

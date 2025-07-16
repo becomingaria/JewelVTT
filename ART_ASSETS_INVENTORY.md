@@ -1,4 +1,4 @@
-# Pixel VTT - Art Assets Inventory
+# Jewel VTT - Art Assets Inventory
 
 This document lists all current art assets and identifies areas where custom artwork could enhance the user experience.
 
@@ -6,7 +6,7 @@ This document lists all current art assets and identifies areas where custom art
 
 ### Logo & Branding
 
--   **Logo/Icon**: `/public/pixelvtt.png` - Used in TopBar and as favicon
+-   **Logo/Icon**: `/public/jewelvtt.png` - Used in TopBar and as favicon
     -   Current: PNG format
     -   Suggested: Could create SVG version for scalability
     -   Also used as favicon in `index.html`
@@ -206,4 +206,4 @@ Suggested folder structure:
 
 ## 🎯 Conclusion
 
-The application currently uses 15+ emoji icons and 10+ cursor states that could be replaced with custom themed artwork. Creating a cohesive art style would significantly enhance the professional appearance and user experience of Pixel VTT.
+The application currently uses 15+ emoji icons and 10+ cursor states that could be replaced with custom themed artwork. Creating a cohesive art style would significantly enhance the professional appearance and user experience of Jewel VTT.

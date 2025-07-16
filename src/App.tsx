@@ -3,6 +3,7 @@ import { InfiniteWhiteboard } from "./components/InfiniteWhiteboard"
 import { TopBar } from "./components/TopBar"
 import { Sidebar } from "./components/Sidebar"
 import { Apron } from "./components/Apron"
+import type { PaintTool } from "./components/Apron"
 import "./App.css"
 
 function App() {
@@ -10,6 +11,8 @@ function App() {
     const [showGridLines, setShowGridLines] = useState(true)
     const [showDragTails, setShowDragTails] = useState(true)
     const [showApron, setShowApron] = useState(false)
+    const [activePaintTool, setActivePaintTool] = useState<PaintTool>(null)
+    const [selectedColor, setSelectedColor] = useState('#3498db')
     const [backgroundTexture, setBackgroundTexture] = useState<string | null>(
         null
     )
@@ -33,6 +36,22 @@ function App() {
 
     const handleToggleApron = () => {
         setShowApron((prev) => !prev)
+    }
+
+    const handlePaintToolChange = (tool: PaintTool) => {
+        setActivePaintTool(tool)
+    }
+
+    const handleColorChange = (color: string) => {
+        setSelectedColor(color)
+    }
+
+    const handleDumpFill = () => {
+        // Dispatch a custom event that the InfiniteWhiteboard will listen for
+        const dumpEvent = new CustomEvent("dumpFill", { 
+            detail: { color: selectedColor } 
+        })
+        window.dispatchEvent(dumpEvent)
     }
 
     const handleExportBoard = () => {
@@ -98,9 +117,18 @@ function App() {
                     showDragTails={showDragTails}
                     backgroundTexture={backgroundTexture}
                     textureScale={textureScale}
+                    activePaintTool={activePaintTool}
+                    selectedColor={selectedColor}
                 />
             </div>
-            <Apron isVisible={showApron} />
+            <Apron 
+                isVisible={showApron}
+                onToolChange={handlePaintToolChange}
+                onColorChange={handleColorChange}
+                onDumpFill={handleDumpFill}
+                activeTool={activePaintTool}
+                selectedColor={selectedColor}
+            />
         </div>
     )
 }
