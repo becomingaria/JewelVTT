@@ -15,36 +15,64 @@ const MIN_ZOOM = 0.1
 const MAX_ZOOM = 5
 
 interface InfiniteWhiteboardProps {
-  showGridLines?: boolean;
-  showDragTails?: boolean;
+    showGridLines?: boolean
+    showDragTails?: boolean
+    backgroundTexture?: string | null
+    textureScale?: number
 }
 
-export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({ 
-  showGridLines = true,
-  showDragTails = true
+export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
+    showGridLines = true,
+    showDragTails = true,
+    backgroundTexture = null,
+    textureScale = 1.0,
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
-    const humbugManagerRef = useRef<any>(null) // Will hold reference to HumbugManager's methods
     const [viewport, setViewport] = useState<ViewPort>({ x: 0, y: 0, zoom: 1 })
     const [isDragging, setIsDragging] = useState(false)
     const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 })
-    const [contextMenuEvent, setContextMenuEvent] = useState<React.MouseEvent | null>(null)
+    const [contextMenuEvent, setContextMenuEvent] =
+        useState<React.MouseEvent | null>(null)
     const [isShiftHeld, setIsShiftHeld] = useState(false)
+    const [isModalOpen, setIsModalOpen] = useState(false)
 
     // Convert screen coordinates to world coordinates
     const screenToWorld = useCallback(
         (screenX: number, screenY: number): Point => {
-            const canvas = canvasRef.current
-            if (!canvas) return { x: 0, y: 0 }
+            const container = containerRef.current
+            if (!container) return { x: 0, y: 0 }
 
-            const rect = canvas.getBoundingClientRect()
-            const canvasX = screenX - rect.left
-            const canvasY = screenY - rect.top
+            // screenX and screenY are expected to be viewport coordinates
+            const rect = container.getBoundingClientRect()
+            const containerX = screenX - rect.left
+            const containerY = screenY - rect.top
 
             return {
-                x: (canvasX - canvas.width / 2) / viewport.zoom - viewport.x,
-                y: (canvasY - canvas.height / 2) / viewport.zoom - viewport.y,
+                x:
+                    (containerX - container.clientWidth / 2) / viewport.zoom -
+                    viewport.x,
+                y:
+                    (containerY - container.clientHeight / 2) / viewport.zoom -
+                    viewport.y,
+            }
+        },
+        [viewport]
+    )
+
+    // Convert container-relative coordinates to world coordinates
+    const containerToWorld = useCallback(
+        (containerX: number, containerY: number): Point => {
+            const container = containerRef.current
+            if (!container) return { x: 0, y: 0 }
+
+            return {
+                x:
+                    (containerX - container.clientWidth / 2) / viewport.zoom -
+                    viewport.x,
+                y:
+                    (containerY - container.clientHeight / 2) / viewport.zoom -
+                    viewport.y,
             }
         },
         [viewport]
@@ -53,12 +81,16 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     // Convert world coordinates to screen coordinates
     const worldToScreen = useCallback(
         (worldX: number, worldY: number): Point => {
-            const canvas = canvasRef.current
-            if (!canvas) return { x: 0, y: 0 }
+            const container = containerRef.current
+            if (!container) return { x: 0, y: 0 }
 
             return {
-                x: (worldX + viewport.x) * viewport.zoom + canvas.width / 2,
-                y: (worldY + viewport.y) * viewport.zoom + canvas.height / 2,
+                x:
+                    (worldX + viewport.x) * viewport.zoom +
+                    container.clientWidth / 2,
+                y:
+                    (worldY + viewport.y) * viewport.zoom +
+                    container.clientHeight / 2,
             }
         },
         [viewport]
@@ -72,7 +104,56 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             // Clear canvas
             ctx.clearRect(0, 0, width, height)
 
-            if (!showGridLines) return;
+            // Draw background texture if present
+            if (backgroundTexture) {
+                const img = new Image()
+                img.src = backgroundTexture
+
+                // Only draw if image is loaded
+                if (img.complete && img.naturalWidth > 0) {
+                    const baseTextureSize = 320 // Base 320x320 pixel texture tiles
+                    const scaledTextureSize = baseTextureSize * textureScale
+
+                    // Calculate visible texture range
+                    const topLeft = screenToWorld(0, 0)
+                    const bottomRight = screenToWorld(width, height)
+
+                    const startTileX = Math.floor(topLeft.x / scaledTextureSize)
+                    const endTileX = Math.ceil(
+                        bottomRight.x / scaledTextureSize
+                    )
+                    const startTileY = Math.floor(topLeft.y / scaledTextureSize)
+                    const endTileY = Math.ceil(
+                        bottomRight.y / scaledTextureSize
+                    )
+
+                    // Draw texture tiles
+                    for (let tileX = startTileX; tileX <= endTileX; tileX++) {
+                        for (
+                            let tileY = startTileY;
+                            tileY <= endTileY;
+                            tileY++
+                        ) {
+                            const worldX = tileX * scaledTextureSize
+                            const worldY = tileY * scaledTextureSize
+                            const screenPos = worldToScreen(worldX, worldY)
+
+                            const tileScreenSize =
+                                scaledTextureSize * viewport.zoom
+
+                            ctx.drawImage(
+                                img,
+                                screenPos.x,
+                                screenPos.y,
+                                tileScreenSize,
+                                tileScreenSize
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (!showGridLines) return
 
             // Calculate visible grid range
             const topLeft = screenToWorld(0, 0)
@@ -128,7 +209,14 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             ctx.arc(origin.x, origin.y, 4, 0, Math.PI * 2)
             ctx.fill()
         },
-        [viewport, screenToWorld, worldToScreen, showGridLines]
+        [
+            viewport,
+            screenToWorld,
+            worldToScreen,
+            showGridLines,
+            backgroundTexture,
+            textureScale,
+        ]
     )
 
     // Render function
@@ -145,6 +233,11 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     // Handle mouse wheel for zooming
     const handleWheel = useCallback(
         (e: WheelEvent) => {
+            // Don't zoom if a modal is open - allow scrolling in modal instead
+            if (isModalOpen) {
+                return
+            }
+
             e.preventDefault()
 
             const canvas = canvasRef.current
@@ -165,7 +258,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 zoom: newZoom,
             }))
         },
-        [viewport]
+        [viewport, isModalOpen]
     )
 
     // Handle mouse down
@@ -214,25 +307,26 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         const container = containerRef.current
         if (!canvas || !container) return
 
-        const rect = container.getBoundingClientRect()
-        canvas.width = rect.width
-        canvas.height = rect.height
+        // Use clientWidth/clientHeight to match our coordinate calculations
+        canvas.width = container.clientWidth
+        canvas.height = container.clientHeight
         render()
     }, [render])
 
     // Set up event listeners and resize handling
     useEffect(() => {
         const canvas = canvasRef.current
-        if (!canvas) return
+        const container = containerRef.current
+        if (!canvas || !container) return
 
-        canvas.addEventListener("wheel", handleWheel, { passive: false })
+        container.addEventListener("wheel", handleWheel, { passive: false })
         window.addEventListener("resize", resizeCanvas)
 
         // Initial resize
         resizeCanvas()
 
         return () => {
-            canvas.removeEventListener("wheel", handleWheel)
+            container.removeEventListener("wheel", handleWheel)
             window.removeEventListener("resize", resizeCanvas)
         }
     }, [handleWheel, resizeCanvas])
@@ -246,72 +340,106 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     useEffect(() => {
         const handleExport = async () => {
             if (containerRef.current) {
-                const windowGlobal = window as unknown as { exportHumbugData?: () => void };
-                windowGlobal.exportHumbugData?.();
+                const windowGlobal = window as unknown as {
+                    exportHumbugData?: () => void
+                }
+                windowGlobal.exportHumbugData?.()
             }
-        };
+        }
 
         const handleImport = async (event: Event) => {
-            const customEvent = event as CustomEvent<File>;
-            const file = customEvent.detail;
-            const boardData = await importBoardFromPNG(file);
-            
-            if (boardData) {
-                const windowGlobal = window as unknown as { importHumbugData?: (humbugs: unknown[]) => void };
-                windowGlobal.importHumbugData?.(boardData.humbugs);
-                
-                // Restore viewport
-                setViewport(boardData.viewport);
-            }
-        };
+            const customEvent = event as CustomEvent<File>
+            const file = customEvent.detail
+            const boardData = await importBoardFromPNG(file)
 
-        window.addEventListener('exportBoard', handleExport);
-        window.addEventListener('importBoard', handleImport);
+            if (boardData) {
+                const windowGlobal = window as unknown as {
+                    importHumbugData?: (humbugs: unknown[]) => void
+                }
+                windowGlobal.importHumbugData?.(boardData.humbugs)
+
+                // Restore viewport
+                setViewport(boardData.viewport)
+
+                // Restore texture
+                if (
+                    boardData.backgroundTexture !== undefined ||
+                    boardData.textureScale !== undefined
+                ) {
+                    const textureEvent = new CustomEvent("textureImported", {
+                        detail: {
+                            backgroundTexture: boardData.backgroundTexture,
+                            textureScale: boardData.textureScale,
+                        },
+                    })
+                    window.dispatchEvent(textureEvent)
+                }
+            }
+        }
+
+        window.addEventListener("exportBoard", handleExport)
+        window.addEventListener("importBoard", handleImport)
 
         return () => {
-            window.removeEventListener('exportBoard', handleExport);
-            window.removeEventListener('importBoard', handleImport);
-        };
-    }, [viewport]);
+            window.removeEventListener("exportBoard", handleExport)
+            window.removeEventListener("importBoard", handleImport)
+        }
+    }, [viewport])
 
     // Callback to handle export request from HumbugManager
-    const handleExportRequest = useCallback(async (humbugs: Humbug[], currentViewport: { x: number; y: number; zoom: number }) => {
-        if (containerRef.current) {
-            await exportBoardAsPNG(containerRef.current, humbugs, viewport);
-        }
-    }, [viewport]);
+    const handleExportRequest = useCallback(
+        async (humbugs: Humbug[]) => {
+            if (containerRef.current) {
+                await exportBoardAsPNG(
+                    containerRef.current,
+                    humbugs,
+                    viewport,
+                    backgroundTexture,
+                    textureScale
+                )
+            }
+        },
+        [viewport, backgroundTexture, textureScale]
+    )
 
     // Callback to handle import completion
     const handleImportRequest = useCallback((humbugs: Humbug[]) => {
-        console.log(`Imported ${humbugs.length} humbugs successfully`);
-    }, []);
+        console.log(`Imported ${humbugs.length} humbugs successfully`)
+    }, [])
+
+    // Handle modal state changes from HumbugManager
+    const handleModalStateChange = useCallback((isOpen: boolean) => {
+        setIsModalOpen(isOpen)
+    }, [])
 
     // Track shift key state for panning
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Shift') {
-                setIsShiftHeld(true);
+            if (e.key === "Shift") {
+                setIsShiftHeld(true)
             }
-        };
+        }
 
         const handleKeyUp = (e: KeyboardEvent) => {
-            if (e.key === 'Shift') {
-                setIsShiftHeld(false);
+            if (e.key === "Shift") {
+                setIsShiftHeld(false)
             }
-        };
+        }
 
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
+        window.addEventListener("keydown", handleKeyDown)
+        window.addEventListener("keyup", handleKeyUp)
 
         return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-        };
-    }, []);
+            window.removeEventListener("keydown", handleKeyDown)
+            window.removeEventListener("keyup", handleKeyUp)
+        }
+    }, [])
 
     return (
-        <div 
-            className={`infinite-whiteboard-container ${isShiftHeld ? 'shift-pan-mode' : ''}`} 
+        <div
+            className={`infinite-whiteboard-container ${
+                isShiftHeld ? "shift-pan-mode" : ""
+            }`}
             ref={containerRef}
         >
             <canvas
@@ -323,24 +451,32 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 onMouseLeave={handleMouseUp}
                 onContextMenu={handleContextMenu}
             />
-            
+
             {/* Humbug Manager for interactive elements */}
             <HumbugManager
                 scale={viewport.zoom}
                 containerRef={containerRef}
                 screenToWorld={screenToWorld}
+                containerToWorld={containerToWorld}
                 worldToScreen={worldToScreen}
                 contextMenuEvent={contextMenuEvent}
                 showDragTails={showDragTails}
+                isShiftHeld={isShiftHeld}
                 onExportRequest={handleExportRequest}
                 onImportRequest={handleImportRequest}
+                onModalStateChange={handleModalStateChange}
             />
-            
+
             <div className='viewport-info'>
                 <div>Zoom: {(viewport.zoom * 100).toFixed(0)}%</div>
                 <div>
                     Position: ({viewport.x.toFixed(0)}, {viewport.y.toFixed(0)})
                 </div>
+                {isShiftHeld && (
+                    <div style={{ color: "#0066cc", fontWeight: "bold" }}>
+                        Pan Mode (Shift)
+                    </div>
+                )}
             </div>
         </div>
     )
