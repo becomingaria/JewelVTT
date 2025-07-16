@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState } from "react"
 import "./Sidebar.css"
 
 interface SidebarProps {
@@ -9,6 +9,7 @@ interface SidebarProps {
     onToggleApron: () => void
     onExportBoard: () => void
     onImportBoard: (file: File) => void
+    onNewBoard: () => void
     onTextureChange: (textureUrl: string | null) => void
     onTextureScaleChange: (scale: number) => void
     showGridLines: boolean
@@ -26,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onToggleApron,
     onExportBoard,
     onImportBoard,
+    onNewBoard,
     onTextureChange,
     onTextureScaleChange,
     showGridLines,
@@ -34,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     currentTexture,
     textureScale,
 }) => {
+    const [showNewBoardConfirm, setShowNewBoardConfirm] = useState(false)
     const handleImportBoard = () => {
         const input = document.createElement("input")
         input.type = "file"
@@ -49,6 +52,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const handleExportBoard = () => {
         onExportBoard()
+    }
+
+    const handleNewBoard = () => {
+        setShowNewBoardConfirm(true)
+    }
+
+    const handleConfirmNewBoard = () => {
+        onNewBoard()
+        setShowNewBoardConfirm(false)
+    }
+
+    const handleCancelNewBoard = () => {
+        setShowNewBoardConfirm(false)
     }
 
     const handleTextureUpload = () => {
@@ -91,6 +107,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className='sidebar-content'>
                     <div className='sidebar-section'>
                         <h4>File Operations</h4>
+                        <button
+                            className='sidebar-button'
+                            onClick={handleNewBoard}
+                        >
+                            <span className='button-icon'>🆕</span>
+                            <span>New Board</span>
+                        </button>
+
                         <button
                             className='sidebar-button'
                             onClick={handleExportBoard}
@@ -231,6 +255,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* New Board Confirmation Modal */}
+            {showNewBoardConfirm && (
+                <>
+                    <div
+                        className='modal-overlay'
+                        onClick={handleCancelNewBoard}
+                    />
+                    <div className='confirmation-modal'>
+                        <div className='modal-header'>
+                            <h3>Create New Board</h3>
+                        </div>
+                        <div className='modal-content'>
+                            <p>Are you sure you want to create a new board?</p>
+                            <p>
+                                <strong>
+                                    This will clear all current content
+                                    including:
+                                </strong>
+                            </p>
+                            <ul>
+                                <li>All objects and tokens</li>
+                                <li>All painted areas</li>
+                                <li>Background texture</li>
+                                <li>Viewport position</li>
+                            </ul>
+                        </div>
+                        <div className='modal-actions'>
+                            <button
+                                className='modal-button modal-button-cancel'
+                                onClick={handleCancelNewBoard}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className='modal-button modal-button-confirm'
+                                onClick={handleConfirmNewBoard}
+                            >
+                                Create New Board
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </>
     )
 }

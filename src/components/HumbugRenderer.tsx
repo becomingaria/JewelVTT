@@ -67,10 +67,14 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
     }
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (humbug.locked) return
-
         // If shift key is held, allow event to bubble up for panning
         if (isShiftHeld) {
+            return
+        }
+
+        // Locked humbugs are handled by CSS pointer-events: none
+        // This handler should never be called for locked humbugs
+        if (humbug.locked) {
             return
         }
 
@@ -555,7 +559,15 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
             )}
 
             {/* Lock indicator */}
-            {humbug.locked && <div className='lock-indicator'>🔒</div>}
+            {humbug.locked && (
+                <div
+                    className='lock-indicator'
+                    onContextMenu={(e) => onContextMenu(e, humbug.id)}
+                    title='Right-click to unlock'
+                >
+                    🔒
+                </div>
+            )}
         </div>
     )
 }

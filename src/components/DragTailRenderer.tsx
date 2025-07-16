@@ -47,10 +47,22 @@ export const DragTailRenderer: React.FC<DragTailRendererProps> = ({
                     y1={startScreen.y}
                     x2={currentScreen.x}
                     y2={currentScreen.y}
-                    stroke='#ff6b35'
-                    strokeWidth='2'
+                    stroke='white'
+                    strokeWidth='3'
                     strokeDasharray='5,5'
-                    opacity='0.8'
+                    opacity='0.9'
+                />
+                {/* Black outline for main line */}
+                <line
+                    x1={startScreen.x}
+                    y1={startScreen.y}
+                    x2={currentScreen.x}
+                    y2={currentScreen.y}
+                    stroke='black'
+                    strokeWidth='5'
+                    strokeDasharray='5,5'
+                    opacity='0.6'
+                    style={{ zIndex: -1 }}
                 />
 
                 {/* Distance markers (ruler marks) */}
@@ -71,30 +83,58 @@ export const DragTailRenderer: React.FC<DragTailRendererProps> = ({
 
                     return (
                         <g key={index}>
-                            {/* Ruler mark */}
+                            {/* Black outline for ruler mark */}
                             <line
                                 x1={markX1}
                                 y1={markY1}
                                 x2={markX2}
                                 y2={markY2}
-                                stroke='#ff6b35'
+                                stroke='black'
+                                strokeWidth='4'
+                                opacity='0.6'
+                            />
+                            {/* White ruler mark */}
+                            <line
+                                x1={markX1}
+                                y1={markY1}
+                                x2={markX2}
+                                y2={markY2}
+                                stroke='white'
                                 strokeWidth='2'
                                 opacity='0.9'
                             />
 
                             {/* Distance label every 5 units or at major intervals */}
                             {(index + 1) % 5 === 0 && (
-                                <text
-                                    x={markerScreen.x}
-                                    y={markerScreen.y - 12}
-                                    fill='#ff6b35'
-                                    fontSize='12'
-                                    fontWeight='bold'
-                                    textAnchor='middle'
-                                    className='drag-tail-label'
-                                >
-                                    {index + 1}
-                                </text>
+                                <>
+                                    {/* Black outline for text */}
+                                    <text
+                                        x={markerScreen.x}
+                                        y={markerScreen.y - 12}
+                                        fill='black'
+                                        fontSize='12'
+                                        fontWeight='bold'
+                                        textAnchor='middle'
+                                        className='drag-tail-label'
+                                        stroke='black'
+                                        strokeWidth='3'
+                                        opacity='0.6'
+                                    >
+                                        {index + 1}
+                                    </text>
+                                    {/* White text */}
+                                    <text
+                                        x={markerScreen.x}
+                                        y={markerScreen.y - 12}
+                                        fill='white'
+                                        fontSize='12'
+                                        fontWeight='bold'
+                                        textAnchor='middle'
+                                        className='drag-tail-label'
+                                    >
+                                        {index + 1}
+                                    </text>
+                                </>
                             )}
                         </g>
                     )
@@ -104,8 +144,15 @@ export const DragTailRenderer: React.FC<DragTailRendererProps> = ({
                 <circle
                     cx={startScreen.x}
                     cy={startScreen.y}
+                    r='6'
+                    fill='black'
+                    opacity='0.6'
+                />
+                <circle
+                    cx={startScreen.x}
+                    cy={startScreen.y}
                     r='4'
-                    fill='#ff6b35'
+                    fill='white'
                     opacity='0.9'
                 />
 
@@ -113,16 +160,38 @@ export const DragTailRenderer: React.FC<DragTailRendererProps> = ({
                 <circle
                     cx={currentScreen.x}
                     cy={currentScreen.y}
+                    r='5'
+                    fill='black'
+                    opacity='0.6'
+                />
+                <circle
+                    cx={currentScreen.x}
+                    cy={currentScreen.y}
                     r='3'
-                    fill='#ff6b35'
-                    opacity='0.7'
+                    fill='white'
+                    opacity='0.9'
                 />
 
                 {/* Distance display */}
+                {/* Black outline for distance text */}
                 <text
                     x={currentScreen.x + 10}
                     y={currentScreen.y - 10}
-                    fill='#ff6b35'
+                    fill='black'
+                    fontSize='14'
+                    fontWeight='bold'
+                    className='drag-tail-distance'
+                    stroke='black'
+                    strokeWidth='3'
+                    opacity='0.6'
+                >
+                    {dragTail.distance.toFixed(1)} units
+                </text>
+                {/* White distance text */}
+                <text
+                    x={currentScreen.x + 10}
+                    y={currentScreen.y - 10}
+                    fill='white'
                     fontSize='14'
                     fontWeight='bold'
                     className='drag-tail-distance'

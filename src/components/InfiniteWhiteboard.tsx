@@ -30,7 +30,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     backgroundTexture = null,
     textureScale = 1.0,
     activePaintTool = null,
-    selectedColor = '#3498db',
+    selectedColor = "#3498db",
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
@@ -104,24 +104,33 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     )
 
     // Helper function to paint/erase a grid square
-    const paintGridSquare = useCallback((e: React.MouseEvent) => {
-        if (!activePaintTool || (activePaintTool !== 'paint' && activePaintTool !== 'eraser')) return
+    const paintGridSquare = useCallback(
+        (e: React.MouseEvent, forceErase?: boolean) => {
+            if (
+                !activePaintTool ||
+                (activePaintTool !== "paint" && activePaintTool !== "eraser")
+            )
+                return
 
-        const worldPos = screenToWorld(e.clientX, e.clientY)
-        const gridX = Math.floor(worldPos.x / GRID_SIZE)
-        const gridY = Math.floor(worldPos.y / GRID_SIZE)
-        const key = `${gridX},${gridY}`
+            const worldPos = screenToWorld(e.clientX, e.clientY)
+            const gridX = Math.floor(worldPos.x / GRID_SIZE)
+            const gridY = Math.floor(worldPos.y / GRID_SIZE)
+            const key = `${gridX},${gridY}`
 
-        setPaintGrid(prev => {
-            const newGrid = new Map(prev)
-            if (activePaintTool === 'paint') {
-                newGrid.set(key, selectedColor)
-            } else if (activePaintTool === 'eraser') {
-                newGrid.delete(key)
-            }
-            return newGrid
-        })
-    }, [activePaintTool, selectedColor, screenToWorld])
+            setPaintGrid((prev) => {
+                const newGrid = new Map(prev)
+                // If forceErase is true (right-click), always erase
+                // Otherwise use the active tool
+                if (forceErase || activePaintTool === "eraser") {
+                    newGrid.delete(key)
+                } else if (activePaintTool === "paint") {
+                    newGrid.set(key, selectedColor)
+                }
+                return newGrid
+            })
+        },
+        [activePaintTool, selectedColor, screenToWorld]
+    )
 
     // Draw the grid
     const drawGrid = useCallback(
@@ -194,7 +203,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                     for (let gridY = startGridY; gridY <= endGridY; gridY++) {
                         const key = `${gridX},${gridY}`
                         const color = paintGrid.get(key)
-                        
+
                         if (color) {
                             const worldX = gridX * GRID_SIZE
                             const worldY = gridY * GRID_SIZE
@@ -323,26 +332,36 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     )
 
     // Handle mouse down
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        // Handle paint tool clicks
-        if (activePaintTool === 'paint' || activePaintTool === 'eraser') {
-            setIsPaintDragging(true)
-            paintGridSquare(e)
-            return
-        }
+    const handleMouseDown = useCallback(
+        (e: React.MouseEvent) => {
+            // Handle paint tool clicks
+            if (activePaintTool === "paint" || activePaintTool === "eraser") {
+                setIsPaintDragging(true)
+                // Right-click with paint tool should erase
+                const isRightClick = e.button === 2
+                paintGridSquare(e, isRightClick && activePaintTool === "paint")
+                return
+            }
 
-        // Only start panning if shift key is held or if clicking on empty space
-        // (humbugs will stopPropagation if shift is not held)
-        setIsDragging(true)
-        setLastMousePos({ x: e.clientX, y: e.clientY })
-    }, [activePaintTool, paintGridSquare])
+            // Only start panning if shift key is held or if clicking on empty space
+            // (humbugs will stopPropagation if shift is not held)
+            setIsDragging(true)
+            setLastMousePos({ x: e.clientX, y: e.clientY })
+        },
+        [activePaintTool, paintGridSquare]
+    )
 
     // Handle mouse move
     const handleMouseMove = useCallback(
         (e: React.MouseEvent) => {
             // Handle paint dragging
-            if (isPaintDragging && (activePaintTool === 'paint' || activePaintTool === 'eraser')) {
-                paintGridSquare(e)
+            if (
+                isPaintDragging &&
+                (activePaintTool === "paint" || activePaintTool === "eraser")
+            ) {
+                // Check if right mouse button is held during drag
+                const isRightClick = (e.buttons & 2) !== 0
+                paintGridSquare(e, isRightClick && activePaintTool === "paint")
                 return
             }
 
@@ -359,7 +378,13 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
 
             setLastMousePos({ x: e.clientX, y: e.clientY })
         },
-        [isDragging, lastMousePos, isPaintDragging, activePaintTool, paintGridSquare]
+        [
+            isDragging,
+            lastMousePos,
+            isPaintDragging,
+            activePaintTool,
+            paintGridSquare,
+        ]
     )
 
     // Handle mouse up
@@ -369,12 +394,21 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     }, [])
 
     // Handle right-click - delegate to HumbugManager
-    const handleContextMenu = useCallback((e: React.MouseEvent) => {
-        e.preventDefault()
-        setContextMenuEvent(e)
-        // Clear the event after a short delay to allow the HumbugManager to process it
-        setTimeout(() => setContextMenuEvent(null), 100)
-    }, [])
+    const handleContextMenu = useCallback(
+        (e: React.MouseEvent) => {
+            e.preventDefault()
+
+            // If paint tools are active, don't show context menu
+            if (activePaintTool === "paint" || activePaintTool === "eraser") {
+                return
+            }
+
+            setContextMenuEvent(e)
+            // Clear the event after a short delay to allow the HumbugManager to process it
+            setTimeout(() => setContextMenuEvent(null), 100)
+        },
+        [activePaintTool]
+    )
 
     // Resize canvas to match container
     const resizeCanvas = useCallback(() => {
@@ -436,6 +470,14 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 // Restore viewport
                 setViewport(boardData.viewport)
 
+                // Restore paintGrid
+                if (boardData.paintGrid) {
+                    const newPaintGrid = new Map(
+                        Object.entries(boardData.paintGrid)
+                    )
+                    setPaintGrid(newPaintGrid)
+                }
+
                 // Restore texture
                 if (
                     boardData.backgroundTexture !== undefined ||
@@ -452,12 +494,26 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             }
         }
 
+        const handleClearBoard = () => {
+            // Clear all board content
+            setPaintGrid(new Map())
+            setViewport({ x: 0, y: 0, zoom: 1 })
+
+            // Clear humbugs via the global function
+            const windowGlobal = window as unknown as {
+                clearAllHumbugs?: () => void
+            }
+            windowGlobal.clearAllHumbugs?.()
+        }
+
         window.addEventListener("exportBoard", handleExport)
         window.addEventListener("importBoard", handleImport)
+        window.addEventListener("clearBoard", handleClearBoard)
 
         return () => {
             window.removeEventListener("exportBoard", handleExport)
             window.removeEventListener("importBoard", handleImport)
+            window.removeEventListener("clearBoard", handleClearBoard)
         }
     }, [viewport])
 
@@ -470,11 +526,12 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                     humbugs,
                     viewport,
                     backgroundTexture,
-                    textureScale
+                    textureScale,
+                    paintGrid
                 )
             }
         },
-        [viewport, backgroundTexture, textureScale]
+        [viewport, backgroundTexture, textureScale, paintGrid]
     )
 
     // Callback to handle import completion
@@ -515,13 +572,16 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         const handleDumpFill = (event: CustomEvent) => {
             const { color } = event.detail
             setPaintGrid(new Map()) // Clear the grid first
-            
+
             // Fill a reasonable area around the current viewport
             const container = containerRef.current
             if (!container) return
 
             const topLeft = screenToWorld(0, 0)
-            const bottomRight = screenToWorld(container.clientWidth, container.clientHeight)
+            const bottomRight = screenToWorld(
+                container.clientWidth,
+                container.clientHeight
+            )
 
             // Expand the area a bit beyond viewport
             const padding = 10 // grid squares
@@ -543,7 +603,10 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         window.addEventListener("dumpFill", handleDumpFill as EventListener)
 
         return () => {
-            window.removeEventListener("dumpFill", handleDumpFill as EventListener)
+            window.removeEventListener(
+                "dumpFill",
+                handleDumpFill as EventListener
+            )
         }
     }, [screenToWorld, setPaintGrid])
 
@@ -551,10 +614,8 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         <div
             className={`infinite-whiteboard-container ${
                 isShiftHeld ? "shift-pan-mode" : ""
-            } ${
-                activePaintTool === 'paint' ? "paint-mode" : ""
-            } ${
-                activePaintTool === 'eraser' ? "eraser-mode" : ""
+            } ${activePaintTool === "paint" ? "paint-mode" : ""} ${
+                activePaintTool === "eraser" ? "eraser-mode" : ""
             }`}
             ref={containerRef}
         >

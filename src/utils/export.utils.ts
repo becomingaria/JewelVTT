@@ -11,6 +11,7 @@ export interface BoardExportData {
     }
     backgroundTexture?: string | null
     textureScale?: number
+    paintGrid?: { [key: string]: string }
     exportedAt: string
 }
 
@@ -81,7 +82,8 @@ export async function exportBoardAsPNG(
     humbugs: Humbug[],
     viewport: { x: number; y: number; zoom: number },
     backgroundTexture?: string | null,
-    textureScale?: number
+    textureScale?: number,
+    paintGrid?: Map<string, string>
 ): Promise<void> {
     try {
         const bounds = calculateHumbugsBounds(humbugs, 32)
@@ -95,6 +97,7 @@ export async function exportBoardAsPNG(
             viewport,
             backgroundTexture,
             textureScale,
+            paintGrid: paintGrid ? Object.fromEntries(paintGrid) : {},
             exportedAt: new Date().toISOString(),
         }
 
@@ -135,7 +138,8 @@ export async function exportBoardAsPNG(
             // For now, we'll embed the JSON in a comment-like structure
             // In a real implementation, you'd use proper PNG chunk handling
             const jsonString = JSON.stringify(exportData)
-            const metadataComment = `Jewel-VTT-Data:${btoa(jsonString)}`
+            // TODO: Embed metadata in PNG chunks
+            // const metadataComment = `Jewel-VTT-Data:${btoa(jsonString)}`
 
             // Create download
             const finalBlob = new Blob([uint8Array], { type: "image/png" })
@@ -159,7 +163,7 @@ export async function exportBoardAsPNG(
 
 // Import board from PNG file
 export async function importBoardFromPNG(
-    file: File
+    _file: File // TODO: Extract metadata from PNG file
 ): Promise<BoardExportData | null> {
     try {
         // For now, we'll try to extract metadata from localStorage

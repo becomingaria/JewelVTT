@@ -28,6 +28,14 @@
 /* Locked humbugs should show default cursor */
 .humbug-renderer.locked {
     cursor: default !important;
+    /* Allow most pointer events to pass through to whiteboard for panning */
+    pointer-events: none !important;
+}
+
+/* But re-enable pointer events for the lock indicator to allow context menu */
+.humbug-renderer.locked .lock-indicator {
+    pointer-events: auto;
+    cursor: context-menu;
 }
 
 /* When shift is held, make humbugs appear non-interactive */

@@ -12,14 +12,14 @@ function App() {
     const [showDragTails, setShowDragTails] = useState(true)
     const [showApron, setShowApron] = useState(false)
     const [activePaintTool, setActivePaintTool] = useState<PaintTool>(null)
-    const [selectedColor, setSelectedColor] = useState('#3498db')
+    const [selectedColor, setSelectedColor] = useState("#3498db")
     const [backgroundTexture, setBackgroundTexture] = useState<string | null>(
         null
     )
     const [textureScale, setTextureScale] = useState(1.0)
 
-    const handleSidebarToggle = (isOpen: boolean) => {
-        setIsSidebarOpen(isOpen)
+    const handleSidebarToggle = () => {
+        setIsSidebarOpen((prev) => !prev)
     }
 
     const handleSidebarClose = () => {
@@ -35,7 +35,14 @@ function App() {
     }
 
     const handleToggleApron = () => {
-        setShowApron((prev) => !prev)
+        setShowApron((prev) => {
+            const newShowApron = !prev
+            // If closing the apron, reset the active tool to null
+            if (!newShowApron) {
+                setActivePaintTool(null)
+            }
+            return newShowApron
+        })
     }
 
     const handlePaintToolChange = (tool: PaintTool) => {
@@ -48,8 +55,8 @@ function App() {
 
     const handleDumpFill = () => {
         // Dispatch a custom event that the InfiniteWhiteboard will listen for
-        const dumpEvent = new CustomEvent("dumpFill", { 
-            detail: { color: selectedColor } 
+        const dumpEvent = new CustomEvent("dumpFill", {
+            detail: { color: selectedColor },
         })
         window.dispatchEvent(dumpEvent)
     }
@@ -92,8 +99,20 @@ function App() {
         setTextureScale(scale)
     }
 
+    const handleNewBoard = () => {
+        // Reset all state to initial values
+        setActivePaintTool(null)
+        setSelectedColor("#3498db")
+        setBackgroundTexture(null)
+        setTextureScale(1.0)
+
+        // Dispatch events to clear board content
+        const clearBoardEvent = new CustomEvent("clearBoard")
+        window.dispatchEvent(clearBoardEvent)
+    }
+
     return (
-        <div className={`app ${showApron ? 'apron-visible' : ''}`}>
+        <div className={`app ${showApron ? "apron-visible" : ""}`}>
             <TopBar onSidebarToggle={handleSidebarToggle} />
             <Sidebar
                 isOpen={isSidebarOpen}
@@ -103,6 +122,7 @@ function App() {
                 onToggleApron={handleToggleApron}
                 onExportBoard={handleExportBoard}
                 onImportBoard={handleImportBoard}
+                onNewBoard={handleNewBoard}
                 onTextureChange={handleTextureChange}
                 onTextureScaleChange={handleTextureScaleChange}
                 showGridLines={showGridLines}
@@ -121,7 +141,7 @@ function App() {
                     selectedColor={selectedColor}
                 />
             </div>
-            <Apron 
+            <Apron
                 isVisible={showApron}
                 onToolChange={handlePaintToolChange}
                 onColorChange={handleColorChange}

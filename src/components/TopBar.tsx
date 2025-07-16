@@ -1,26 +1,18 @@
-import React, { useState } from "react"
+import React from "react"
 import "./TopBar.css"
 
 interface TopBarProps {
-    onSidebarToggle: (isOpen: boolean) => void
+    onSidebarToggle: () => void
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ onSidebarToggle }) => {
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-
-    const toggleSidebar = () => {
-        const newState = !isSidebarOpen
-        setIsSidebarOpen(newState)
-        onSidebarToggle(newState)
-    }
-
     return (
         <div className='top-bar'>
             <div className='top-bar-left'>
                 <div className='menu-container'>
                     <button
                         className='hamburger-menu'
-                        onClick={toggleSidebar}
+                        onClick={onSidebarToggle}
                         aria-label='Menu'
                     >
                         <div className='hamburger-line'></div>
