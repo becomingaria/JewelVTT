@@ -2,12 +2,14 @@ import { useState } from "react"
 import { InfiniteWhiteboard } from "./components/InfiniteWhiteboard"
 import { TopBar } from "./components/TopBar"
 import { Sidebar } from "./components/Sidebar"
+import { Apron } from "./components/Apron"
 import "./App.css"
 
 function App() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [showGridLines, setShowGridLines] = useState(true)
     const [showDragTails, setShowDragTails] = useState(true)
+    const [showApron, setShowApron] = useState(false)
     const [backgroundTexture, setBackgroundTexture] = useState<string | null>(
         null
     )
@@ -27,6 +29,10 @@ function App() {
 
     const handleToggleDragTails = () => {
         setShowDragTails((prev) => !prev)
+    }
+
+    const handleToggleApron = () => {
+        setShowApron((prev) => !prev)
     }
 
     const handleExportBoard = () => {
@@ -68,19 +74,21 @@ function App() {
     }
 
     return (
-        <div className='app'>
+        <div className={`app ${showApron ? 'apron-visible' : ''}`}>
             <TopBar onSidebarToggle={handleSidebarToggle} />
             <Sidebar
                 isOpen={isSidebarOpen}
                 onClose={handleSidebarClose}
                 onToggleGridLines={handleToggleGridLines}
                 onToggleDragTails={handleToggleDragTails}
+                onToggleApron={handleToggleApron}
                 onExportBoard={handleExportBoard}
                 onImportBoard={handleImportBoard}
                 onTextureChange={handleTextureChange}
                 onTextureScaleChange={handleTextureScaleChange}
                 showGridLines={showGridLines}
                 showDragTails={showDragTails}
+                showApron={showApron}
                 currentTexture={backgroundTexture}
                 textureScale={textureScale}
             />
@@ -92,6 +100,7 @@ function App() {
                     textureScale={textureScale}
                 />
             </div>
+            <Apron isVisible={showApron} />
         </div>
     )
 }

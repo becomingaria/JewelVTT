@@ -6,12 +6,18 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    --apron-height: 0px;
+}
+
+.app.apron-visible {
+    --apron-height: 60px;
 }
 
 .main-content {
     flex: 1;
     margin-top: 60px; /* Account for TopBar height */
+    margin-bottom: var(--apron-height); /* Account for Apron height */
     width: 100%;
-    height: calc(100vh - 60px);
+    height: calc(100vh - 60px - var(--apron-height));
     overflow: hidden;
 }

@@ -6,12 +6,14 @@ interface SidebarProps {
     onClose: () => void
     onToggleGridLines: () => void
     onToggleDragTails: () => void
+    onToggleApron: () => void
     onExportBoard: () => void
     onImportBoard: (file: File) => void
     onTextureChange: (textureUrl: string | null) => void
     onTextureScaleChange: (scale: number) => void
     showGridLines: boolean
     showDragTails: boolean
+    showApron: boolean
     currentTexture: string | null
     textureScale: number
 }
@@ -21,12 +23,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onClose,
     onToggleGridLines,
     onToggleDragTails,
+    onToggleApron,
     onExportBoard,
     onImportBoard,
     onTextureChange,
     onTextureScaleChange,
     showGridLines,
     showDragTails,
+    showApron,
     currentTexture,
     textureScale,
 }) => {
@@ -129,6 +133,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <span>Drag Tails</span>
                             <span className='toggle-status'>
                                 {showDragTails ? "ON" : "OFF"}
+                            </span>
+                        </button>
+
+                        <button
+                            className='sidebar-button sidebar-toggle'
+                            onClick={onToggleApron}
+                        >
+                            <span className='toggle-icon'>
+                                {showApron ? "🟢" : "🔴"}
+                            </span>
+                            <span>Tool Apron</span>
+                            <span className='toggle-status'>
+                                {showApron ? "ON" : "OFF"}
                             </span>
                         </button>
                     </div>
