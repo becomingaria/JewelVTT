@@ -261,6 +261,40 @@ input[type="color"] {
     cursor: not-allowed;
 }
 
+/* URL input container with crop button */
+.url-input-container {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.url-input-container .url-input {
+    flex: 1;
+}
+
+.crop-button {
+    padding: 8px 12px;
+    border: 1px solid #007acc;
+    background: #007acc;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+    transition: background-color 0.2s ease;
+}
+
+.crop-button:hover {
+    background: #005fa3;
+    border-color: #005fa3;
+}
+
+.crop-button:disabled {
+    background: #ccc;
+    border-color: #ccc;
+    cursor: not-allowed;
+}
+
 /* Responsive design */
 @media (max-width: 600px) {
     .humbug-modal {

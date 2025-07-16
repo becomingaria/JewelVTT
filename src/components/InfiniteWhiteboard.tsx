@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState, useCallback } from "react"
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import type { Point, Humbug } from "../types/humbug.types"
 import type { PaintTool } from "./Apron"
 import { HumbugManager } from "./HumbugManager"
 import { exportBoardAsPNG, importBoardFromPNG } from "../utils/export.utils"
+import { UndoRedoManager } from "../utils/undo-redo.utils"
 import "./InfiniteWhiteboard.css"
 
 interface ViewPort {
@@ -22,6 +23,9 @@ interface InfiniteWhiteboardProps {
     textureScale?: number
     activePaintTool?: PaintTool
     selectedColor?: string
+    paintGrid?: Map<string, string>
+    setPaintGrid?: React.Dispatch<React.SetStateAction<Map<string, string>>>
+    undoRedoManager?: UndoRedoManager
 }
 
 export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
@@ -31,6 +35,9 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     textureScale = 1.0,
     activePaintTool = null,
     selectedColor = "#3498db",
+    paintGrid: externalPaintGrid,
+    setPaintGrid: setExternalPaintGrid,
+    undoRedoManager,
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
@@ -41,8 +48,22 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         useState<React.MouseEvent | null>(null)
     const [isShiftHeld, setIsShiftHeld] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const [paintGrid, setPaintGrid] = useState<Map<string, string>>(new Map())
     const [isPaintDragging, setIsPaintDragging] = useState(false)
+
+    // Track changes during a paint drag operation for batched undo
+    const paintDragChanges = useRef<
+        Map<string, { oldColor?: string; newColor?: string }>
+    >(new Map())
+
+    // Use external paint grid or fallback to local state for backwards compatibility
+    const paintGrid = useMemo(
+        () => externalPaintGrid || new Map<string, string>(),
+        [externalPaintGrid]
+    )
+    const setPaintGrid = useMemo(
+        () => setExternalPaintGrid || (() => {}),
+        [setExternalPaintGrid]
+    )
 
     // Convert screen coordinates to world coordinates
     const screenToWorld = useCallback(
@@ -103,9 +124,28 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         [viewport]
     )
 
-    // Helper function to paint/erase a grid square
+    // Start a paint stroke (batched operation)
+    const startPaintStroke = useCallback(() => {
+        paintDragChanges.current.clear()
+        setIsPaintDragging(true)
+    }, [])
+
+    // End a paint stroke and record the batched action
+    const endPaintStroke = useCallback(() => {
+        if (paintDragChanges.current.size > 0) {
+            undoRedoManager?.addAction({
+                type: "PAINT_STROKE",
+                timestamp: Date.now(),
+                changes: new Map(paintDragChanges.current),
+            })
+        }
+        paintDragChanges.current.clear()
+        setIsPaintDragging(false)
+    }, [undoRedoManager])
+
+    // Helper function to paint/erase a grid square (now supports batching)
     const paintGridSquare = useCallback(
-        (e: React.MouseEvent, forceErase?: boolean) => {
+        (e: React.MouseEvent, forceErase?: boolean, isPartOfStroke = false) => {
             if (
                 !activePaintTool ||
                 (activePaintTool !== "paint" && activePaintTool !== "eraser")
@@ -117,19 +157,64 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             const gridY = Math.floor(worldPos.y / GRID_SIZE)
             const key = `${gridX},${gridY}`
 
+            // Get the current color at this position for undo
+            const previousColor = paintGrid.get(key)
+
             setPaintGrid((prev) => {
                 const newGrid = new Map(prev)
-                // If forceErase is true (right-click), always erase
-                // Otherwise use the active tool
+
                 if (forceErase || activePaintTool === "eraser") {
+                    if (isPartOfStroke) {
+                        // Batch the change
+                        if (!paintDragChanges.current.has(key)) {
+                            paintDragChanges.current.set(key, {
+                                oldColor: previousColor,
+                            })
+                        }
+                        paintDragChanges.current.get(key)!.newColor = undefined
+                    } else if (previousColor) {
+                        // Single action - record immediately
+                        undoRedoManager?.addAction({
+                            type: "ERASE_SQUARE",
+                            timestamp: Date.now(),
+                            gridKey: key,
+                            previousColor: previousColor,
+                        })
+                    }
                     newGrid.delete(key)
                 } else if (activePaintTool === "paint") {
+                    if (isPartOfStroke) {
+                        // Batch the change
+                        if (!paintDragChanges.current.has(key)) {
+                            paintDragChanges.current.set(key, {
+                                oldColor: previousColor,
+                            })
+                        }
+                        paintDragChanges.current.get(key)!.newColor =
+                            selectedColor
+                    } else {
+                        // Single action - record immediately
+                        undoRedoManager?.addAction({
+                            type: "PAINT_SQUARE",
+                            timestamp: Date.now(),
+                            gridKey: key,
+                            color: selectedColor,
+                            previousColor: previousColor,
+                        })
+                    }
                     newGrid.set(key, selectedColor)
                 }
                 return newGrid
             })
         },
-        [activePaintTool, selectedColor, screenToWorld]
+        [
+            activePaintTool,
+            selectedColor,
+            screenToWorld,
+            setPaintGrid,
+            paintGrid,
+            undoRedoManager,
+        ]
     )
 
     // Draw the grid
@@ -336,10 +421,14 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         (e: React.MouseEvent) => {
             // Handle paint tool clicks
             if (activePaintTool === "paint" || activePaintTool === "eraser") {
-                setIsPaintDragging(true)
+                startPaintStroke()
                 // Right-click with paint tool should erase
                 const isRightClick = e.button === 2
-                paintGridSquare(e, isRightClick && activePaintTool === "paint")
+                paintGridSquare(
+                    e,
+                    isRightClick && activePaintTool === "paint",
+                    true
+                )
                 return
             }
 
@@ -348,7 +437,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             setIsDragging(true)
             setLastMousePos({ x: e.clientX, y: e.clientY })
         },
-        [activePaintTool, paintGridSquare]
+        [activePaintTool, paintGridSquare, startPaintStroke]
     )
 
     // Handle mouse move
@@ -361,7 +450,11 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             ) {
                 // Check if right mouse button is held during drag
                 const isRightClick = (e.buttons & 2) !== 0
-                paintGridSquare(e, isRightClick && activePaintTool === "paint")
+                paintGridSquare(
+                    e,
+                    isRightClick && activePaintTool === "paint",
+                    true
+                )
                 return
             }
 
@@ -390,8 +483,10 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     // Handle mouse up
     const handleMouseUp = useCallback(() => {
         setIsDragging(false)
-        setIsPaintDragging(false)
-    }, [])
+        if (isPaintDragging) {
+            endPaintStroke()
+        }
+    }, [isPaintDragging, endPaintStroke])
 
     // Handle right-click - delegate to HumbugManager
     const handleContextMenu = useCallback(
@@ -495,6 +590,15 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         }
 
         const handleClearBoard = () => {
+            // Record the current paint grid for undo
+            const previousGrid = new Map(paintGrid)
+            undoRedoManager?.addAction({
+                type: "CLEAR_BOARD",
+                timestamp: Date.now(),
+                previousGrid: previousGrid,
+                // Note: previous humbugs will be recorded by HumbugManager
+            })
+
             // Clear all board content
             setPaintGrid(new Map())
             setViewport({ x: 0, y: 0, zoom: 1 })
@@ -515,7 +619,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             window.removeEventListener("importBoard", handleImport)
             window.removeEventListener("clearBoard", handleClearBoard)
         }
-    }, [viewport])
+    }, [viewport, paintGrid, setPaintGrid, undoRedoManager])
 
     // Callback to handle export request from HumbugManager
     const handleExportRequest = useCallback(
@@ -571,6 +675,16 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     useEffect(() => {
         const handleDumpFill = (event: CustomEvent) => {
             const { color } = event.detail
+
+            // Record the current paint grid for undo
+            const previousGrid = new Map(paintGrid)
+            undoRedoManager?.addAction({
+                type: "DUMP_FILL",
+                timestamp: Date.now(),
+                color: color,
+                previousGrid: previousGrid,
+            })
+
             setPaintGrid(new Map()) // Clear the grid first
 
             // Fill a reasonable area around the current viewport
@@ -608,7 +722,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 handleDumpFill as EventListener
             )
         }
-    }, [screenToWorld, setPaintGrid])
+    }, [screenToWorld, setPaintGrid, paintGrid, undoRedoManager])
 
     return (
         <div
@@ -642,6 +756,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 onExportRequest={handleExportRequest}
                 onImportRequest={handleImportRequest}
                 onModalStateChange={handleModalStateChange}
+                undoRedoManager={undoRedoManager}
             />
 
             <div className='viewport-info'>

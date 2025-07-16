@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react"
 import type { HumbugType, Humbug } from "../types/humbug.types"
+import { ImageCropper } from "./ImageCropper"
 import "./HumbugModal.css"
 
 interface HumbugModalProps {
@@ -53,6 +54,13 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
     const [tokenImageFile, setTokenImageFile] = useState<File | null>(null)
     const [borderColor, setBorderColor] = useState("#007acc")
     const [borderWidth, setBorderWidth] = useState(4)
+
+    // Cropping state
+    const [showCropper, setShowCropper] = useState(false)
+    const [cropImageUrl, setCropImageUrl] = useState("")
+    const [cropImageType, setCropImageType] = useState<
+        "image" | "map" | "token"
+    >("image")
 
     const fileInputRef = useRef<HTMLInputElement>(null)
     const mapFileInputRef = useRef<HTMLInputElement>(null)
@@ -116,9 +124,11 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
         const file = e.target.files?.[0]
         if (file) {
             setImageFile(file)
-            // Create a blob URL for preview
+            // Create a blob URL for preview and cropping
             const url = URL.createObjectURL(file)
-            setImageUrl(url)
+            setCropImageUrl(url)
+            setCropImageType("image")
+            setShowCropper(true)
         }
     }
 
@@ -128,9 +138,11 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
         const file = e.target.files?.[0]
         if (file) {
             setMapImageFile(file)
-            // Create a blob URL for preview
+            // Create a blob URL for preview and cropping
             const url = URL.createObjectURL(file)
-            setMapImageUrl(url)
+            setCropImageUrl(url)
+            setCropImageType("map")
+            setShowCropper(true)
         }
     }
 
@@ -140,9 +152,73 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
         const file = e.target.files?.[0]
         if (file) {
             setTokenImageFile(file)
-            // Create a blob URL for preview
+            // Create a blob URL for preview and cropping
             const url = URL.createObjectURL(file)
-            setTokenImageUrl(url)
+            setCropImageUrl(url)
+            setCropImageType("token")
+            setShowCropper(true)
+        }
+    }
+
+    const handleImageUrlCrop = () => {
+        if (imageUrl) {
+            setCropImageUrl(imageUrl)
+            setCropImageType("image")
+            setShowCropper(true)
+        }
+    }
+
+    const handleMapUrlCrop = () => {
+        if (mapImageUrl) {
+            setCropImageUrl(mapImageUrl)
+            setCropImageType("map")
+            setShowCropper(true)
+        }
+    }
+
+    const handleTokenUrlCrop = () => {
+        if (tokenImageUrl) {
+            setCropImageUrl(tokenImageUrl)
+            setCropImageType("token")
+            setShowCropper(true)
+        }
+    }
+
+    const handleCropComplete = (croppedImageDataUrl: string) => {
+        // Apply the cropped image to the appropriate image type
+        switch (cropImageType) {
+            case "image":
+                setImageUrl(croppedImageDataUrl)
+                break
+            case "map":
+                setMapImageUrl(croppedImageDataUrl)
+                break
+            case "token":
+                setTokenImageUrl(croppedImageDataUrl)
+                break
+        }
+        setShowCropper(false)
+        setCropImageUrl("")
+    }
+
+    const handleCropCancel = () => {
+        setShowCropper(false)
+        setCropImageUrl("")
+        // Reset file inputs since user cancelled cropping
+        switch (cropImageType) {
+            case "image":
+                setImageFile(null)
+                if (fileInputRef.current) fileInputRef.current.value = ""
+                break
+            case "map":
+                setMapImageFile(null)
+                if (mapFileInputRef.current) mapFileInputRef.current.value = ""
+                break
+            case "token":
+                setTokenImageFile(null)
+                if (tokenFileInputRef.current)
+                    tokenFileInputRef.current.value = ""
+                break
         }
     }
 
@@ -351,13 +427,26 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                         <div className='form-separator'>OR</div>
                         <div className='form-group'>
                             <label>Image URL:</label>
-                            <input
-                                type='url'
-                                value={imageUrl}
-                                onChange={(e) => setImageUrl(e.target.value)}
-                                placeholder='https://example.com/image.jpg'
-                                className='url-input'
-                            />
+                            <div className='url-input-container'>
+                                <input
+                                    type='url'
+                                    value={imageUrl}
+                                    onChange={(e) =>
+                                        setImageUrl(e.target.value)
+                                    }
+                                    placeholder='https://example.com/image.jpg'
+                                    className='url-input'
+                                />
+                                {imageUrl && (
+                                    <button
+                                        type='button'
+                                        onClick={handleImageUrlCrop}
+                                        className='crop-button'
+                                    >
+                                        Crop
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         {imageUrl && (
                             <div className='image-preview'>
@@ -413,13 +502,26 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
 
                         <div className='form-group'>
                             <label>Image URL:</label>
-                            <input
-                                type='url'
-                                value={mapImageUrl}
-                                onChange={(e) => setMapImageUrl(e.target.value)}
-                                placeholder='https://example.com/map.jpg'
-                                className='url-input'
-                            />
+                            <div className='url-input-container'>
+                                <input
+                                    type='url'
+                                    value={mapImageUrl}
+                                    onChange={(e) =>
+                                        setMapImageUrl(e.target.value)
+                                    }
+                                    placeholder='https://example.com/map.jpg'
+                                    className='url-input'
+                                />
+                                {mapImageUrl && (
+                                    <button
+                                        type='button'
+                                        onClick={handleMapUrlCrop}
+                                        className='crop-button'
+                                    >
+                                        Crop
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {mapImageUrl && (
@@ -471,15 +573,26 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
 
                         <div className='form-group'>
                             <label>Image URL:</label>
-                            <input
-                                type='url'
-                                value={tokenImageUrl}
-                                onChange={(e) =>
-                                    setTokenImageUrl(e.target.value)
-                                }
-                                placeholder='https://example.com/token.jpg'
-                                className='url-input'
-                            />
+                            <div className='url-input-container'>
+                                <input
+                                    type='url'
+                                    value={tokenImageUrl}
+                                    onChange={(e) =>
+                                        setTokenImageUrl(e.target.value)
+                                    }
+                                    placeholder='https://example.com/token.jpg'
+                                    className='url-input'
+                                />
+                                {tokenImageUrl && (
+                                    <button
+                                        type='button'
+                                        onClick={handleTokenUrlCrop}
+                                        className='crop-button'
+                                    >
+                                        Crop
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {tokenImageUrl && (
@@ -528,94 +641,115 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
     if (!isOpen) return null
 
     return (
-        <div className='humbug-modal-backdrop' onClick={onClose}>
-            <div className='humbug-modal' onClick={(e) => e.stopPropagation()}>
-                <div className='humbug-modal-header'>
-                    <h3>
-                        {existingHumbug ? "Edit" : "Create"}{" "}
-                        {type
-                            .replace("-", " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}{" "}
-                        Humbug
-                    </h3>
-                    <button className='close-button' onClick={onClose}>
-                        ×
-                    </button>
-                </div>
+        <>
+            <div className='humbug-modal-backdrop' onClick={onClose}>
+                <div
+                    className='humbug-modal'
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className='humbug-modal-header'>
+                        <h3>
+                            {existingHumbug ? "Edit" : "Create"}{" "}
+                            {type
+                                .replace("-", " ")
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}{" "}
+                            Humbug
+                        </h3>
+                        <button className='close-button' onClick={onClose}>
+                            ×
+                        </button>
+                    </div>
 
-                <div className='humbug-modal-body'>
-                    {/* Type-specific controls */}
-                    {renderTypeSpecificControls()}
+                    <div className='humbug-modal-body'>
+                        {/* Type-specific controls */}
+                        {renderTypeSpecificControls()}
 
-                    {/* Common controls */}
-                    <div className='humbug-modal-section'>
-                        <h4>General Settings</h4>
+                        {/* Common controls */}
+                        <div className='humbug-modal-section'>
+                            <h4>General Settings</h4>
 
-                        {type !== "map-pin" && (
-                            <div className='form-row'>
-                                <div className='form-group'>
-                                    <label>Width:</label>
-                                    <input
-                                        type='number'
-                                        value={size.width}
-                                        onChange={(e) =>
-                                            setSize((prev) => ({
-                                                ...prev,
-                                                width: Number(e.target.value),
-                                            }))
-                                        }
-                                        min={10}
-                                        max={500}
-                                    />
+                            {type !== "map-pin" && (
+                                <div className='form-row'>
+                                    <div className='form-group'>
+                                        <label>Width:</label>
+                                        <input
+                                            type='number'
+                                            value={size.width}
+                                            onChange={(e) =>
+                                                setSize((prev) => ({
+                                                    ...prev,
+                                                    width: Number(
+                                                        e.target.value
+                                                    ),
+                                                }))
+                                            }
+                                            min={10}
+                                            max={500}
+                                        />
+                                    </div>
+                                    <div className='form-group'>
+                                        <label>Height:</label>
+                                        <input
+                                            type='number'
+                                            value={size.height}
+                                            onChange={(e) =>
+                                                setSize((prev) => ({
+                                                    ...prev,
+                                                    height: Number(
+                                                        e.target.value
+                                                    ),
+                                                }))
+                                            }
+                                            min={10}
+                                            max={500}
+                                        />
+                                    </div>
                                 </div>
-                                <div className='form-group'>
-                                    <label>Height:</label>
-                                    <input
-                                        type='number'
-                                        value={size.height}
-                                        onChange={(e) =>
-                                            setSize((prev) => ({
-                                                ...prev,
-                                                height: Number(e.target.value),
-                                            }))
-                                        }
-                                        min={10}
-                                        max={500}
-                                    />
-                                </div>
+                            )}
+
+                            <div className='form-group'>
+                                <label>
+                                    Opacity: {Math.round(opacity * 100)}%
+                                </label>
+                                <input
+                                    type='range'
+                                    min='0.1'
+                                    max='1'
+                                    step='0.1'
+                                    value={opacity}
+                                    onChange={(e) =>
+                                        setOpacity(Number(e.target.value))
+                                    }
+                                    className='opacity-slider'
+                                />
                             </div>
-                        )}
-
-                        <div className='form-group'>
-                            <label>Opacity: {Math.round(opacity * 100)}%</label>
-                            <input
-                                type='range'
-                                min='0.1'
-                                max='1'
-                                step='0.1'
-                                value={opacity}
-                                onChange={(e) =>
-                                    setOpacity(Number(e.target.value))
-                                }
-                                className='opacity-slider'
-                            />
                         </div>
                     </div>
-                </div>
 
-                <div className='humbug-modal-footer'>
-                    <button className='cancel-button' onClick={onClose}>
-                        Cancel
-                    </button>
-                    <button
-                        className='create-button'
-                        onClick={handleCreate}
-                        disabled={type === "image" && !imageUrl && !imageFile}
-                    >
-                        {existingHumbug ? "Update" : "Create"} Humbug
-                    </button>
+                    <div className='humbug-modal-footer'>
+                        <button className='cancel-button' onClick={onClose}>
+                            Cancel
+                        </button>
+                        <button
+                            className='create-button'
+                            onClick={handleCreate}
+                            disabled={
+                                type === "image" && !imageUrl && !imageFile
+                            }
+                        >
+                            {existingHumbug ? "Update" : "Create"} Humbug
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            {showCropper && cropImageUrl && (
+                <ImageCropper
+                    imageUrl={cropImageUrl}
+                    onCrop={handleCropComplete}
+                    onCancel={handleCropCancel}
+                />
+            )}
+        </>
     )
 }

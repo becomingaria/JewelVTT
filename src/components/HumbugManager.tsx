@@ -5,6 +5,7 @@ import type {
     HumbugState,
     Humbug,
 } from "../types/humbug.types"
+import type { Action } from "../types/action.types"
 import { ContextMenu } from "./ContextMenu"
 import { HumbugRenderer } from "./HumbugRenderer"
 import { HumbugModal } from "./HumbugModal"
@@ -29,6 +30,7 @@ interface HumbugManagerProps {
     ) => void
     onImportRequest?: (humbugs: Humbug[]) => void
     onModalStateChange?: (isOpen: boolean) => void
+    undoRedoManager?: UndoRedoManager
 }
 
 export const HumbugManager: React.FC<HumbugManagerProps> = ({
@@ -43,6 +45,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     onExportRequest,
     onImportRequest,
     onModalStateChange,
+    undoRedoManager: externalUndoRedoManager,
 }) => {
     const [state, setState] = useState<HumbugState>({
         humbugs: [],
@@ -92,7 +95,8 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     }, [modalState.isOpen, onModalStateChange])
 
     // Undo/Redo and Clipboard managers
-    const undoRedoManager = useRef(new UndoRedoManager()).current
+    const localUndoRedoManager = useRef(new UndoRedoManager()).current
+    const undoRedoManager = externalUndoRedoManager || localUndoRedoManager
     const clipboardManager = useRef(new ClipboardManager()).current
 
     // Handle right-click context menu
@@ -919,10 +923,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     }, [exportHumbugs, importHumbugs, exportHumbugData, importHumbugData])
 
     // Undo/Redo functions
-    const performUndo = useCallback(() => {
-        const action = undoRedoManager.getUndoAction()
-        if (!action) return
-
+    const performUndoAction = useCallback((action: Action) => {
         switch (action.type) {
             case "CREATE_HUMBUG":
                 setState((prev) => ({
@@ -993,12 +994,9 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 }))
                 break
         }
-    }, [undoRedoManager])
+    }, [])
 
-    const performRedo = useCallback(() => {
-        const action = undoRedoManager.getRedoAction()
-        if (!action) return
-
+    const performRedoAction = useCallback((action: Action) => {
         switch (action.type) {
             case "CREATE_HUMBUG":
                 setState((prev) => ({
@@ -1069,7 +1067,19 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 }))
                 break
         }
-    }, [undoRedoManager])
+    }, [])
+
+    const performUndo = useCallback(() => {
+        const action = undoRedoManager.getUndoAction()
+        if (!action) return
+        performUndoAction(action)
+    }, [undoRedoManager, performUndoAction])
+
+    const performRedo = useCallback(() => {
+        const action = undoRedoManager.getRedoAction()
+        if (!action) return
+        performRedoAction(action)
+    }, [undoRedoManager, performRedoAction])
 
     // Copy/Cut/Paste functions
     const copySelectedHumbugs = useCallback(() => {
@@ -1077,8 +1087,21 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             ? state.humbugs.filter((h) => h.id === state.selectedHumbugId)
             : []
 
+        console.log("Copy attempt:", {
+            selectedHumbugId: state.selectedHumbugId,
+            totalHumbugs: state.humbugs.length,
+            selectedHumbugs: selectedHumbugs.length,
+        })
+
         if (selectedHumbugs.length > 0) {
             clipboardManager.copy(selectedHumbugs)
+            console.log(
+                "Copied",
+                selectedHumbugs.length,
+                "humbugs to clipboard"
+            )
+        } else {
+            console.log("No humbugs selected for copy")
         }
     }, [state.selectedHumbugId, state.humbugs, clipboardManager])
 
@@ -1116,7 +1139,14 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     ])
 
     const pasteHumbugs = useCallback(() => {
+        console.log("Paste attempt:", {
+            hasContent: clipboardManager.hasContent(),
+            wasCut: clipboardManager.wasCutOperation(),
+        })
+
         const pastedHumbugs = clipboardManager.paste()
+
+        console.log("Pasted humbugs:", pastedHumbugs.length)
 
         if (pastedHumbugs.length > 0) {
             // Record creation actions for undo
@@ -1133,11 +1163,81 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 humbugs: [...prev.humbugs, ...pastedHumbugs],
                 selectedHumbugId: pastedHumbugs[0]?.id || null,
             }))
+            console.log(
+                "Successfully pasted and added",
+                pastedHumbugs.length,
+                "humbugs"
+            )
+        } else {
+            console.log("No humbugs to paste from clipboard")
         }
     }, [clipboardManager, undoRedoManager])
 
-    // Keyboard event handler
+    // Listen for undo/redo events from App level (when external undo manager is provided)
     useEffect(() => {
+        if (!externalUndoRedoManager) return // Only listen when using external manager
+
+        const handleExternalUndo = (event: CustomEvent) => {
+            const action = event.detail
+            // Only handle humbug-related actions
+            if (
+                [
+                    "CREATE_HUMBUG",
+                    "DELETE_HUMBUG",
+                    "MOVE_HUMBUG",
+                    "RESIZE_HUMBUG",
+                    "ROTATE_HUMBUG",
+                    "EDIT_HUMBUG",
+                ].includes(action.type)
+            ) {
+                // Use the existing performUndo logic but skip the manager call
+                performUndoAction(action)
+            }
+        }
+
+        const handleExternalRedo = (event: CustomEvent) => {
+            const action = event.detail
+            // Only handle humbug-related actions
+            if (
+                [
+                    "CREATE_HUMBUG",
+                    "DELETE_HUMBUG",
+                    "MOVE_HUMBUG",
+                    "RESIZE_HUMBUG",
+                    "ROTATE_HUMBUG",
+                    "EDIT_HUMBUG",
+                ].includes(action.type)
+            ) {
+                // Use the existing performRedo logic but skip the manager call
+                performRedoAction(action)
+            }
+        }
+
+        window.addEventListener(
+            "performUndo",
+            handleExternalUndo as EventListener
+        )
+        window.addEventListener(
+            "performRedo",
+            handleExternalRedo as EventListener
+        )
+
+        return () => {
+            window.removeEventListener(
+                "performUndo",
+                handleExternalUndo as EventListener
+            )
+            window.removeEventListener(
+                "performRedo",
+                handleExternalRedo as EventListener
+            )
+        }
+    }, [externalUndoRedoManager, performUndoAction, performRedoAction])
+
+    // Keyboard event handler - only when not using external undo manager
+    useEffect(() => {
+        if (externalUndoRedoManager) return // Skip undo/redo keyboard handling when App manages it
+
         const handleKeyDown = (e: KeyboardEvent) => {
             // Check if we're in an input field
             const target = e.target as HTMLElement
@@ -1158,7 +1258,30 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             } else if (cmdKey && e.key === "z" && e.shiftKey) {
                 e.preventDefault()
                 performRedo()
-            } else if (cmdKey && e.key === "c") {
+            }
+        }
+
+        window.addEventListener("keydown", handleKeyDown)
+        return () => window.removeEventListener("keydown", handleKeyDown)
+    }, [externalUndoRedoManager, performUndo, performRedo])
+
+    // Copy/paste keyboard handler - always active regardless of undo manager
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Check if we're in an input field
+            const target = e.target as HTMLElement
+            if (
+                target.tagName === "INPUT" ||
+                target.tagName === "TEXTAREA" ||
+                target.contentEditable === "true"
+            ) {
+                return
+            }
+
+            const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0
+            const cmdKey = isMac ? e.metaKey : e.ctrlKey
+
+            if (cmdKey && e.key === "c") {
                 e.preventDefault()
                 copySelectedHumbugs()
             } else if (cmdKey && e.key === "x") {
@@ -1172,13 +1295,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
 
         window.addEventListener("keydown", handleKeyDown)
         return () => window.removeEventListener("keydown", handleKeyDown)
-    }, [
-        performUndo,
-        performRedo,
-        copySelectedHumbugs,
-        cutSelectedHumbugs,
-        pasteHumbugs,
-    ])
+    }, [copySelectedHumbugs, cutSelectedHumbugs, pasteHumbugs])
 
     return (
         <div

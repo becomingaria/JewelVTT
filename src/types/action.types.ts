@@ -8,6 +8,11 @@ export type ActionType =
     | "ROTATE_HUMBUG"
     | "EDIT_HUMBUG"
     | "BATCH_ACTION"
+    | "PAINT_SQUARE"
+    | "ERASE_SQUARE"
+    | "DUMP_FILL"
+    | "CLEAR_BOARD"
+    | "PAINT_STROKE"
 
 export interface BaseAction {
     type: ActionType
@@ -57,6 +62,36 @@ export interface BatchAction extends BaseAction {
     actions: Action[]
 }
 
+export interface PaintSquareAction extends BaseAction {
+    type: "PAINT_SQUARE"
+    gridKey: string
+    color: string
+    previousColor?: string
+}
+
+export interface EraseSquareAction extends BaseAction {
+    type: "ERASE_SQUARE"
+    gridKey: string
+    previousColor: string
+}
+
+export interface DumpFillAction extends BaseAction {
+    type: "DUMP_FILL"
+    color: string
+    previousGrid: Map<string, string>
+}
+
+export interface ClearBoardAction extends BaseAction {
+    type: "CLEAR_BOARD"
+    previousGrid: Map<string, string>
+    previousHumbugs?: Humbug[]
+}
+
+export interface PaintStrokeAction extends BaseAction {
+    type: "PAINT_STROKE"
+    changes: Map<string, { oldColor?: string; newColor?: string }>
+}
+
 export type Action =
     | CreateHumbugAction
     | DeleteHumbugAction
@@ -65,3 +100,8 @@ export type Action =
     | RotateHumbugAction
     | EditHumbugAction
     | BatchAction
+    | PaintSquareAction
+    | EraseSquareAction
+    | DumpFillAction
+    | ClearBoardAction
+    | PaintStrokeAction
