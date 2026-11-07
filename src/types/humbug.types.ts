@@ -1,5 +1,7 @@
 // Core types for the Humbug system
 
+import type { IconName } from "../components/Icon"
+
 export interface Point {
     x: number
     y: number
@@ -29,6 +31,7 @@ export type HumbugType =
     | "solid-color"
     | "map"
     | "token"
+    | "document"
 
 export interface TextHumbug extends HumbugBase {
     type: "text"
@@ -78,7 +81,22 @@ export interface TokenHumbug extends HumbugBase {
     borderWidth: number
 }
 
+/** A link (e.g. a Notion page) or an attached file, shown as a card */
+export interface DocumentHumbug extends HumbugBase {
+    type: "document"
+    title: string
+    /** External http(s) link */
+    url?: string
+    /** Attached file as a data URL (kept inside saved boards) */
+    fileData?: string
+    fileName?: string
+    mimeType?: string
+    note?: string
+    size: Size
+}
+
 export type Humbug =
+    | DocumentHumbug
     | TextHumbug
     | ImageHumbug
     | MapPinHumbug
@@ -89,7 +107,7 @@ export type Humbug =
 export interface ContextMenuOption {
     label: string
     type: HumbugType
-    icon: string
+    icon: IconName
 }
 
 export interface HumbugContextMenuOption {
@@ -103,7 +121,7 @@ export interface HumbugContextMenuOption {
         | "bringForward"
         | "sendBackward"
         | "delete"
-    icon: string
+    icon: IconName
 }
 
 export interface DragTail {

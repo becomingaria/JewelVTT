@@ -14,11 +14,23 @@ import { DragTailRenderer } from "./DragTailRenderer"
 import { snapToGrid, generateId } from "../utils/humbug.utils"
 import { UndoRedoManager } from "../utils/undo-redo.utils"
 import { ClipboardManager } from "../utils/clipboard.utils"
+import {
+    AREA_SELECT_EVENT,
+    CREATE_AT_CURSOR_EVENT,
+    DELETE_SELECTION_EVENT,
+    SELECT_ALL_EVENT,
+    type AreaSelectDetail,
+    SPOT_AT_CURSOR_EVENT,
+    goHome,
+    requestAddSpot,
+} from "../utils/view-events"
+import { useBoardSlice } from "../utils/board-store"
+import { ConnectorLayer } from "./ConnectorLayer"
+import type { Connector, ConnectorEnd } from "../types/connector.types"
 
 interface HumbugManagerProps {
     scale: number
     containerRef: React.RefObject<HTMLDivElement | null>
-    screenToWorld: (screenX: number, screenY: number) => Point
     containerToWorld: (containerX: number, containerY: number) => Point
     worldToScreen: (worldX: number, worldY: number) => Point
     contextMenuEvent?: React.MouseEvent | null
@@ -36,7 +48,6 @@ interface HumbugManagerProps {
 export const HumbugManager: React.FC<HumbugManagerProps> = ({
     scale,
     containerRef,
-    screenToWorld,
     containerToWorld,
     worldToScreen,
     contextMenuEvent,
@@ -61,6 +72,20 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             humbugId: null,
         },
     })
+
+    // Persist humbugs with the board (save files + autosave)
+    useBoardSlice("humbugs", state.humbugs, (humbugs) =>
+        setState((prev) => ({
+            ...prev,
+            humbugs: humbugs ?? [],
+            selectedHumbugId: null,
+        }))
+    )
+
+    // Area (marquee) selection: several humbugs that move/delete/copy together
+    const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([])
+    // Start positions of the group while it's being dragged
+    const groupDragRef = useRef<Map<string, Point> | null>(null)
 
     const [isDragging, setIsDragging] = useState(false)
     const draggedHumbugRef = useRef<string | null>(null)
@@ -99,6 +124,55 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     const undoRedoManager = externalUndoRedoManager || localUndoRedoManager
     const clipboardManager = useRef(new ClipboardManager()).current
 
+    // Flowchart connectors between humbug edges
+    const [connectors, setConnectors] = useState<Connector[]>([])
+    const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(null)
+    useBoardSlice("connectors", connectors, (c) => {
+        setConnectors(c ?? [])
+        setSelectedConnectorId(null)
+    })
+
+    const createConnector = useCallback(
+        (from: ConnectorEnd, to: ConnectorEnd) => {
+            const connector: Connector = {
+                id: `conn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+                from,
+                to,
+            }
+            setConnectors((prev) => {
+                const dup = prev.some(
+                    (c) =>
+                        c.from.humbugId === from.humbugId &&
+                        c.to.humbugId === to.humbugId &&
+                        c.from.side === from.side &&
+                        c.to.side === to.side
+                )
+                return dup ? prev : [...prev, connector]
+            })
+            undoRedoManager.addAction({
+                type: "CONNECTOR_ADD",
+                timestamp: Date.now(),
+                connector,
+            })
+        },
+        [undoRedoManager]
+    )
+
+    const deleteConnector = useCallback(
+        (id: string) => {
+            const connector = connectors.find((c) => c.id === id)
+            if (!connector) return
+            setConnectors((prev) => prev.filter((c) => c.id !== id))
+            setSelectedConnectorId(null)
+            undoRedoManager.addAction({
+                type: "CONNECTOR_DELETE",
+                timestamp: Date.now(),
+                connector,
+            })
+        },
+        [connectors, undoRedoManager]
+    )
+
     // Handle right-click context menu
     const handleContextMenu = useCallback(
         (e: React.MouseEvent) => {
@@ -128,12 +202,41 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         }
     }, [contextMenuEvent, handleContextMenu])
 
+    // Last pointer position (viewport coords), for hotkeys that act "at the cursor"
+    const pointerRef = useRef<{ x: number; y: number } | null>(null)
+    useEffect(() => {
+        const track = (e: MouseEvent) => {
+            pointerRef.current = { x: e.clientX, y: e.clientY }
+        }
+        window.addEventListener("mousemove", track)
+        return () => window.removeEventListener("mousemove", track)
+    }, [])
+
+    /** Pointer in container coords, or the board centre if it's elsewhere */
+    const pointerInContainer = useCallback((): Point => {
+        const container = containerRef.current
+        if (!container) return { x: 0, y: 0 }
+        const rect = container.getBoundingClientRect()
+        const p = pointerRef.current
+        if (
+            p &&
+            p.x >= rect.left &&
+            p.x <= rect.right &&
+            p.y >= rect.top &&
+            p.y <= rect.bottom
+        ) {
+            return { x: p.x - rect.left, y: p.y - rect.top }
+        }
+        return { x: rect.width / 2, y: rect.height / 2 }
+    }, [containerRef])
+
     // Show modal for humbug creation
     const showHumbugModal = useCallback(
-        (type: HumbugType, screenPosition: Point) => {
-            const worldPosition = screenToWorld(
-                screenPosition.x,
-                screenPosition.y
+        (type: HumbugType, containerPosition: Point) => {
+            // The context menu reports container-relative coordinates
+            const worldPosition = containerToWorld(
+                containerPosition.x,
+                containerPosition.y
             )
             const finalPosition = snapToGridEnabled
                 ? snapToGrid(worldPosition, 32)
@@ -154,7 +257,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 contextMenu: { isOpen: false, position: { x: 0, y: 0 } },
             }))
         },
-        [screenToWorld, snapToGridEnabled]
+        [containerToWorld, snapToGridEnabled]
     )
 
     // Create new Humbug from modal data or update existing one
@@ -262,6 +365,16 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             draggedHumbugRef.current = id
             setDragOffset(offset)
 
+            // Dragging any member of the area selection drags the whole group
+            groupDragRef.current =
+                multiSelectedIds.length > 1 && multiSelectedIds.includes(id)
+                    ? new Map(
+                          state.humbugs
+                              .filter((h) => multiSelectedIds.includes(h.id))
+                              .map((h) => [h.id, { ...h.position }])
+                      )
+                    : null
+
             // Store initial position for undo
             const humbug = state.humbugs.find((h) => h.id === id)
             if (humbug) {
@@ -302,11 +415,13 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 }
             }
         },
-        [showDragTails, state.humbugs]
+        [showDragTails, state.humbugs, multiSelectedIds]
     )
 
-    // Select Humbug
+    // Select Humbug (clicking outside the area selection ends it)
     const selectHumbug = useCallback((id: string) => {
+        setMultiSelectedIds((prev) => (prev.includes(id) ? prev : []))
+        setSelectedConnectorId(null)
         setState((prev) => ({
             ...prev,
             selectedHumbugId: id,
@@ -539,6 +654,127 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         [undoRedoManager]
     )
 
+    // Hotkeys: add at cursor, drop a spot at cursor, delete the selection
+    useEffect(() => {
+        const onCreate = (e: Event) =>
+            showHumbugModal(
+                (e as CustomEvent<HumbugType>).detail,
+                pointerInContainer()
+            )
+        const onSpot = () => {
+            const p = pointerInContainer()
+            requestAddSpot(containerToWorld(p.x, p.y))
+        }
+        const onDelete = () => {
+            if (selectedConnectorId) {
+                deleteConnector(selectedConnectorId)
+            } else if (multiSelectedIds.length) {
+                const ids = new Set(multiSelectedIds)
+                const removed = state.humbugs.filter((h) => ids.has(h.id))
+                setState((prev) => ({
+                    ...prev,
+                    humbugs: prev.humbugs.filter((h) => !ids.has(h.id)),
+                    selectedHumbugId: null,
+                }))
+                undoRedoManager.addAction({
+                    type: "BATCH_ACTION",
+                    timestamp: Date.now(),
+                    actions: removed.map((humbug) => ({
+                        type: "DELETE_HUMBUG" as const,
+                        timestamp: Date.now(),
+                        humbug,
+                    })),
+                })
+                setMultiSelectedIds([])
+            } else if (state.selectedHumbugId) {
+                deleteHumbug(state.selectedHumbugId)
+            }
+        }
+        window.addEventListener(CREATE_AT_CURSOR_EVENT, onCreate)
+        window.addEventListener(SPOT_AT_CURSOR_EVENT, onSpot)
+        window.addEventListener(DELETE_SELECTION_EVENT, onDelete)
+        return () => {
+            window.removeEventListener(CREATE_AT_CURSOR_EVENT, onCreate)
+            window.removeEventListener(SPOT_AT_CURSOR_EVENT, onSpot)
+            window.removeEventListener(DELETE_SELECTION_EVENT, onDelete)
+        }
+    }, [
+        showHumbugModal,
+        pointerInContainer,
+        containerToWorld,
+        deleteHumbug,
+        state.selectedHumbugId,
+        state.humbugs,
+        multiSelectedIds,
+        undoRedoManager,
+        selectedConnectorId,
+        deleteConnector,
+    ])
+
+    // Area selection: marquee results, select-all, and ways to clear it
+    useEffect(() => {
+        const boxOf = (h: Humbug) => {
+            const w = h.type === "map-pin" ? h.size : h.size.width
+            const hgt = h.type === "map-pin" ? h.size : h.size.height
+            return { x1: h.position.x, y1: h.position.y, x2: h.position.x + w, y2: h.position.y + hgt }
+        }
+        const onArea = (e: Event) => {
+            const r = (e as CustomEvent<AreaSelectDetail>).detail
+            const hits = state.humbugs
+                .filter((h) => {
+                    if (h.locked) return false
+                    const b = boxOf(h)
+                    return b.x1 < r.x2 && b.x2 > r.x1 && b.y1 < r.y2 && b.y2 > r.y1
+                })
+                .map((h) => h.id)
+            setMultiSelectedIds((prev) =>
+                r.additive ? [...new Set([...prev, ...hits])] : hits
+            )
+            setState((prev) => ({ ...prev, selectedHumbugId: null }))
+        }
+        const onSelectAll = () => {
+            setMultiSelectedIds(state.humbugs.filter((h) => !h.locked).map((h) => h.id))
+            setState((prev) => ({ ...prev, selectedHumbugId: null }))
+        }
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setMultiSelectedIds([])
+                setSelectedConnectorId(null)
+                // Escape also closes the right-click menus
+                setState((prev) =>
+                    prev.contextMenu.isOpen || prev.humbugContextMenu.isOpen
+                        ? {
+                              ...prev,
+                              contextMenu: { isOpen: false, position: { x: 0, y: 0 } },
+                              humbugContextMenu: {
+                                  isOpen: false,
+                                  position: { x: 0, y: 0 },
+                                  humbugId: null,
+                              },
+                          }
+                        : prev
+                )
+            }
+        }
+        const onDown = (e: MouseEvent) => {
+            const t = e.target as HTMLElement
+            if (e.button === 0 && t.classList?.contains("infinite-whiteboard-canvas")) {
+                setMultiSelectedIds([])
+                setSelectedConnectorId(null)
+            }
+        }
+        window.addEventListener(AREA_SELECT_EVENT, onArea)
+        window.addEventListener(SELECT_ALL_EVENT, onSelectAll)
+        window.addEventListener("keydown", onKey)
+        window.addEventListener("mousedown", onDown)
+        return () => {
+            window.removeEventListener(AREA_SELECT_EVENT, onArea)
+            window.removeEventListener(SELECT_ALL_EVENT, onSelectAll)
+            window.removeEventListener("keydown", onKey)
+            window.removeEventListener("mousedown", onDown)
+        }
+    }, [state.humbugs])
+
     // Edit Humbug - open modal with existing data
     const editHumbug = useCallback(
         (id: string) => {
@@ -760,9 +996,71 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             const worldPos = containerToWorld(targetScreenX, targetScreenY)
 
             moveHumbug(draggedHumbugRef.current, worldPos)
+
+            // Carry the rest of the area selection along by the same delta
+            const group = groupDragRef.current
+            const start = group?.get(draggedHumbugRef.current)
+            if (group && start) {
+                const dx = worldPos.x - start.x
+                const dy = worldPos.y - start.y
+                const dragged = draggedHumbugRef.current
+                setState((prev) => ({
+                    ...prev,
+                    humbugs: prev.humbugs.map((h) => {
+                        const from = group.get(h.id)
+                        return from && h.id !== dragged
+                            ? { ...h, position: { x: from.x + dx, y: from.y + dy } }
+                            : h
+                    }),
+                }))
+            }
         }
 
         const handleMouseUp = () => {
+            const group = groupDragRef.current
+            if (isDragging && draggedHumbugRef.current && group) {
+                // Finish a group drag: settle everyone (snapped if enabled)
+                // and record a single undo step for the whole move
+                const dragged = state.humbugs.find(
+                    (h) => h.id === draggedHumbugRef.current
+                )
+                const start = dragged && group.get(dragged.id)
+                if (dragged && start) {
+                    const end = snapToGridEnabled
+                        ? snapToGrid(dragged.position, 32)
+                        : dragged.position
+                    const dx = end.x - start.x
+                    const dy = end.y - start.y
+                    setState((prev) => ({
+                        ...prev,
+                        humbugs: prev.humbugs.map((h) => {
+                            const from = group.get(h.id)
+                            return from
+                                ? { ...h, position: { x: from.x + dx, y: from.y + dy } }
+                                : h
+                        }),
+                    }))
+                    if (dx || dy) {
+                        undoRedoManager.addAction({
+                            type: "BATCH_ACTION",
+                            timestamp: Date.now(),
+                            actions: [...group].map(([humbugId, from]) => ({
+                                type: "MOVE_HUMBUG" as const,
+                                timestamp: Date.now(),
+                                humbugId,
+                                oldPosition: from,
+                                newPosition: { x: from.x + dx, y: from.y + dy },
+                            })),
+                        })
+                    }
+                }
+                groupDragRef.current = null
+                setIsDragging(false)
+                draggedHumbugRef.current = null
+                setDragOffset({ x: 0, y: 0 })
+                setState((prev) => ({ ...prev, dragTail: null }))
+                return
+            }
             if (isDragging && draggedHumbugRef.current) {
                 // Apply snap-to-grid on drag end if enabled
                 if (snapToGridEnabled) {
@@ -907,24 +1205,43 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             importHumbugs?: (data: string) => void
             exportHumbugData?: () => void
             importHumbugData?: (humbugs: Humbug[]) => void
+            clearAllHumbugs?: () => void
         }
 
         windowGlobal.exportHumbugs = exportHumbugs
         windowGlobal.importHumbugs = importHumbugs
         windowGlobal.exportHumbugData = exportHumbugData
         windowGlobal.importHumbugData = importHumbugData
+        // Called by InfiniteWhiteboard when the user starts a New Board
+        windowGlobal.clearAllHumbugs = () => {
+            setState((prev) => ({
+                ...prev,
+                humbugs: [],
+                selectedHumbugId: null,
+            }))
+            setConnectors([])
+            setSelectedConnectorId(null)
+            setMultiSelectedIds([])
+        }
 
         return () => {
             delete windowGlobal.exportHumbugs
             delete windowGlobal.importHumbugs
             delete windowGlobal.exportHumbugData
             delete windowGlobal.importHumbugData
+            delete windowGlobal.clearAllHumbugs
         }
     }, [exportHumbugs, importHumbugs, exportHumbugData, importHumbugData])
 
     // Undo/Redo functions
     const performUndoAction = useCallback((action: Action) => {
         switch (action.type) {
+            case "CONNECTOR_ADD":
+                setConnectors((prev) => prev.filter((c) => c.id !== action.connector.id))
+                break
+            case "CONNECTOR_DELETE":
+                setConnectors((prev) => [...prev, action.connector])
+                break
             case "CREATE_HUMBUG":
                 setState((prev) => ({
                     ...prev,
@@ -998,6 +1315,12 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
 
     const performRedoAction = useCallback((action: Action) => {
         switch (action.type) {
+            case "CONNECTOR_ADD":
+                setConnectors((prev) => [...prev, action.connector])
+                break
+            case "CONNECTOR_DELETE":
+                setConnectors((prev) => prev.filter((c) => c.id !== action.connector.id))
+                break
             case "CREATE_HUMBUG":
                 setState((prev) => ({
                     ...prev,
@@ -1069,21 +1392,45 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         }
     }, [])
 
+    // Batches (group moves / deletes) undo and redo as a single step
+    const undoAny = useCallback(
+        (action: Action) => {
+            const run = (a: Action): void => {
+                if (a.type === "BATCH_ACTION") [...a.actions].reverse().forEach(run)
+                else performUndoAction(a)
+            }
+            run(action)
+        },
+        [performUndoAction]
+    )
+    const redoAny = useCallback(
+        (action: Action) => {
+            const run = (a: Action): void => {
+                if (a.type === "BATCH_ACTION") a.actions.forEach(run)
+                else performRedoAction(a)
+            }
+            run(action)
+        },
+        [performRedoAction]
+    )
+
     const performUndo = useCallback(() => {
         const action = undoRedoManager.getUndoAction()
         if (!action) return
-        performUndoAction(action)
-    }, [undoRedoManager, performUndoAction])
+        undoAny(action)
+    }, [undoRedoManager, undoAny])
 
     const performRedo = useCallback(() => {
         const action = undoRedoManager.getRedoAction()
         if (!action) return
-        performRedoAction(action)
-    }, [undoRedoManager, performRedoAction])
+        redoAny(action)
+    }, [undoRedoManager, redoAny])
 
     // Copy/Cut/Paste functions
     const copySelectedHumbugs = useCallback(() => {
-        const selectedHumbugs = state.selectedHumbugId
+        const selectedHumbugs = multiSelectedIds.length
+            ? state.humbugs.filter((h) => multiSelectedIds.includes(h.id))
+            : state.selectedHumbugId
             ? state.humbugs.filter((h) => h.id === state.selectedHumbugId)
             : []
 
@@ -1103,10 +1450,12 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         } else {
             console.log("No humbugs selected for copy")
         }
-    }, [state.selectedHumbugId, state.humbugs, clipboardManager])
+    }, [state.selectedHumbugId, state.humbugs, clipboardManager, multiSelectedIds])
 
     const cutSelectedHumbugs = useCallback(() => {
-        const selectedHumbugs = state.selectedHumbugId
+        const selectedHumbugs = multiSelectedIds.length
+            ? state.humbugs.filter((h) => multiSelectedIds.includes(h.id))
+            : state.selectedHumbugId
             ? state.humbugs.filter((h) => h.id === state.selectedHumbugId)
             : []
 
@@ -1123,15 +1472,16 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             })
 
             // Remove selected humbugs
+            const cutIds = new Set(selectedHumbugs.map((h) => h.id))
             setState((prev) => ({
                 ...prev,
-                humbugs: prev.humbugs.filter(
-                    (h) => h.id !== state.selectedHumbugId
-                ),
+                humbugs: prev.humbugs.filter((h) => !cutIds.has(h.id)),
                 selectedHumbugId: null,
             }))
+            setMultiSelectedIds([])
         }
     }, [
+        multiSelectedIds,
         state.selectedHumbugId,
         state.humbugs,
         clipboardManager,
@@ -1188,10 +1538,13 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                     "RESIZE_HUMBUG",
                     "ROTATE_HUMBUG",
                     "EDIT_HUMBUG",
+                    "BATCH_ACTION",
+                    "CONNECTOR_ADD",
+                    "CONNECTOR_DELETE",
                 ].includes(action.type)
             ) {
                 // Use the existing performUndo logic but skip the manager call
-                performUndoAction(action)
+                undoAny(action)
             }
         }
 
@@ -1206,10 +1559,13 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                     "RESIZE_HUMBUG",
                     "ROTATE_HUMBUG",
                     "EDIT_HUMBUG",
+                    "BATCH_ACTION",
+                    "CONNECTOR_ADD",
+                    "CONNECTOR_DELETE",
                 ].includes(action.type)
             ) {
                 // Use the existing performRedo logic but skip the manager call
-                performRedoAction(action)
+                redoAny(action)
             }
         }
 
@@ -1232,7 +1588,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 handleExternalRedo as EventListener
             )
         }
-    }, [externalUndoRedoManager, performUndoAction, performRedoAction])
+    }, [externalUndoRedoManager, undoAny, redoAny])
 
     // Keyboard event handler - only when not using external undo manager
     useEffect(() => {
@@ -1314,12 +1670,16 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 }
             }}
         >
-            {/* Render all humbugs */}
+            {/* Humbugs live in their own stacking context so their ever-growing
+                z-indexes can't climb over board overlays (scribbles, connectors,
+                spot flags) or the menus below */}
+            <div className='humbug-layer'>
             {state.humbugs.map((humbug) => (
                 <HumbugRenderer
                     key={humbug.id}
                     humbug={humbug}
                     isSelected={state.selectedHumbugId === humbug.id}
+                    isMultiSelected={multiSelectedIds.includes(humbug.id)}
                     isDragging={
                         isDragging && draggedHumbugRef.current === humbug.id
                     }
@@ -1346,6 +1706,23 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                     worldToScreen={worldToScreen}
                 />
             )}
+            </div>
+
+            <ConnectorLayer
+                humbugs={state.humbugs}
+                connectors={connectors}
+                selectedHumbugId={state.selectedHumbugId}
+                selectedConnectorId={selectedConnectorId}
+                busy={isDragging}
+                worldToScreen={worldToScreen}
+                containerRef={containerRef}
+                onCreate={createConnector}
+                onSelect={(id) => {
+                    setSelectedConnectorId(id)
+                    setState((prev) => ({ ...prev, selectedHumbugId: null }))
+                }}
+                onDelete={deleteConnector}
+            />
 
             {/* Context Menu - highest z-index for interaction */}
             {state.contextMenu.isOpen && (
@@ -1356,6 +1733,12 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                     onCreateHumbug={showHumbugModal}
                     snapToGrid={snapToGridEnabled}
                     onToggleSnapToGrid={toggleSnapToGrid}
+                    onGoHome={goHome}
+                    onAddSpot={(position) =>
+                        requestAddSpot(
+                            containerToWorld(position.x, position.y)
+                        )
+                    }
                 />
             )}
 

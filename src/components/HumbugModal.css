@@ -45,7 +45,7 @@
     background: none;
     border: none;
     font-size: 24px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     color: #666;
     padding: 0;
     width: 30px;
@@ -141,7 +141,7 @@ input[type="color"] {
     height: 40px;
     border: 1px solid #ddd;
     border-radius: 6px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     padding: 0;
 }
 
@@ -163,7 +163,7 @@ input[type="color"] {
     background-color: #f8f9fa;
     border: 1px solid #ddd;
     border-radius: 6px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     font-size: 14px;
     transition: all 0.2s ease;
 }
@@ -232,7 +232,7 @@ input[type="color"] {
     border-radius: 6px;
     font-size: 14px;
     font-weight: 500;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     transition: all 0.2s ease;
     border: none;
 }
@@ -278,7 +278,7 @@ input[type="color"] {
     background: #007acc;
     color: white;
     border-radius: 4px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     font-size: 12px;
     white-space: nowrap;
     transition: background-color 0.2s ease;
@@ -315,4 +315,56 @@ input[type="color"] {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.file-button-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Document source toggle */
+.doc-source-toggle {
+    display: inline-flex;
+    margin-bottom: 16px;
+    padding: 3px;
+    background: #e9ecef;
+    border-radius: 8px;
+}
+
+.doc-source-toggle button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #555;
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.doc-source-toggle button.active {
+    background: #fff;
+    color: #333;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.form-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #666;
+    align-self: center;
+}
+
+.form-hint-error {
+    color: #c0392b;
+}
+
+.humbug-modal textarea.text-input {
+    width: 100%;
+    resize: vertical;
+    font-family: inherit;
 }

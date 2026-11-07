@@ -17,6 +17,141 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
+}
+
+.top-bar-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #333;
+    cursor: var(--cursor-pointer, pointer);
+    transition: all 0.2s ease;
+}
+
+.top-bar-icon-button:hover {
+    background-color: #f8f9fa;
+    border-color: #e0e0e0;
+}
+
+.top-bar-icon-button:active {
+    background-color: #e9ecef;
+}
+
+/* Spot tabs */
+.spot-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 20px;
+    padding: 4px 2px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.spot-tab {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    height: 34px;
+    background-color: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    color: #333;
+    animation: spot-tab-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.2s ease;
+}
+
+.spot-tab:hover {
+    background-color: #e9ecef;
+    border-color: #ccc;
+}
+
+.spot-tab-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    padding: 0 4px 0 10px;
+    background: none;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: inherit;
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.spot-tab-name {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.spot-tab-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-right: 5px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    color: #999;
+    cursor: var(--cursor-pointer, pointer);
+    opacity: 0;
+    transition: all 0.15s ease;
+}
+
+.spot-tab:hover .spot-tab-delete,
+.spot-tab-delete:focus-visible {
+    opacity: 1;
+}
+
+.spot-tab-delete:hover {
+    background-color: #dee2e6;
+    color: #e74c3c;
+}
+
+.spot-tab-editing {
+    gap: 6px;
+    padding: 0 6px 0 10px;
+    background-color: #ffffff;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.spot-tab-input {
+    width: 130px;
+    padding: 2px 4px;
+    border: none;
+    outline: none;
+    background: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+}
+
+@keyframes spot-tab-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.9);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spot-tab {
+        animation: none;
+    }
 }
 
 .hamburger-menu {
@@ -27,13 +162,21 @@
     height: 24px;
     background: none;
     border: none;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     padding: 0;
     transition: all 0.2s ease;
 }
 
 .hamburger-menu:hover {
-    opacity: 0.7;
+    opacity: 0.85;
+}
+
+.hamburger-menu:hover .hamburger-line:nth-child(1) {
+    transform: translateX(3px);
+}
+
+.hamburger-menu:hover .hamburger-line:nth-child(3) {
+    transform: translateX(-3px);
 }
 
 .hamburger-line {
@@ -53,9 +196,16 @@
 }
 
 .logo {
-    height: 32px;
-    width: auto;
-    object-fit: contain;
+    /* Pixel art at an exact 2x: keep it crisp */
+    width: 44px;
+    height: 34px;
+    image-rendering: pixelated;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.logo-container:hover .logo {
+    transform: translateY(-2px) rotate(-6deg) scale(1.08);
+    filter: drop-shadow(0 3px 4px rgba(108, 47, 207, 0.4));
 }
 
 .menu-container {
@@ -82,7 +232,7 @@
     border: none;
     background: none;
     text-align: left;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -114,4 +264,45 @@
     height: 1px;
     background-color: #e0e0e0;
     margin: 4px 0;
+}
+
+/* Scribble layer tabs (share the spot tab look) */
+.scribble-tabs {
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 1px solid #e0e0e0;
+}
+
+.scribble-tab {
+    background-color: #fdf6ec;
+    border-color: #ead9bd;
+}
+
+.scribble-tab.drawing {
+    background-color: #f4ecff;
+    border-color: #6c2fcf;
+    box-shadow: 0 0 0 3px rgba(108, 47, 207, 0.15);
+}
+
+.scribble-tab.hidden-layer .spot-tab-name {
+    color: #999;
+    text-decoration: line-through;
+}
+
+.scribble-tab-eye {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    color: #666;
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.scribble-tab-eye:hover {
+    background-color: #dee2e6;
 }

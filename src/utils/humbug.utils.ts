@@ -106,6 +106,15 @@ export function createDefaultHumbug(type: HumbugType, position: Point): Humbug {
             return tokenHumbug
         }
 
+        case "document": {
+            return {
+                ...baseHumbug,
+                type: "document",
+                title: "New document",
+                size: { width: 240, height: 96 },
+            }
+        }
+
         default:
             throw new Error(`Unknown humbug type: ${type}`)
     }

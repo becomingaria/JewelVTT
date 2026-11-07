@@ -32,7 +32,7 @@
     height: 40px;
     border: 2px solid #333;
     border-radius: 8px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s ease;
 }
@@ -59,7 +59,7 @@
     height: 40px;
     border: none;
     border-radius: 6px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     margin-bottom: 8px;
 }
 
@@ -74,7 +74,7 @@
     height: 24px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     transition: transform 0.2s ease;
 }
 
@@ -94,8 +94,8 @@
     border-radius: 8px;
     width: 48px;
     height: 48px;
-    font-size: 20px;
-    cursor: pointer;
+    color: #333;
+    cursor: var(--cursor-pointer, pointer);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -144,4 +144,9 @@
         font-size: 12px;
         padding: 6px 12px;
     }
+}
+
+/* Keep tool icons dark-outlined so they read on coloured buttons */
+.tool-button .jicon {
+    color: #2c3e50;
 }

@@ -1,4 +1,11 @@
 import React, { useState } from "react"
+import { Icon } from "./Icon"
+import { MOD } from "../utils/hotkeys"
+import {
+    BOARD_STYLES,
+    getBoardStyleTexture,
+    type BoardStyleId,
+} from "../utils/board-styles"
 import "./Sidebar.css"
 
 interface SidebarProps {
@@ -10,6 +17,10 @@ interface SidebarProps {
     onExportBoard: () => void
     onImportBoard: (file: File) => void
     onNewBoard: () => void
+    onSaveBoard: () => void
+    onOpenBoard: () => void
+    onShowHowTo: () => void
+    onAddScribbleLayer: () => void
     onTextureChange: (textureUrl: string | null) => void
     onTextureScaleChange: (scale: number) => void
     showGridLines: boolean
@@ -17,6 +28,8 @@ interface SidebarProps {
     showApron: boolean
     currentTexture: string | null
     textureScale: number
+    boardStyle: BoardStyleId
+    onBoardStyleChange: (style: BoardStyleId) => void
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +41,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onExportBoard,
     onImportBoard,
     onNewBoard,
+    onSaveBoard,
+    onOpenBoard,
+    onShowHowTo,
+    onAddScribbleLayer,
     onTextureChange,
     onTextureScaleChange,
     showGridLines,
@@ -35,6 +52,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     showApron,
     currentTexture,
     textureScale,
+    boardStyle,
+    onBoardStyleChange,
 }) => {
     const [showNewBoardConfirm, setShowNewBoardConfirm] = useState(false)
     const handleImportBoard = () => {
@@ -100,35 +119,89 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={onClose}
                         aria-label='Close menu'
                     >
-                        ×
+                        <Icon name='close' size={20} />
                     </button>
                 </div>
 
                 <div className='sidebar-content'>
+                    <button
+                        className='sidebar-button sidebar-how-to'
+                        onClick={onShowHowTo}
+                    >
+                        <span className='button-icon'>
+                            <Icon name='help' />
+                        </span>
+                        <span>How to use Jewel VTT</span>
+                        <kbd className='sidebar-kbd'>?</kbd>
+                    </button>
+
                     <div className='sidebar-section'>
-                        <h4>File Operations</h4>
+                        <h4>Board</h4>
                         <button
                             className='sidebar-button'
                             onClick={handleNewBoard}
                         >
-                            <span className='button-icon'>🆕</span>
+                            <span className='button-icon'>
+                                <Icon name='new-board' />
+                            </span>
                             <span>New Board</span>
+                        </button>
+
+                        <button
+                            className='sidebar-button'
+                            onClick={onSaveBoard}
+                        >
+                            <span className='button-icon'>
+                                <Icon name='save' />
+                            </span>
+                            <span>Save Board</span>
+                            <kbd className='sidebar-kbd'>{MOD}S</kbd>
+                        </button>
+
+                        <button
+                            className='sidebar-button'
+                            onClick={onOpenBoard}
+                        >
+                            <span className='button-icon'>
+                                <Icon name='open' />
+                            </span>
+                            <span>Open Board</span>
+                            <kbd className='sidebar-kbd'>{MOD}O</kbd>
                         </button>
 
                         <button
                             className='sidebar-button'
                             onClick={handleExportBoard}
                         >
-                            <span className='button-icon'>📤</span>
-                            <span>Export Board</span>
+                            <span className='button-icon'>
+                                <Icon name='export' />
+                            </span>
+                            <span>Export as PNG</span>
+                            <kbd className='sidebar-kbd'>{MOD}E</kbd>
                         </button>
 
                         <button
                             className='sidebar-button'
                             onClick={handleImportBoard}
                         >
-                            <span className='button-icon'>📥</span>
-                            <span>Import Board</span>
+                            <span className='button-icon'>
+                                <Icon name='import' />
+                            </span>
+                            <span>Import from PNG</span>
+                        </button>
+                    </div>
+
+                    <div className='sidebar-section'>
+                        <h4>Draw</h4>
+                        <button
+                            className='sidebar-button'
+                            onClick={onAddScribbleLayer}
+                        >
+                            <span className='button-icon'>
+                                <Icon name='scribble' />
+                            </span>
+                            <span>Add Scribble Layer</span>
+                            <kbd className='sidebar-kbd'>B</kbd>
                         </button>
                     </div>
 
@@ -139,12 +212,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onClick={onToggleGridLines}
                         >
                             <span className='toggle-icon'>
-                                {showGridLines ? "🟢" : "🔴"}
+                                <Icon name='grid' />
                             </span>
                             <span>Grid Lines & Axes</span>
-                            <span className='toggle-status'>
-                                {showGridLines ? "ON" : "OFF"}
-                            </span>
+                            <span
+                                className={`toggle-switch ${
+                                    showGridLines ? "on" : ""
+                                }`}
+                                role='switch'
+                                aria-checked={showGridLines}
+                            />
                         </button>
 
                         <button
@@ -152,12 +229,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onClick={onToggleDragTails}
                         >
                             <span className='toggle-icon'>
-                                {showDragTails ? "🟢" : "🔴"}
+                                <Icon name='trail' />
                             </span>
                             <span>Drag Tails</span>
-                            <span className='toggle-status'>
-                                {showDragTails ? "ON" : "OFF"}
-                            </span>
+                            <span
+                                className={`toggle-switch ${
+                                    showDragTails ? "on" : ""
+                                }`}
+                                role='switch'
+                                aria-checked={showDragTails}
+                            />
                         </button>
 
                         <button
@@ -165,23 +246,79 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onClick={onToggleApron}
                         >
                             <span className='toggle-icon'>
-                                {showApron ? "🟢" : "🔴"}
+                                <Icon name='brush' />
                             </span>
                             <span>Tool Apron</span>
-                            <span className='toggle-status'>
-                                {showApron ? "ON" : "OFF"}
-                            </span>
+                            <span
+                                className={`toggle-switch ${
+                                    showApron ? "on" : ""
+                                }`}
+                                role='switch'
+                                aria-checked={showApron}
+                            />
                         </button>
                     </div>
 
                     <div className='sidebar-section'>
-                        <h4>Background Texture</h4>
+                        <h4>Board Style</h4>
+                        <div
+                            className='board-style-grid'
+                            role='radiogroup'
+                            aria-label='Board style'
+                        >
+                            {BOARD_STYLES.map((style) => {
+                                const texture = isOpen
+                                    ? getBoardStyleTexture(style.id)
+                                    : null
+                                return (
+                                    <button
+                                        key={style.id}
+                                        type='button'
+                                        role='radio'
+                                        aria-checked={boardStyle === style.id}
+                                        className={`board-style-option ${
+                                            boardStyle === style.id
+                                                ? "selected"
+                                                : ""
+                                        }`}
+                                        onClick={() =>
+                                            onBoardStyleChange(style.id)
+                                        }
+                                    >
+                                        <span
+                                            className='board-style-swatch'
+                                            style={{
+                                                backgroundColor: style.base,
+                                                backgroundImage: texture
+                                                    ? `url(${texture})`
+                                                    : undefined,
+                                            }}
+                                        />
+                                        <span className='board-style-label'>
+                                            {style.label}
+                                        </span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        {currentTexture && (
+                            <p className='board-style-note'>
+                                A custom texture is covering the style. Clear
+                                it below to see the style.
+                            </p>
+                        )}
+                    </div>
+
+                    <div className='sidebar-section'>
+                        <h4>Custom Texture</h4>
                         {!currentTexture ? (
                             <button
                                 className='sidebar-button'
                                 onClick={handleTextureUpload}
                             >
-                                <span className='button-icon'>🖼️</span>
+                                <span className='button-icon'>
+                                    <Icon name='image' />
+                                </span>
                                 <span>Upload Texture</span>
                             </button>
                         ) : (
@@ -247,7 +384,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     className='sidebar-button sidebar-button-danger'
                                     onClick={handleClearTexture}
                                 >
-                                    <span className='button-icon'>🗑️</span>
+                                    <span className='button-icon'>
+                                        <Icon name='trash' />
+                                    </span>
                                     <span>Clear Texture</span>
                                 </button>
                             </>
@@ -280,6 +419,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <li>All painted areas</li>
                                 <li>Background texture</li>
                                 <li>Viewport position</li>
+                                <li>Saved spots</li>
                             </ul>
                         </div>
                         <div className='modal-actions'>

@@ -1,24 +1,20 @@
 .humbug-renderer {
     position: absolute;
     pointer-events: all; /* Enable pointer events for humbugs */
-    cursor: -webkit-grab;
-    cursor: grab;
+    cursor: var(--cursor-grab, grab);
 }
 
 /* Ensure grab cursor on hover */
 .humbug-renderer:hover {
-    cursor: -webkit-grab;
-    cursor: grab;
+    cursor: var(--cursor-grab, grab);
 }
 
 .humbug-renderer.dragging {
-    cursor: -webkit-grabbing !important;
-    cursor: grabbing !important;
+    cursor: var(--cursor-grabbing, grabbing) !important;
 }
 
 .humbug-renderer.rotating {
-    cursor: -webkit-grabbing !important;
-    cursor: grabbing !important;
+    cursor: var(--cursor-grabbing, grabbing) !important;
 }
 
 .humbug-renderer.resizing {
@@ -27,7 +23,7 @@
 
 /* Locked humbugs should show default cursor */
 .humbug-renderer.locked {
-    cursor: default !important;
+    cursor: var(--cursor-default, default) !important;
     /* Allow most pointer events to pass through to whiteboard for panning */
     pointer-events: none !important;
 }
@@ -35,7 +31,7 @@
 /* But re-enable pointer events for the lock indicator to allow context menu */
 .humbug-renderer.locked .lock-indicator {
     pointer-events: auto;
-    cursor: context-menu;
+    cursor: var(--cursor-pointer, context-menu);
 }
 
 /* When shift is held, make humbugs appear non-interactive */
@@ -46,13 +42,11 @@
 
 /* When shift is held for panning, show grab cursor even over humbugs */
 .infinite-whiteboard-container.shift-pan-mode .humbug-renderer {
-    cursor: -webkit-grab !important;
-    cursor: grab !important;
+    cursor: var(--cursor-grab, grab) !important;
 }
 
 .infinite-whiteboard-container.shift-pan-mode:active .humbug-renderer {
-    cursor: -webkit-grabbing !important;
-    cursor: grabbing !important;
+    cursor: var(--cursor-grabbing, grabbing) !important;
 }
 
 .humbug-element {
@@ -135,7 +129,38 @@
 
 .humbug-token-content {
     pointer-events: none; /* Let parent humbug handle pointer events */
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    /* Tokens float above the map: a tight contact shadow plus a soft,
+       offset cast shadow, as if lit from the upper left */
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.35),
+        2px 5px 8px -1px rgba(0, 0, 0, 0.35),
+        4px 10px 16px -4px rgba(0, 0, 0, 0.25);
+    transition:
+        transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.2s ease;
+}
+
+/* Hover: rise a little */
+.humbug-renderer:hover .humbug-token-content {
+    transform: translateY(-1px);
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.3),
+        3px 7px 10px -1px rgba(0, 0, 0, 0.32),
+        6px 14px 20px -4px rgba(0, 0, 0, 0.22);
+}
+
+/* Dragging: picked up off the table */
+.humbug-renderer.dragging .humbug-token-content {
+    transform: translateY(-3px) scale(1.06);
+    box-shadow:
+        0 2px 3px rgba(0, 0, 0, 0.2),
+        5px 12px 14px -2px rgba(0, 0, 0, 0.3),
+        10px 22px 28px -6px rgba(0, 0, 0, 0.22);
+}
+
+.humbug-renderer.locked .humbug-token-content,
+.humbug-renderer.shift-disabled .humbug-token-content {
+    transform: none;
 }
 
 .humbug-token-image {
@@ -179,7 +204,7 @@
     align-items: center;
     justify-content: center;
     font-size: 10px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     pointer-events: auto;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
@@ -187,11 +212,11 @@
 .rotate-handle {
     top: -10px;
     right: -10px;
-    cursor: grab;
+    cursor: var(--cursor-grab, grab);
 }
 
 .rotate-handle:active {
-    cursor: grabbing;
+    cursor: var(--cursor-grabbing, grabbing);
 }
 
 .delete-handle {
@@ -202,7 +227,7 @@
 }
 
 .rotate-handle.snap-rotate {
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     background-color: #007bff;
     color: white;
     border-color: #007bff;
@@ -314,4 +339,20 @@
     align-items: center;
     justify-content: center;
     font-size: 10px;
+}
+
+/* Stacking context for all humbugs (see HumbugManager) */
+.humbug-layer {
+    position: absolute;
+    inset: 0;
+    isolation: isolate;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Member of an area (marquee) selection */
+.humbug-renderer.multi-selected {
+    outline: 2px dashed #6c2fcf;
+    outline-offset: 3px;
+    border-radius: 4px;
 }

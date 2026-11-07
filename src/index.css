@@ -14,3 +14,42 @@ body {
     height: 100vh;
     width: 100vw;
 }
+
+/* Retro pixel cursors (see src/cursors/pixel-cursors.ts). :where() keeps
+   these at zero specificity so component rules still win. */
+html,
+body {
+    cursor: var(--cursor-default, default);
+}
+
+:where(
+        button:not(:disabled),
+        select,
+        summary,
+        a[href],
+        input:is(
+                [type="range"],
+                [type="color"],
+                [type="checkbox"],
+                [type="radio"],
+                [type="file"]
+            )
+    ) {
+    cursor: var(--cursor-pointer, pointer);
+}
+
+:where(
+        input:not(
+                [type="range"],
+                [type="color"],
+                [type="checkbox"],
+                [type="radio"],
+                [type="file"],
+                [type="button"],
+                [type="submit"]
+            ),
+        textarea,
+        [contenteditable="true"]
+    ) {
+    cursor: text;
+}

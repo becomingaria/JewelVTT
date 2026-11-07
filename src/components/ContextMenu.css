@@ -9,7 +9,9 @@
 }
 
 .context-menu {
-    position: fixed;
+    /* Absolute within the board, like the humbug context menu, so the
+       container-relative click position lines up with the cursor */
+    position: absolute;
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
@@ -38,13 +40,13 @@
 .context-menu-option {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     width: 100%;
-    padding: 10px 12px;
+    padding: 8px 12px;
     background: none;
     border: none;
     text-align: left;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     font-size: 14px;
     color: #333;
     transition: background-color 0.15s ease;
@@ -60,9 +62,12 @@
 }
 
 .option-icon {
-    font-size: 16px;
-    width: 20px;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: #444;
 }
 
 .option-label {

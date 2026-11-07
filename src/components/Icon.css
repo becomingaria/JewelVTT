@@ -1,0 +1,427 @@
+/* ---------------------------------------------------------------------------
+ * Animated icon set (see Icon.tsx)
+ * Icons rest still and act out their function while their host is hovered
+ * or keyboard-focused. Hosts: any button / link / [role=button] / .jicon-host.
+ * Add .jicon-play to an icon to play its animation without hover.
+ * ------------------------------------------------------------------------- */
+
+.jicon {
+    --ji-accent: #3498db;
+    --ji-soft: rgba(52, 152, 219, 0.12);
+    display: inline-block;
+    flex-shrink: 0;
+    vertical-align: middle;
+    overflow: visible;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.jicon * {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+/* Colour helpers */
+.jicon .ji-accent-stroke {
+    stroke: var(--ji-accent);
+}
+.jicon .ji-accent-fill {
+    fill: var(--ji-accent);
+    fill-opacity: 0.25;
+}
+.jicon .ji-accent-fill-solid {
+    fill: var(--ji-accent);
+}
+.jicon .ji-soft-fill {
+    fill: var(--ji-soft);
+}
+
+/* Per-icon accents */
+.jicon--text { --ji-accent: #3498db; }
+.jicon--image { --ji-accent: #27ae60; }
+.jicon--map { --ji-accent: #8e44ad; --ji-soft: rgba(245, 176, 65, 0.22); }
+.jicon--pin { --ji-accent: #e74c3c; }
+.jicon--swatch { --ji-accent: #3498db; }
+.jicon--grid { --ji-accent: #3498db; }
+.jicon--home { --ji-accent: #a0522d; --ji-soft: rgba(245, 176, 65, 0.25); }
+.jicon--flag { --ji-accent: #e67e22; }
+.jicon--edit { --ji-accent: #3498db; }
+.jicon--to-front,
+.jicon--to-back { --ji-accent: #3498db; }
+.jicon--new-board { --ji-accent: #27ae60; --ji-soft: rgba(52, 152, 219, 0.08); }
+.jicon--export { --ji-accent: #3498db; }
+.jicon--import { --ji-accent: #27ae60; }
+.jicon--brush { --ji-accent: #9b59b6; }
+.jicon--bucket { --ji-accent: #3498db; }
+.jicon--library { --ji-accent: #c0392b; --ji-soft: rgba(52, 152, 219, 0.15); }
+.jicon--trail { --ji-accent: #e67e22; }
+.jicon--save { --ji-accent: #5b4bd6; }
+.jicon--document { --ji-accent: #3498db; }
+.jicon--link { --ji-accent: #16a085; }
+.jicon--help { --ji-accent: #8e44ad; }
+.jicon--scribble { --ji-accent: #c0392b; }
+.jicon--layers { --ji-accent: #3498db; }
+.jicon--select { --ji-accent: #3498db; }
+.jicon--connector { --ji-accent: #8e44ad; }
+.jicon--eye { --ji-accent: #2e86c1; }
+
+/* Resting details that need a base state */
+.jicon .ji-route {
+    stroke-dasharray: 2 2.2;
+}
+.jicon .ji-smoke {
+    opacity: 0;
+}
+.jicon .ji-crumbs {
+    opacity: 0;
+}
+.jicon .ji-swatch {
+    fill: var(--ji-accent);
+}
+.jicon--grid.is-off .ji-snap-block {
+    fill: none;
+    stroke: var(--ji-accent);
+    stroke-dasharray: 1.5 1.2;
+}
+.jicon .ji-stroke-trail,
+.jicon .ji-scribble {
+    stroke-dasharray: 12;
+    stroke-dashoffset: 12;
+}
+
+/* ---------------------------------------------------------------- playing */
+:is(
+        :is(button, a, [role="button"], .jicon-host):is(:hover, :focus-visible)
+            .jicon,
+        .jicon.jicon-play
+    ) {
+    transform: scale(1.1);
+
+    /* Text: lines type themselves out, caret blinks */
+    & .ji-line {
+        stroke-dasharray: 16;
+        animation: ji-draw 0.9s ease-out both;
+    }
+    & .ji-l2 { animation-delay: 0.12s; }
+    & .ji-l3 { animation-delay: 0.24s; }
+    & .ji-caret { animation: ji-blink 0.8s steps(1) infinite; }
+
+    /* Image: the sun rises over the hills */
+    & .ji-sun { animation: ji-sunrise 0.9s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    /* Map: the route marches toward the X */
+    & .ji-route { animation: ji-march 0.6s linear infinite; }
+    & .ji-x { animation: ji-pulse 0.6s ease-in-out infinite alternate; }
+    & .ji-trail-dot { animation: ji-pulse 0.5s ease-in-out infinite alternate; }
+
+    /* Token: coin flips */
+    & .ji-coin { animation: ji-flip 0.9s ease-in-out; }
+
+    /* Pin: drops and bounces */
+    & .ji-pin { animation: ji-bounce 0.7s cubic-bezier(0.28, 0.84, 0.42, 1) infinite; }
+    & .ji-pin-shadow { animation: ji-squish 0.7s cubic-bezier(0.28, 0.84, 0.42, 1) infinite; }
+
+    /* Swatch: cycles through colours */
+    & .ji-swatch { animation: ji-hues 2.4s linear infinite; }
+
+    /* Grid: block jiggles then snaps into its cell */
+    & .ji-snap-block { animation: ji-snap 0.9s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    /* Home: chimney smoke */
+    & .ji-smoke-1 { animation: ji-smoke 1.6s ease-out infinite; }
+    & .ji-smoke-2 { animation: ji-smoke 1.6s ease-out 0.8s infinite; }
+    & .ji-door { animation: ji-door 1.2s ease-in-out; }
+
+    /* Flag: waves in the wind */
+    & .ji-cloth {
+        transform-origin: left center;
+        animation: ji-wave 0.9s ease-in-out infinite;
+    }
+
+    /* Edit: pencil scribbles */
+    & .ji-pencil { animation: ji-write 0.6s ease-in-out infinite; }
+    & .ji-scribble { animation: ji-draw-12 0.9s ease-out forwards; }
+
+    /* Lock: shackle clicks shut / unlock: shackle swings open */
+    & .ji-shackle { animation: ji-clack 0.7s ease-in-out; }
+    & .ji-shackle-open {
+        transform-origin: left bottom;
+        animation: ji-swing 0.8s ease-in-out;
+    }
+
+    /* Layer order chevrons nudge in their direction */
+    & .ji-chev-up { animation: ji-nudge-up 0.8s ease-in-out infinite; }
+    & .ji-chev-down { animation: ji-nudge-down 0.8s ease-in-out infinite; }
+    & .ji-c2 { animation-delay: 0.12s; }
+
+    /* Trash: lid lifts */
+    & .ji-lid {
+        transform-origin: right bottom;
+        animation: ji-lid 0.9s ease-in-out;
+        animation-fill-mode: both;
+    }
+
+    /* New board: sparkle pops */
+    & .ji-sparkle { animation: ji-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    /* Export / import: arrow travels out of / into the tray */
+    & .ji-arrow-up { animation: ji-rise 1s ease-in infinite; }
+    & .ji-arrow-down { animation: ji-fall 1s ease-in infinite; }
+
+    /* Brush: paints a stroke */
+    & .ji-brush {
+        transform-origin: right top;
+        animation: ji-paint 0.7s ease-in-out infinite alternate;
+    }
+    & .ji-stroke-trail { animation: ji-draw-12 0.8s ease-out forwards; }
+
+    /* Eraser: rubs back and forth, leaving crumbs */
+    & .ji-eraser { animation: ji-rub 0.35s ease-in-out infinite alternate; }
+    & .ji-crumbs { animation: ji-crumbs 0.7s ease-out infinite; }
+
+    /* Bucket: tips and pours */
+    & .ji-bucket {
+        transform-origin: left bottom;
+        animation: ji-tip 1.2s ease-in-out infinite;
+    }
+    & .ji-drip { animation: ji-drip 1.2s ease-in infinite; }
+
+    /* Hand: friendly wave */
+    & .ji-hand {
+        transform-origin: center bottom;
+        animation: ji-wave-hand 0.8s ease-in-out infinite;
+    }
+
+    /* Rotate & close */
+    & .ji-spin { animation: ji-spin 0.8s cubic-bezier(0.34, 1.3, 0.64, 1); }
+    & .ji-x-spin { animation: ji-quarter 0.35s ease-out forwards; }
+
+    /* Save: disk shutter slides; open: folder flap swings */
+    & .ji-shutter { animation: ji-shutter 0.9s ease-in-out; }
+    & .ji-flap {
+        transform-origin: left bottom;
+        animation: ji-flap 0.9s ease-in-out;
+    }
+
+    /* Link: chain halves pull together */
+    & .ji-link-a { animation: ji-pull-a 0.7s ease-in-out infinite alternate; }
+    & .ji-link-b { animation: ji-pull-b 0.7s ease-in-out infinite alternate; }
+
+    /* Help: question mark bobs */
+    & .ji-qmark { animation: ji-bounce 0.8s ease-in-out infinite; }
+
+    /* Scribble: squiggle draws, pencil wiggles */
+    & .ji-scribble-line {
+        stroke-dasharray: 24;
+        animation: ji-draw-24 0.9s ease-out both;
+    }
+
+    /* Layers: sheets fan apart */
+    & .ji-layer-1 { animation: ji-nudge-up 0.9s ease-in-out infinite; }
+    & .ji-layer-2 { animation: ji-nudge-down 0.9s ease-in-out infinite; }
+
+    /* Select: marching ants */
+    & .ji-ants { animation: ji-march 0.5s linear infinite; }
+    & .ji-select-arrow { animation: ji-write 0.6s ease-in-out infinite; }
+
+    /* Connector: wire draws between boxes */
+    & .ji-wire {
+        stroke-dasharray: 14;
+        animation: ji-draw-14 0.8s ease-out both;
+    }
+
+    /* Eye: looks around */
+    & .ji-pupil { animation: ji-look 1.4s ease-in-out infinite; }
+
+    /* Library: a book slides off the shelf */
+    & .ji-book {
+        transform-origin: left bottom;
+        animation: ji-book 0.8s ease-in-out forwards;
+    }
+}
+
+/* Snap-rotate handles turn a quarter instead of a full spin */
+.jicon.ji-quarter-turn .ji-spin {
+    animation-name: ji-quarter !important;
+}
+
+/* --------------------------------------------------------------- keyframes */
+@keyframes ji-draw {
+    from { stroke-dashoffset: 16; }
+    to { stroke-dashoffset: 0; }
+}
+@keyframes ji-draw-12 {
+    from { stroke-dashoffset: 12; }
+    to { stroke-dashoffset: 0; }
+}
+@keyframes ji-blink {
+    50% { opacity: 0; }
+}
+@keyframes ji-sunrise {
+    from { transform: translateY(5px); opacity: 0.2; }
+    to { transform: translateY(0); opacity: 1; }
+}
+@keyframes ji-march {
+    to { stroke-dashoffset: -8.4; }
+}
+@keyframes ji-pulse {
+    to { transform: scale(1.35); }
+}
+@keyframes ji-flip {
+    0% { transform: scaleX(1); }
+    25% { transform: scaleX(0.05); }
+    50% { transform: scaleX(-1); }
+    75% { transform: scaleX(0.05); }
+    100% { transform: scaleX(1); }
+}
+@keyframes ji-bounce {
+    0%, 100% { transform: translateY(0); }
+    45% { transform: translateY(-4px); }
+}
+@keyframes ji-squish {
+    0%, 100% { transform: scaleX(1); opacity: 0.25; }
+    45% { transform: scaleX(0.55); opacity: 0.12; }
+}
+@keyframes ji-hues {
+    0%, 100% { fill: #3498db; }
+    20% { fill: #9b59b6; }
+    40% { fill: #e74c3c; }
+    60% { fill: #f5b041; }
+    80% { fill: #2ecc71; }
+}
+@keyframes ji-snap {
+    0% { transform: translate(-4px, -3px) rotate(-12deg); }
+    40% { transform: translate(3px, 2px) rotate(8deg); }
+    70% { transform: translate(0, 0) rotate(0) scale(1.15); }
+    100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes ji-smoke {
+    0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+    20% { opacity: 0.55; }
+    100% { transform: translate(1.5px, -6px) scale(1.8); opacity: 0; }
+}
+@keyframes ji-door {
+    0%, 100% { transform: scaleX(1); }
+    40%, 60% { transform: scaleX(0.35); }
+}
+@keyframes ji-wave {
+    0%, 100% { transform: skewY(0) scaleX(1); }
+    33% { transform: skewY(-7deg) scaleX(0.94); }
+    66% { transform: skewY(5deg) scaleX(0.97); }
+}
+@keyframes ji-write {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    25% { transform: translate(-1px, 1px) rotate(-6deg); }
+    75% { transform: translate(1px, 0) rotate(4deg); }
+}
+@keyframes ji-clack {
+    0%, 100% { transform: translateY(0); }
+    35% { transform: translateY(-3px); }
+    55% { transform: translateY(0.6px); }
+}
+@keyframes ji-swing {
+    0%, 100% { transform: rotate(0); }
+    40% { transform: rotate(-22deg); }
+    70% { transform: rotate(-12deg); }
+}
+@keyframes ji-nudge-up {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2.5px); }
+}
+@keyframes ji-nudge-down {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(2.5px); }
+}
+@keyframes ji-lid {
+    0%, 100% { transform: rotate(0) translateY(0); }
+    30%, 70% { transform: rotate(18deg) translateY(-2px); }
+}
+@keyframes ji-pop {
+    0% { transform: rotate(0) scale(1); }
+    50% { transform: rotate(90deg) scale(1.35); }
+    100% { transform: rotate(180deg) scale(1); }
+}
+@keyframes ji-rise {
+    0% { transform: translateY(0); opacity: 1; }
+    70% { transform: translateY(-5px); opacity: 0; }
+    71% { transform: translateY(4px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes ji-fall {
+    0% { transform: translateY(-5px); opacity: 0; }
+    40% { opacity: 1; }
+    70% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes ji-paint {
+    from { transform: rotate(-8deg); }
+    to { transform: rotate(10deg); }
+}
+@keyframes ji-rub {
+    from { transform: translate(-1.5px, 1px); }
+    to { transform: translate(1.5px, -1px); }
+}
+@keyframes ji-crumbs {
+    0% { opacity: 0; transform: translateY(-2px); }
+    40% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(1px); }
+}
+@keyframes ji-tip {
+    0%, 100% { transform: rotate(0); }
+    40%, 70% { transform: rotate(16deg); }
+}
+@keyframes ji-drip {
+    0%, 35% { transform: translateY(-5px) scale(0.3); opacity: 0; }
+    55% { opacity: 1; }
+    100% { transform: translateY(1px) scale(1); opacity: 0.9; }
+}
+@keyframes ji-wave-hand {
+    0%, 100% { transform: rotate(0); }
+    25% { transform: rotate(-14deg); }
+    75% { transform: rotate(10deg); }
+}
+@keyframes ji-spin {
+    to { transform: rotate(360deg); }
+}
+@keyframes ji-quarter {
+    to { transform: rotate(90deg); }
+}
+@keyframes ji-shutter {
+    0%, 100% { transform: translateX(0); }
+    40%, 60% { transform: translateX(-2.5px); }
+}
+@keyframes ji-flap {
+    0%, 100% { transform: skewX(0) scaleY(1); }
+    45%, 60% { transform: skewX(-10deg) scaleY(0.8); }
+}
+@keyframes ji-pull-a {
+    from { transform: translate(1px, -1px); }
+    to { transform: translate(0, 0); }
+}
+@keyframes ji-pull-b {
+    from { transform: translate(-1px, 1px); }
+    to { transform: translate(0, 0); }
+}
+@keyframes ji-draw-24 {
+    from { stroke-dashoffset: 24; }
+    to { stroke-dashoffset: 0; }
+}
+@keyframes ji-draw-14 {
+    from { stroke-dashoffset: 14; }
+    to { stroke-dashoffset: 0; }
+}
+@keyframes ji-look {
+    0%, 100% { transform: translateX(0); }
+    30% { transform: translateX(-1.5px); }
+    70% { transform: translateX(1.5px); }
+}
+@keyframes ji-book {
+    to { transform: rotate(-14deg) translateX(-1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .jicon,
+    .jicon * {
+        animation: none !important;
+        transition: none !important;
+    }
+}

@@ -1,0 +1,26 @@
+.scribble-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2; /* above humbugs (z 0 layer), below spot flags and menus */
+    pointer-events: none;
+    overflow: visible;
+}
+
+.scribble-overlay path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* While the pencil is on, the board shows the pencil cursor */
+.infinite-whiteboard-container.scribble-pencil,
+.infinite-whiteboard-container.scribble-pencil * {
+    cursor: var(--cursor-pencil, crosshair) !important;
+}
+
+.infinite-whiteboard-container.scribble-eraser,
+.infinite-whiteboard-container.scribble-eraser * {
+    cursor: var(--cursor-erase, crosshair) !important;
+}

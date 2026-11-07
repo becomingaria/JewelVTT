@@ -1,5 +1,6 @@
 import html2canvas from "html2canvas"
 import type { Humbug } from "../types/humbug.types"
+import { showToast } from "./toast"
 
 export interface BoardExportData {
     version: string
@@ -48,7 +49,8 @@ export function calculateHumbugsBounds(
             humbug.type === "image" ||
             humbug.type === "solid-color" ||
             humbug.type === "map" ||
-            humbug.type === "token"
+            humbug.type === "token" ||
+            humbug.type === "document"
         ) {
             width = humbug.size.width
             height = humbug.size.height
@@ -157,7 +159,7 @@ export async function exportBoardAsPNG(
         }, "image/png")
     } catch (error) {
         console.error("Failed to export board:", error)
-        alert("Failed to export board. Please try again.")
+        showToast("Couldn't export the board. Please try again.", "error")
     }
 }
 
@@ -175,8 +177,9 @@ export async function importBoardFromPNG(
         )
 
         if (keys.length === 0) {
-            alert(
-                "No board data found. Please ensure you're importing a file exported from Jewel VTT."
+            showToast(
+                "No board data found. Import a PNG exported from Jewel VTT.",
+                "error"
             )
             return null
         }
@@ -196,8 +199,9 @@ export async function importBoardFromPNG(
         return boardData
     } catch (error) {
         console.error("Failed to import board:", error)
-        alert(
-            "Failed to import board. The file may be corrupted or not a valid Jewel VTT export."
+        showToast(
+            "Couldn't import that board. The file may be damaged or not a Jewel VTT export.",
+            "error"
         )
         return null
     }

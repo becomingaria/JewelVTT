@@ -4,37 +4,65 @@ import type {
     TokenLibraryFolder,
     TokenLibraryToken,
 } from "../types/token-library.types"
+import { Icon } from "./Icon"
 import "./TokenLibraryDrawer.css"
+
+export type LibraryKind = "tokens" | "maps"
+
+interface LibraryInfo {
+    title: string
+    manifest: string
+    folder: string
+    noun: string
+}
+
+const LIBRARY_INFO: Record<LibraryKind, LibraryInfo> = {
+    tokens: {
+        title: "Token Library",
+        manifest: "token-library.json",
+        folder: "public/Token_Library",
+        noun: "tokens",
+    },
+    maps: {
+        title: "Maps Library",
+        manifest: "maps-library.json",
+        folder: "public/Maps_Library",
+        noun: "maps",
+    },
+}
 
 interface TokenLibraryDrawerProps {
     isOpen: boolean
     onClose: () => void
     onSelect: (imageUrl: string, name: string) => void
+    /** Which library to browse (default: tokens) */
+    kind?: LibraryKind
 }
 
 interface SearchResult extends TokenLibraryToken {
     folderLabel: string
 }
 
-const MANIFEST_URL = `${import.meta.env.BASE_URL}token-library.json`
 const MAX_SEARCH_RESULTS = 150
 
 const resolveUrl = (url: string) => `${import.meta.env.BASE_URL}${url}`
 
 // Cached across drawer openings so the library is only fetched once per session
-let manifestPromise: Promise<TokenLibraryFolder> | null = null
+const manifestPromises = new Map<string, Promise<TokenLibraryFolder>>()
 
-const loadManifest = () => {
+const loadManifest = (manifest: string) => {
+    let manifestPromise = manifestPromises.get(manifest)
     if (!manifestPromise) {
-        manifestPromise = fetch(MANIFEST_URL)
+        manifestPromise = fetch(`${import.meta.env.BASE_URL}${manifest}`)
             .then((res) => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`)
                 return res.json() as Promise<TokenLibraryFolder>
             })
             .catch((error) => {
-                manifestPromise = null // allow retry
+                manifestPromises.delete(manifest) // allow retry
                 throw error
             })
+        manifestPromises.set(manifest, manifestPromise)
     }
     return manifestPromise
 }
@@ -75,7 +103,9 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
     isOpen,
     onClose,
     onSelect,
+    kind = "tokens",
 }) => {
+    const info = LIBRARY_INFO[kind]
     const [library, setLibrary] = useState<TokenLibraryFolder | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [reloadKey, setReloadKey] = useState(0)
@@ -89,7 +119,7 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
         if (!isOpen || library) return
         let cancelled = false
         setError(null)
-        loadManifest()
+        loadManifest(info.manifest)
             .then((manifest) => {
                 if (!cancelled) setLibrary(manifest)
             })
@@ -99,7 +129,7 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
         return () => {
             cancelled = true
         }
-    }, [isOpen, library, reloadKey])
+    }, [isOpen, library, reloadKey, info.manifest])
 
     // Focus search and close on Escape while open
     useEffect(() => {
@@ -154,7 +184,7 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
                     }
                 >
                     <img
-                        src={resolveUrl(token.url)}
+                        src={resolveUrl(token.thumb ?? token.url)}
                         alt={token.name}
                         loading='lazy'
                         decoding='async'
@@ -194,7 +224,7 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
             return (
                 <div className='token-library-message'>
                     The library is empty. Add images to{" "}
-                    <code>public/Token_Library</code> to see them here.
+                    <code>{info.folder}</code> to see them here.
                 </div>
             )
         }
@@ -203,7 +233,7 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
             if (searchResults.length === 0) {
                 return (
                     <div className='token-library-message'>
-                        No tokens match “{search.trim()}”.
+                        No {info.noun} match “{search.trim()}”.
                     </div>
                 )
             }
@@ -240,7 +270,8 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
                                             {preview && (
                                                 <img
                                                     src={resolveUrl(
-                                                        preview.url
+                                                        preview.thumb ??
+                                                            preview.url
                                                     )}
                                                     alt=''
                                                     loading='lazy'
@@ -280,19 +311,19 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
         <>
             <div className='token-library-overlay' onClick={onClose} />
             <aside
-                className='token-library-drawer'
+                className={`token-library-drawer token-library-${kind}`}
                 role='dialog'
-                aria-label='Token library'
+                aria-label={info.title}
             >
                 <div className='token-library-header'>
-                    <h3>Token Library</h3>
+                    <h3>{info.title}</h3>
                     <button
                         type='button'
                         className='token-library-close'
                         onClick={onClose}
-                        aria-label='Close token library'
+                        aria-label={`Close ${info.title}`}
                     >
-                        ×
+                        <Icon name='close' size={20} />
                     </button>
                 </div>
 
@@ -303,8 +334,8 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
                         className='token-library-search'
                         placeholder={
                             library
-                                ? `Search ${library.totalTokens} tokens…`
-                                : "Search tokens…"
+                                ? `Search ${library.totalTokens} ${info.noun}…`
+                                : `Search ${info.noun}…`
                         }
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}

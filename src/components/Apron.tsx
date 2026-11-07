@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import { Icon } from "./Icon"
 import "./Apron.css"
 
 export type PaintTool = "paint" | "eraser" | "dump" | null
@@ -114,7 +115,7 @@ export const Apron: React.FC<ApronProps> = ({
                         onClick={() => handleToolSelect("paint")}
                         title='Paint Tool - Click squares to fill with color'
                     >
-                        🖌️
+                        <Icon name='brush' size={26} />
                     </button>
 
                     <button
@@ -124,7 +125,7 @@ export const Apron: React.FC<ApronProps> = ({
                         onClick={() => handleToolSelect("eraser")}
                         title='Eraser Tool - Click squares to erase color'
                     >
-                        🧽
+                        <Icon name='eraser' size={26} />
                     </button>
 
                     <button
@@ -132,7 +133,7 @@ export const Apron: React.FC<ApronProps> = ({
                         onClick={() => handleToolSelect("dump")}
                         title='Dump Fill - Fill entire board with selected color'
                     >
-                        🪣
+                        <Icon name='bucket' size={26} />
                     </button>
 
                     <button
@@ -142,7 +143,7 @@ export const Apron: React.FC<ApronProps> = ({
                         onClick={() => handleToolSelect(null)}
                         title='No Tool - Normal interaction mode'
                     >
-                        ✋
+                        <Icon name='hand' size={26} />
                     </button>
                 </div>
             </div>

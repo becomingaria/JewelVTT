@@ -2,6 +2,12 @@ import React, { useState, useRef, useEffect, useCallback } from "react"
 import type { HumbugType, Humbug } from "../types/humbug.types"
 import { ImageCropper } from "./ImageCropper"
 import { TokenLibraryDrawer } from "./TokenLibraryDrawer"
+import { Icon } from "./Icon"
+import {
+    LARGE_FILE_BYTES,
+    formatBytes,
+    safeHttpUrl,
+} from "../utils/documents"
 import "./HumbugModal.css"
 
 interface HumbugModalProps {
@@ -54,8 +60,24 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
     const [tokenImageUrl, setTokenImageUrl] = useState("")
     const [tokenImageFile, setTokenImageFile] = useState<File | null>(null)
     const [borderColor, setBorderColor] = useState("#007acc")
-    const [borderWidth, setBorderWidth] = useState(4)
+    const [borderWidth, setBorderWidth] = useState(2)
+
+    // Document-specific state
+    const [docTitle, setDocTitle] = useState("")
+    const [docSource, setDocSource] = useState<"link" | "file">("link")
+    const [docUrl, setDocUrl] = useState("")
+    const [docNote, setDocNote] = useState("")
+    const [docFile, setDocFile] = useState<{
+        data: string
+        name: string
+        mime: string
+        bytes: number
+    } | null>(null)
+    const docFileInputRef = useRef<HTMLInputElement>(null)
     const [showTokenLibrary, setShowTokenLibrary] = useState(false)
+    const [showMapLibrary, setShowMapLibrary] = useState(false)
+    // Width / height of the chosen map image, so new maps keep their shape
+    const [mapAspect, setMapAspect] = useState<number | null>(null)
 
     // Cropping state
     const [showCropper, setShowCropper] = useState(false)
@@ -98,6 +120,22 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                 setSize(existingHumbug.size)
                 setBorderColor(existingHumbug.borderColor)
                 setBorderWidth(existingHumbug.borderWidth)
+            } else if (existingHumbug.type === "document") {
+                setDocTitle(existingHumbug.title)
+                setDocUrl(existingHumbug.url ?? "")
+                setDocNote(existingHumbug.note ?? "")
+                setDocSource(existingHumbug.fileData ? "file" : "link")
+                setDocFile(
+                    existingHumbug.fileData
+                        ? {
+                              data: existingHumbug.fileData,
+                              name: existingHumbug.fileName ?? "file",
+                              mime: existingHumbug.mimeType ?? "",
+                              bytes: 0,
+                          }
+                        : null
+                )
+                setSize(existingHumbug.size)
             }
         } else {
             // Reset to defaults for new humbug
@@ -118,10 +156,35 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
             setTokenImageUrl("")
             setTokenImageFile(null)
             setBorderColor("#007acc")
-            setBorderWidth(4)
+            setBorderWidth(2)
+            setDocTitle("")
+            setDocSource("link")
+            setDocUrl("")
+            setDocNote("")
+            setDocFile(null)
         }
         setShowTokenLibrary(false)
+        setShowMapLibrary(false)
     }, [existingHumbug, isOpen])
+
+    // Measure the map image so a new map isn't squashed into a square
+    useEffect(() => {
+        if (!mapImageUrl) {
+            setMapAspect(null)
+            return
+        }
+        let cancelled = false
+        const img = new Image()
+        img.onload = () => {
+            if (!cancelled && img.naturalWidth && img.naturalHeight) {
+                setMapAspect(img.naturalWidth / img.naturalHeight)
+            }
+        }
+        img.src = mapImageUrl
+        return () => {
+            cancelled = true
+        }
+    }, [mapImageUrl])
 
     const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -164,13 +227,24 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
     }
 
     const handleLibraryTokenSelect = (url: string) => {
-        setTokenImageUrl(url)
+        // Show plain spaces etc. in the URL field; the browser re-encodes
+        // when loading. decodeURI leaves escaped "#"/"?" intact.
+        setTokenImageUrl(decodeURI(url))
         setTokenImageFile(null)
         if (tokenFileInputRef.current) tokenFileInputRef.current.value = ""
         setShowTokenLibrary(false)
     }
 
     const closeTokenLibrary = useCallback(() => setShowTokenLibrary(false), [])
+
+    const handleLibraryMapSelect = (url: string) => {
+        setMapImageUrl(decodeURI(url))
+        setMapImageFile(null)
+        if (mapFileInputRef.current) mapFileInputRef.current.value = ""
+        setShowMapLibrary(false)
+    }
+
+    const closeMapLibrary = useCallback(() => setShowMapLibrary(false), [])
 
     const handleImageUrlCrop = () => {
         if (imageUrl) {
@@ -277,7 +351,14 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                     imageUrl: mapImageUrl,
                     imageFile: mapImageFile,
                     showGrid,
-                    size: { width: 1000, height: 1000 }, // Large default size for maps
+                    // New maps: 1000 wide, keeping the image's proportions.
+                    // Edits keep whatever size the map has been resized to.
+                    size: existingHumbug
+                        ? size
+                        : {
+                              width: 1000,
+                              height: Math.round(1000 / (mapAspect ?? 1)),
+                          },
                 }
                 break
             case "token":
@@ -286,9 +367,27 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                     imageFile: tokenImageFile,
                     borderColor,
                     borderWidth,
-                    size: { width: 32, height: 32 }, // Grid-aligned token size
+                    // New tokens fill one grid square; edits keep their size
+                    size: existingHumbug ? size : { width: 32, height: 32 },
                 }
                 break
+            case "document": {
+                const link = safeHttpUrl(docUrl)
+                const useFile = docSource === "file" && docFile
+                const fallbackTitle = useFile
+                    ? docFile.name.replace(/\.[^.]+$/, "")
+                    : link?.hostname.replace(/^www\./, "") ?? "Document"
+                specificData = {
+                    title: docTitle.trim() || fallbackTitle,
+                    note: docNote.trim() || undefined,
+                    url: useFile ? undefined : link?.href,
+                    fileData: useFile ? docFile.data : undefined,
+                    fileName: useFile ? docFile.name : undefined,
+                    mimeType: useFile ? docFile.mime : undefined,
+                    size: existingHumbug ? size : { width: 240, height: 96 },
+                }
+                break
+            }
         }
 
         onCreate({ ...baseData, ...specificData })
@@ -501,13 +600,25 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                                 onChange={handleMapImageFileChange}
                                 className='file-input'
                             />
-                            <button
-                                type='button'
-                                onClick={() => mapFileInputRef.current?.click()}
-                                className='file-button'
-                            >
-                                Choose File
-                            </button>
+                            <div className='file-button-row'>
+                                <button
+                                    type='button'
+                                    onClick={() =>
+                                        mapFileInputRef.current?.click()
+                                    }
+                                    className='file-button'
+                                >
+                                    Choose File
+                                </button>
+                                <button
+                                    type='button'
+                                    onClick={() => setShowMapLibrary(true)}
+                                    className='file-button file-button-icon'
+                                >
+                                    <Icon name='map' size={18} />
+                                    Select from Library
+                                </button>
+                            </div>
                         </div>
 
                         <div className='form-separator'>or</div>
@@ -583,8 +694,9 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                                 <button
                                     type='button'
                                     onClick={() => setShowTokenLibrary(true)}
-                                    className='file-button'
+                                    className='file-button file-button-icon'
                                 >
+                                    <Icon name='library' size={18} />
                                     Select from Library
                                 </button>
                             </div>
@@ -654,6 +766,122 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                     </div>
                 )
 
+            case "document": {
+                const urlInvalid = docUrl.trim() !== "" && !safeHttpUrl(docUrl)
+                return (
+                    <div className='humbug-modal-section'>
+                        <h4>Document or Link</h4>
+                        <div className='form-group'>
+                            <label>Title:</label>
+                            <input
+                                type='text'
+                                className='text-input'
+                                value={docTitle}
+                                onChange={(e) => setDocTitle(e.target.value)}
+                                placeholder='Session notes, Lore wiki, Rules PDF…'
+                            />
+                        </div>
+
+                        <div className='doc-source-toggle' role='tablist'>
+                            <button
+                                type='button'
+                                role='tab'
+                                aria-selected={docSource === "link"}
+                                className={docSource === "link" ? "active" : ""}
+                                onClick={() => setDocSource("link")}
+                            >
+                                <Icon name='link' size={18} /> Link
+                            </button>
+                            <button
+                                type='button'
+                                role='tab'
+                                aria-selected={docSource === "file"}
+                                className={docSource === "file" ? "active" : ""}
+                                onClick={() => setDocSource("file")}
+                            >
+                                <Icon name='document' size={18} /> File
+                            </button>
+                        </div>
+
+                        {docSource === "link" ? (
+                            <div className='form-group'>
+                                <label>Page URL:</label>
+                                <input
+                                    type='url'
+                                    className='url-input'
+                                    value={docUrl}
+                                    onChange={(e) => setDocUrl(e.target.value)}
+                                    placeholder='https://www.notion.so/…'
+                                />
+                                {urlInvalid && (
+                                    <div className='form-hint form-hint-error'>
+                                        Use a full web address starting with
+                                        https://
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className='form-group'>
+                                <label>File:</label>
+                                <input
+                                    ref={docFileInputRef}
+                                    type='file'
+                                    className='file-input'
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (!file) return
+                                        const reader = new FileReader()
+                                        reader.onload = () =>
+                                            setDocFile({
+                                                data: reader.result as string,
+                                                name: file.name,
+                                                mime: file.type,
+                                                bytes: file.size,
+                                            })
+                                        reader.readAsDataURL(file)
+                                    }}
+                                />
+                                <div className='file-button-row'>
+                                    <button
+                                        type='button'
+                                        className='file-button'
+                                        onClick={() =>
+                                            docFileInputRef.current?.click()
+                                        }
+                                    >
+                                        {docFile ? "Replace File" : "Choose File"}
+                                    </button>
+                                    {docFile && (
+                                        <span className='form-hint'>
+                                            {docFile.name}
+                                            {docFile.bytes > 0 &&
+                                                ` · ${formatBytes(docFile.bytes)}`}
+                                        </span>
+                                    )}
+                                </div>
+                                {docFile && docFile.bytes > LARGE_FILE_BYTES && (
+                                    <div className='form-hint form-hint-error'>
+                                        Large file: it will be stored inside the
+                                        board, making saves slower and bigger.
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className='form-group'>
+                            <label>Note (optional):</label>
+                            <textarea
+                                className='text-input'
+                                rows={2}
+                                value={docNote}
+                                onChange={(e) => setDocNote(e.target.value)}
+                                placeholder='What is this for?'
+                            />
+                        </div>
+                    </div>
+                )
+            }
+
             default:
                 return null
         }
@@ -677,7 +905,7 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                             Humbug
                         </h3>
                         <button className='close-button' onClick={onClose}>
-                            ×
+                            <Icon name='close' size={20} />
                         </button>
                     </div>
 
@@ -755,7 +983,11 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                             className='create-button'
                             onClick={handleCreate}
                             disabled={
-                                type === "image" && !imageUrl && !imageFile
+                                (type === "image" && !imageUrl && !imageFile) ||
+                                (type === "document" &&
+                                    (docSource === "link"
+                                        ? !safeHttpUrl(docUrl)
+                                        : !docFile))
                             }
                         >
                             {existingHumbug ? "Update" : "Create"} Humbug
@@ -769,6 +1001,15 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                     isOpen={showTokenLibrary}
                     onClose={closeTokenLibrary}
                     onSelect={handleLibraryTokenSelect}
+                />
+            )}
+
+            {type === "map" && (
+                <TokenLibraryDrawer
+                    kind='maps'
+                    isOpen={showMapLibrary}
+                    onClose={closeMapLibrary}
+                    onSelect={handleLibraryMapSelect}
                 />
             )}
 

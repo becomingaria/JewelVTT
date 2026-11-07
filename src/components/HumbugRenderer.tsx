@@ -1,10 +1,14 @@
 import React, { useState, useRef } from "react"
 import type { Humbug, Point } from "../types/humbug.types"
+import { Icon } from "./Icon"
+import { DocumentCard } from "./DocumentCard"
 import "./HumbugRenderer.css"
 
 interface HumbugRendererProps {
     humbug: Humbug
     isSelected: boolean
+    /** Part of a marquee (area) selection */
+    isMultiSelected?: boolean
     isDragging?: boolean
     onSelect: (id: string) => void
     onMove: (id: string, newPosition: Point) => void
@@ -28,6 +32,7 @@ interface HumbugRendererProps {
 export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
     humbug,
     isSelected,
+    isMultiSelected = false,
     isDragging = false,
     onSelect,
     onRotate,
@@ -328,11 +333,18 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                     <div
                         className='humbug-map-pin-content'
                         style={{
-                            fontSize: humbug.size * scale,
-                            color: humbug.color,
+                            color: "#333",
                         }}
                     >
-                        📍
+                        <Icon
+                            name='pin'
+                            size={humbug.size * scale}
+                            style={
+                                {
+                                    "--ji-accent": humbug.color,
+                                } as React.CSSProperties
+                            }
+                        />
                         {humbug.label && (
                             <span
                                 className='map-pin-label'
@@ -430,6 +442,9 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                     </div>
                 )
 
+            case "document":
+                return <DocumentCard humbug={humbug} scale={scale} />
+
             default:
                 return null
         }
@@ -440,11 +455,13 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
             ref={elementRef}
             className={`humbug-renderer humbug-element ${
                 isSelected ? "selected" : ""
-            } ${humbug.locked ? "locked" : ""} ${
+            } ${isMultiSelected ? "multi-selected" : ""} ${humbug.locked ? "locked" : ""} ${
                 isDragging ? "dragging" : ""
             } ${interactionMode === "rotating" ? "rotating" : ""} ${
                 interactionMode === "resizing" ? "resizing" : ""
-            } ${isShiftHeld ? "shift-disabled" : ""}`}
+            } ${isShiftHeld ? "shift-disabled" : ""} ${
+                humbug.type === "map-pin" ? "jicon-host" : ""
+            }`}
             style={{
                 position: "absolute",
                 left: worldToScreen(humbug.position.x, humbug.position.y).x,
@@ -454,6 +471,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                 opacity: humbug.opacity,
                 pointerEvents: isShiftHeld ? "none" : "auto",
             }}
+            data-humbug-id={humbug.id}
             onMouseDown={handleMouseDown}
             onDoubleClick={handleDoubleClick}
             onContextMenu={(e) => onContextMenu(e, humbug.id)}
@@ -541,7 +559,13 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                                 : "Drag to rotate"
                         }
                     >
-                        {snapToGridEnabled ? "↻" : "🔄"}
+                        <Icon
+                            name='rotate'
+                            size={14}
+                            className={
+                                snapToGridEnabled ? "ji-quarter-turn" : ""
+                            }
+                        />
                     </button>
                     <button
                         className='delete-handle'
@@ -551,7 +575,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                         }}
                         title='Delete'
                     >
-                        ✕
+                        <Icon name='close' size={13} />
                     </button>
                 </div>
             )}
@@ -563,7 +587,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                     onContextMenu={(e) => onContextMenu(e, humbug.id)}
                     title='Right-click to unlock'
                 >
-                    🔒
+                    <Icon name='lock' size={13} />
                 </div>
             )}
         </div>

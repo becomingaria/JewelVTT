@@ -4,28 +4,28 @@
     height: 100%;
     overflow: hidden;
     background-color: #ffffff;
-    cursor: grab;
+    cursor: var(--cursor-grab, grab);
 }
 
 .infinite-whiteboard-container:active {
-    cursor: grabbing;
+    cursor: var(--cursor-grabbing, grabbing);
 }
 
 .infinite-whiteboard-container.shift-pan-mode {
-    cursor: grab !important;
+    cursor: var(--cursor-grab, grab) !important;
 }
 
 .infinite-whiteboard-container.shift-pan-mode:active {
-    cursor: grabbing !important;
+    cursor: var(--cursor-grabbing, grabbing) !important;
 }
 
 /* Paint tool cursors */
 .infinite-whiteboard-container.paint-mode {
-    cursor: cell; /* Use cell cursor for paint mode */
+    cursor: var(--cursor-paint, cell);
 }
 
 .infinite-whiteboard-container.eraser-mode {
-    cursor: not-allowed; /* Use not-allowed cursor for eraser mode */
+    cursor: var(--cursor-erase, not-allowed);
 }
 
 .infinite-whiteboard-canvas {
@@ -51,4 +51,86 @@
 
 .viewport-info > div {
     margin: 2px 0;
+}
+
+/* Spot markers (flags placed with "Snap to Spot") */
+.spot-markers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 5;
+}
+
+.spot-marker {
+    /* Zero-size anchor exactly on the spot's world position */
+    position: absolute;
+    width: 0;
+    height: 0;
+    color: #5d4037;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3));
+    animation: spot-drop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 26px flag icon: the pole's foot (5.5, 21.5 of 24) sits on the anchor */
+.spot-marker .jicon {
+    position: absolute;
+    left: -6px;
+    top: -23.3px;
+}
+
+.spot-marker-label {
+    position: absolute;
+    left: 16px;
+    top: -26px;
+    padding: 1px 6px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+}
+
+@keyframes spot-drop {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spot-marker {
+        animation: none;
+    }
+}
+
+/* Middle-mouse area selection */
+.area-select-marquee {
+    position: absolute;
+    z-index: 4;
+    pointer-events: none;
+    background: rgba(108, 47, 207, 0.08);
+    /* marching ants */
+    background-image: linear-gradient(90deg, #6c2fcf 50%, transparent 50%),
+        linear-gradient(90deg, #6c2fcf 50%, transparent 50%),
+        linear-gradient(0deg, #6c2fcf 50%, transparent 50%),
+        linear-gradient(0deg, #6c2fcf 50%, transparent 50%);
+    background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+    background-size: 10px 1.5px, 10px 1.5px, 1.5px 10px, 1.5px 10px;
+    background-position: 0 0, 0 100%, 0 0, 100% 0;
+    animation: marquee-ants 0.6s linear infinite;
+}
+
+@keyframes marquee-ants {
+    to {
+        background-position: 10px 0, -10px 100%, 0 -10px, 100% 10px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .area-select-marquee {
+        animation: none;
+    }
 }

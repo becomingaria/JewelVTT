@@ -4,6 +4,7 @@ import type {
     HumbugContextMenuOption,
     Humbug,
 } from "../types/humbug.types"
+import { Icon } from "./Icon"
 import "./HumbugContextMenu.css"
 
 interface HumbugContextMenuProps {
@@ -25,17 +26,17 @@ export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
 
     const getContextMenuOptions = (): HumbugContextMenuOption[] => {
         const baseOptions: HumbugContextMenuOption[] = [
-            { label: "Edit", action: "edit", icon: "✏️" },
+            { label: "Edit", action: "edit", icon: "edit" },
             {
                 label: humbug.locked ? "Unlock" : "Lock",
                 action: humbug.locked ? "unlock" : "lock",
-                icon: humbug.locked ? "🔓" : "🔒",
+                icon: humbug.locked ? "unlock" : "lock",
             },
-            { label: "Bring to Front", action: "bringToFront", icon: "⬆️" },
-            { label: "Send to Back", action: "sendToBack", icon: "⬇️" },
-            { label: "Bring Forward", action: "bringForward", icon: "🔼" },
-            { label: "Send Backward", action: "sendBackward", icon: "🔽" },
-            { label: "Delete", action: "delete", icon: "🗑️" },
+            { label: "Bring to Front", action: "bringToFront", icon: "to-front" },
+            { label: "Send to Back", action: "sendToBack", icon: "to-back" },
+            { label: "Bring Forward", action: "bringForward", icon: "forward" },
+            { label: "Send Backward", action: "sendBackward", icon: "backward" },
+            { label: "Delete", action: "delete", icon: "trash" },
         ]
 
         return baseOptions
@@ -73,7 +74,9 @@ export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
                             }`}
                             onClick={() => handleOptionClick(option.action)}
                         >
-                            <span className='option-icon'>{option.icon}</span>
+                            <span className='option-icon'>
+                                <Icon name={option.icon} />
+                            </span>
                             <span className='option-label'>{option.label}</span>
                         </button>
                     ))}

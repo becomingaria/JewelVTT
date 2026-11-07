@@ -1,10 +1,46 @@
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { InfiniteWhiteboard } from "./components/InfiniteWhiteboard"
 import { TopBar } from "./components/TopBar"
 import { Sidebar } from "./components/Sidebar"
 import { Apron } from "./components/Apron"
 import type { PaintTool } from "./components/Apron"
 import { UndoRedoManager } from "./utils/undo-redo.utils"
+import {
+    ADD_SPOT_EVENT,
+    DELETE_SELECTION_EVENT,
+    SELECT_ALL_EVENT,
+    SPOT_AT_CURSOR_EVENT,
+    createAtCursor,
+    dispatchBoardEvent,
+    flyTo,
+    goHome,
+} from "./utils/view-events"
+import type { Point } from "./types/humbug.types"
+import type { Spot } from "./types/spot.types"
+import type {
+    ScribbleLayer,
+    ScribbleSettings,
+    ScribbleStroke,
+} from "./types/scribble.types"
+import { SCRIBBLE_COLORS } from "./types/scribble.types"
+import { ScribbleToolbar } from "./components/ScribbleToolbar"
+import {
+    openBoardFromFile,
+    restoreAutosaveAndStart,
+    saveBoardToFile,
+    useBoardSlice,
+} from "./utils/board-store"
+import { ToastHost } from "./components/Toast"
+import { showToast } from "./utils/toast"
+import { HowToDialog } from "./components/HowToDialog"
+import { MOD, useHotkeys } from "./utils/hotkeys"
+import {
+    DEFAULT_BOARD_STYLE,
+    BOARD_STYLES,
+    getBoardStyleTexture,
+    getStyleTileWorld,
+    type BoardStyleId,
+} from "./utils/board-styles"
 import "./App.css"
 
 function App() {
@@ -22,6 +58,237 @@ function App() {
 
     // Undo/Redo manager
     const undoRedoManager = useRef(new UndoRedoManager()).current
+    const [boardStyle, setBoardStyle] =
+        useState<BoardStyleId>(DEFAULT_BOARD_STYLE)
+    // A custom uploaded texture overrides the style's generated one
+    const effectiveTexture = useMemo(
+        () => backgroundTexture ?? getBoardStyleTexture(boardStyle),
+        [backgroundTexture, boardStyle]
+    )
+    // Warm the style texture cache in idle time so the picker opens instantly
+    useEffect(() => {
+        const ids = BOARD_STYLES.map((s) => s.id)
+        let handle = 0
+        const next = () => {
+            const id = ids.shift()
+            if (!id) return
+            getBoardStyleTexture(id)
+            handle = window.setTimeout(next, 50)
+        }
+        handle = window.setTimeout(next, 500)
+        return () => window.clearTimeout(handle)
+    }, [])
+
+    const [spots, setSpots] = useState<Spot[]>([])
+    const [editingSpotId, setEditingSpotId] = useState<string | null>(null)
+
+    // ---- Scribble layers
+    const [scribbleLayers, setScribbleLayers] = useState<ScribbleLayer[]>([])
+    const [activeScribbleId, setActiveScribbleId] = useState<string | null>(null)
+    const [scribbleDrawing, setScribbleDrawing] = useState(false)
+    const [scribbleSettings, setScribbleSettings] = useState<ScribbleSettings>({
+        tool: "pencil",
+        color: SCRIBBLE_COLORS[0].value,
+        size: 4,
+    })
+    const activeScribble = scribbleLayers.find((l) => l.id === activeScribbleId)
+
+    const addScribbleLayer = useCallback(() => {
+        const id = `scribble_${Date.now().toString(36)}`
+        setScribbleLayers((prev) => {
+            const used = new Set(prev.map((l) => l.name))
+            let n = 1
+            while (used.has(`Scribble ${n}`)) n++
+            return [...prev, { id, name: `Scribble ${n}`, visible: true, strokes: [] }]
+        })
+        setActiveScribbleId(id)
+        setScribbleDrawing(true)
+        setScribbleSettings((s) => ({ ...s, tool: "pencil" }))
+    }, [])
+
+    const selectScribbleLayer = (id: string) => {
+        if (id === activeScribbleId && scribbleDrawing) {
+            setScribbleDrawing(false)
+            return
+        }
+        setActiveScribbleId(id)
+        setScribbleDrawing(true)
+        // Drawing on a hidden layer would be confusing: show it
+        setScribbleLayers((prev) =>
+            prev.map((l) => (l.id === id ? { ...l, visible: true } : l))
+        )
+    }
+
+    const toggleScribbleVisible = (id: string) =>
+        setScribbleLayers((prev) =>
+            prev.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l))
+        )
+
+    // No confirm dialog: removing a layer can be undone instead
+    const deleteScribbleLayer = (id: string) => {
+        const index = scribbleLayers.findIndex((l) => l.id === id)
+        if (index === -1) return
+        const layer = scribbleLayers[index]
+        setScribbleLayers((prev) => prev.filter((l) => l.id !== id))
+        undoRedoManager.addAction({
+            type: "SCRIBBLE_LAYER_DELETE",
+            timestamp: Date.now(),
+            layer,
+            index,
+        })
+        showToast(`Removed “${layer.name}”. Press ${MOD}Z to undo.`)
+        if (id === activeScribbleId) {
+            setActiveScribbleId(null)
+            setScribbleDrawing(false)
+        }
+    }
+
+    const updateLayerStrokes = (
+        layerId: string,
+        fn: (strokes: ScribbleStroke[]) => ScribbleStroke[]
+    ) =>
+        setScribbleLayers((prev) =>
+            prev.map((l) => (l.id === layerId ? { ...l, strokes: fn(l.strokes) } : l))
+        )
+
+    const handleStrokeComplete = (layerId: string, stroke: ScribbleStroke) => {
+        updateLayerStrokes(layerId, (strokes) => [...strokes, stroke])
+        undoRedoManager.addAction({
+            type: "SCRIBBLE_ADD",
+            timestamp: Date.now(),
+            layerId,
+            stroke,
+        })
+    }
+
+    const handleScribbleErase = (
+        layerId: string,
+        removed: { stroke: ScribbleStroke; index: number }[]
+    ) => {
+        const ids = new Set(removed.map((r) => r.stroke.id))
+        updateLayerStrokes(layerId, (strokes) => strokes.filter((s) => !ids.has(s.id)))
+        undoRedoManager.addAction({
+            type: "SCRIBBLE_ERASE",
+            timestamp: Date.now(),
+            layerId,
+            removed,
+        })
+    }
+
+    // Escape puts the pencil down (but first closes any open menu)
+    useEffect(() => {
+        if (!scribbleDrawing) return
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return
+            if (document.querySelector(".context-menu, .humbug-context-menu")) return
+            setScribbleDrawing(false)
+        }
+        window.addEventListener("keydown", onKey)
+        return () => window.removeEventListener("keydown", onKey)
+    }, [scribbleDrawing])
+
+    // ---- Board persistence: each slice is saved in files and autosave
+    useBoardSlice<Map<string, string>, Record<string, string>>(
+        "paintGrid",
+        paintGrid,
+        (grid) => setPaintGrid(grid ?? new Map()),
+        {
+            serialize: (grid) => Object.fromEntries(grid),
+            deserialize: (obj) => new Map(Object.entries(obj)),
+        }
+    )
+    useBoardSlice("boardStyle", boardStyle, (s) =>
+        setBoardStyle(s ?? DEFAULT_BOARD_STYLE)
+    )
+    useBoardSlice("customTexture", backgroundTexture, (t) =>
+        setBackgroundTexture(t ?? null)
+    )
+    useBoardSlice("textureScale", textureScale, (s) => setTextureScale(s ?? 1))
+    useBoardSlice("spots", spots, (s) => setSpots(s ?? []))
+    useBoardSlice("scribbles", scribbleLayers, (layers) => {
+        setScribbleLayers(layers ?? [])
+        setActiveScribbleId(null)
+        setScribbleDrawing(false)
+    })
+
+    // Restore the last session's board, then keep autosaving
+    useEffect(() => {
+        restoreAutosaveAndStart().then((restored) => {
+            if (restored) showToast("Welcome back — your board was restored")
+        })
+    }, [])
+
+    // A loaded board starts a fresh undo history
+    useEffect(() => {
+        const handleLoaded = () => undoRedoManager.clear()
+        window.addEventListener("jewel:boardLoaded", handleLoaded)
+        return () => window.removeEventListener("jewel:boardLoaded", handleLoaded)
+    }, [undoRedoManager])
+
+    const handleSaveBoard = useCallback(() => {
+        saveBoardToFile()
+        showToast("Board saved to your downloads")
+    }, [])
+
+    const handleOpenBoard = useCallback(() => {
+        openBoardFromFile()
+            .then((loaded) => loaded && showToast("Board opened"))
+            .catch((error: Error) => showToast(error.message, "error"))
+    }, [])
+
+    const [showHowTo, setShowHowTo] = useState(false)
+    const closeHowTo = useCallback(() => setShowHowTo(false), [])
+
+    useHotkeys({
+        save: handleSaveBoard,
+        open: handleOpenBoard,
+        export: () => handleExportBoard(),
+        help: () => setShowHowTo(true),
+        home: goHome,
+        spot: () => dispatchBoardEvent(SPOT_AT_CURSOR_EVENT),
+        "add-text": () => createAtCursor("text"),
+        "add-image": () => createAtCursor("image"),
+        "add-map": () => createAtCursor("map"),
+        "add-token": () => createAtCursor("token"),
+        "add-pin": () => createAtCursor("map-pin"),
+        "add-color": () => createAtCursor("solid-color"),
+        "add-document": () => createAtCursor("document"),
+        scribble: () => {
+            if (scribbleLayers.length === 0) return addScribbleLayer()
+            if (scribbleDrawing) return setScribbleDrawing(false)
+            const id = activeScribble?.id ?? scribbleLayers[scribbleLayers.length - 1].id
+            selectScribbleLayer(id)
+        },
+        delete: () => dispatchBoardEvent(DELETE_SELECTION_EVENT),
+        "select-all": () => dispatchBoardEvent(SELECT_ALL_EVENT),
+    })
+
+    // "Snap to Spot" from the right-click menu: add a spot and name it inline
+    useEffect(() => {
+        const handleAddSpot = (event: Event) => {
+            const { x, y } = (event as CustomEvent<Point>).detail
+            const id = `spot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+            setSpots((prev) => {
+                // Pick the lowest unused "Spot N" for the default name
+                const used = new Set(prev.map((s) => s.name))
+                let n = 1
+                while (used.has(`Spot ${n}`)) n++
+                return [...prev, { id, name: `Spot ${n}`, x, y }]
+            })
+            setEditingSpotId(id)
+        }
+        window.addEventListener(ADD_SPOT_EVENT, handleAddSpot)
+        return () => window.removeEventListener(ADD_SPOT_EVENT, handleAddSpot)
+    }, [])
+
+    const handleSpotRename = (id: string, name: string) => {
+        setSpots((prev) => prev.map((s) => (s.id === id ? { ...s, name } : s)))
+    }
+
+    const handleSpotDelete = (id: string) => {
+        setSpots((prev) => prev.filter((s) => s.id !== id))
+    }
+
 
     const handleSidebarToggle = () => {
         setIsSidebarOpen((prev) => !prev)
@@ -111,6 +378,11 @@ function App() {
         setBackgroundTexture(null)
         setTextureScale(1.0)
         setPaintGrid(new Map())
+        setSpots([])
+        setEditingSpotId(null)
+        setScribbleLayers([])
+        setActiveScribbleId(null)
+        setScribbleDrawing(false)
 
         // Clear undo/redo history
         undoRedoManager.clear()
@@ -168,6 +440,38 @@ function App() {
                     })
                     return newGrid
                 })
+                break
+
+            case "SCRIBBLE_ADD":
+                setScribbleLayers((prev) =>
+                    prev.map((l) =>
+                        l.id === action.layerId
+                            ? { ...l, strokes: l.strokes.filter((s) => s.id !== action.stroke.id) }
+                            : l
+                    )
+                )
+                break
+
+            case "SCRIBBLE_LAYER_DELETE":
+                setScribbleLayers((prev) => {
+                    const layers = [...prev]
+                    layers.splice(Math.min(action.index, layers.length), 0, action.layer)
+                    return layers
+                })
+                break
+
+            case "SCRIBBLE_ERASE":
+                setScribbleLayers((prev) =>
+                    prev.map((l) => {
+                        if (l.id !== action.layerId) return l
+                        const strokes = [...l.strokes]
+                        // Put strokes back where they were, lowest index first
+                        ;[...action.removed]
+                            .sort((a, b) => a.index - b.index)
+                            .forEach((r) => strokes.splice(r.index, 0, r.stroke))
+                        return { ...l, strokes }
+                    })
+                )
                 break
 
             // Humbug actions are handled by the HumbugManager
@@ -239,6 +543,32 @@ function App() {
                 })
                 break
 
+            case "SCRIBBLE_ADD":
+                setScribbleLayers((prev) =>
+                    prev.map((l) =>
+                        l.id === action.layerId
+                            ? { ...l, strokes: [...l.strokes, action.stroke] }
+                            : l
+                    )
+                )
+                break
+
+            case "SCRIBBLE_LAYER_DELETE":
+                setScribbleLayers((prev) => prev.filter((l) => l.id !== action.layer.id))
+                break
+
+            case "SCRIBBLE_ERASE": {
+                const ids = new Set(action.removed.map((r) => r.stroke.id))
+                setScribbleLayers((prev) =>
+                    prev.map((l) =>
+                        l.id === action.layerId
+                            ? { ...l, strokes: l.strokes.filter((s) => !ids.has(s.id)) }
+                            : l
+                    )
+                )
+                break
+            }
+
             // Humbug actions are handled by the HumbugManager
             default: {
                 // Forward to HumbugManager via custom event
@@ -282,7 +612,30 @@ function App() {
 
     return (
         <div className={`app ${showApron ? "apron-visible" : ""}`}>
-            <TopBar onSidebarToggle={handleSidebarToggle} />
+            <TopBar
+                onSidebarToggle={handleSidebarToggle}
+                onGoHome={goHome}
+                spots={spots}
+                editingSpotId={editingSpotId}
+                onEditingSpotChange={setEditingSpotId}
+                onSpotSelect={(spot) => flyTo({ x: spot.x, y: spot.y })}
+                onSpotRename={handleSpotRename}
+                onSpotDelete={handleSpotDelete}
+                scribbleLayers={scribbleLayers}
+                activeScribbleId={activeScribbleId}
+                scribbleDrawing={scribbleDrawing}
+                onScribbleSelect={selectScribbleLayer}
+                onScribbleToggleVisible={toggleScribbleVisible}
+                onScribbleDelete={deleteScribbleLayer}
+            />
+            {scribbleDrawing && activeScribble && (
+                <ScribbleToolbar
+                    layerName={activeScribble.name}
+                    settings={scribbleSettings}
+                    onChange={setScribbleSettings}
+                    onDone={() => setScribbleDrawing(false)}
+                />
+            )}
             <Sidebar
                 isOpen={isSidebarOpen}
                 onClose={handleSidebarClose}
@@ -292,27 +645,54 @@ function App() {
                 onExportBoard={handleExportBoard}
                 onImportBoard={handleImportBoard}
                 onNewBoard={handleNewBoard}
+                onSaveBoard={handleSaveBoard}
+                onOpenBoard={handleOpenBoard}
+                onAddScribbleLayer={() => {
+                    setIsSidebarOpen(false)
+                    addScribbleLayer()
+                }}
+                onShowHowTo={() => {
+                    setIsSidebarOpen(false)
+                    setShowHowTo(true)
+                }}
                 onTextureChange={handleTextureChange}
                 onTextureScaleChange={handleTextureScaleChange}
                 showGridLines={showGridLines}
                 showDragTails={showDragTails}
                 showApron={showApron}
                 currentTexture={backgroundTexture}
+                boardStyle={boardStyle}
+                onBoardStyleChange={setBoardStyle}
                 textureScale={textureScale}
             />
             <div className='main-content'>
                 <InfiniteWhiteboard
                     showGridLines={showGridLines}
                     showDragTails={showDragTails}
-                    backgroundTexture={backgroundTexture}
-                    textureScale={textureScale}
+                    backgroundTexture={effectiveTexture}
+                    textureScale={
+                        backgroundTexture
+                            ? textureScale
+                            : getStyleTileWorld(boardStyle) / 320
+                    }
+                    texturePixelated={!backgroundTexture}
+                    boardStyle={boardStyle}
                     activePaintTool={activePaintTool}
                     selectedColor={selectedColor}
                     paintGrid={paintGrid}
                     setPaintGrid={setPaintGrid}
                     undoRedoManager={undoRedoManager}
+                    spots={spots}
+                    scribbleLayers={scribbleLayers}
+                    activeScribbleId={activeScribbleId}
+                    scribbleDrawing={scribbleDrawing}
+                    scribbleSettings={scribbleSettings}
+                    onStrokeComplete={handleStrokeComplete}
+                    onScribbleErase={handleScribbleErase}
                 />
             </div>
+            <ToastHost />
+            <HowToDialog isOpen={showHowTo} onClose={closeHowTo} />
             <Apron
                 isVisible={showApron}
                 onToolChange={handlePaintToolChange}

@@ -23,5 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# Token art library (large binary assets, kept out of git)
+# Art libraries (large binary assets, kept out of git)
 public/Token_Library/
+public/Maps_Library/

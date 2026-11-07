@@ -1,4 +1,6 @@
 import type { Humbug } from "./humbug.types"
+import type { ScribbleLayer, ScribbleStroke } from "./scribble.types"
+import type { Connector } from "./connector.types"
 
 export type ActionType =
     | "CREATE_HUMBUG"
@@ -13,6 +15,11 @@ export type ActionType =
     | "DUMP_FILL"
     | "CLEAR_BOARD"
     | "PAINT_STROKE"
+    | "SCRIBBLE_ADD"
+    | "SCRIBBLE_ERASE"
+    | "SCRIBBLE_LAYER_DELETE"
+    | "CONNECTOR_ADD"
+    | "CONNECTOR_DELETE"
 
 export interface BaseAction {
     type: ActionType
@@ -92,7 +99,43 @@ export interface PaintStrokeAction extends BaseAction {
     changes: Map<string, { oldColor?: string; newColor?: string }>
 }
 
+/** A pencil stroke drawn on a scribble layer */
+export interface ScribbleAddAction extends BaseAction {
+    type: "SCRIBBLE_ADD"
+    layerId: string
+    stroke: ScribbleStroke
+}
+
+/** Strokes removed with the scribble eraser (index = original position) */
+export interface ScribbleEraseAction extends BaseAction {
+    type: "SCRIBBLE_ERASE"
+    layerId: string
+    removed: { stroke: ScribbleStroke; index: number }[]
+}
+
+/** A whole scribble layer removed from the top bar (index = tab position) */
+export interface ScribbleLayerDeleteAction extends BaseAction {
+    type: "SCRIBBLE_LAYER_DELETE"
+    layer: ScribbleLayer
+    index: number
+}
+
+export interface ConnectorAddAction extends BaseAction {
+    type: "CONNECTOR_ADD"
+    connector: Connector
+}
+
+export interface ConnectorDeleteAction extends BaseAction {
+    type: "CONNECTOR_DELETE"
+    connector: Connector
+}
+
 export type Action =
+    | ScribbleLayerDeleteAction
+    | ConnectorAddAction
+    | ConnectorDeleteAction
+    | ScribbleAddAction
+    | ScribbleEraseAction
     | CreateHumbugAction
     | DeleteHumbugAction
     | MoveHumbugAction

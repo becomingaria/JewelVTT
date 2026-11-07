@@ -4,6 +4,22 @@ import type { PaintTool } from "./Apron"
 import { HumbugManager } from "./HumbugManager"
 import { exportBoardAsPNG, importBoardFromPNG } from "../utils/export.utils"
 import { UndoRedoManager } from "../utils/undo-redo.utils"
+import {
+    AREA_SELECT_EVENT,
+    FLY_TO_EVENT,
+    type AreaSelectDetail,
+    type FlyToDetail,
+} from "../utils/view-events"
+import type { Spot } from "../types/spot.types"
+import { getBoardStyle, type BoardStyleId } from "../utils/board-styles"
+import { useBoardSlice } from "../utils/board-store"
+import { ScribbleOverlay } from "./ScribbleOverlay"
+import type {
+    ScribbleLayer,
+    ScribbleSettings,
+    ScribbleStroke,
+} from "../types/scribble.types"
+import { Icon } from "./Icon"
 import "./InfiniteWhiteboard.css"
 
 interface ViewPort {
@@ -26,7 +42,24 @@ interface InfiniteWhiteboardProps {
     paintGrid?: Map<string, string>
     setPaintGrid?: React.Dispatch<React.SetStateAction<Map<string, string>>>
     undoRedoManager?: UndoRedoManager
+    spots?: Spot[]
+    /** Draw the texture without smoothing (generated pixel-art styles) */
+    texturePixelated?: boolean
+    boardStyle?: BoardStyleId
+    scribbleLayers?: ScribbleLayer[]
+    activeScribbleId?: string | null
+    scribbleDrawing?: boolean
+    scribbleSettings?: ScribbleSettings
+    onStrokeComplete?: (layerId: string, stroke: ScribbleStroke) => void
+    onScribbleErase?: (
+        layerId: string,
+        removed: { stroke: ScribbleStroke; index: number }[]
+    ) => void
 }
+
+const FLY_DURATION_MS = 550
+const easeInOutCubic = (t: number) =>
+    t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 
 export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     showGridLines = true,
@@ -38,7 +71,17 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     paintGrid: externalPaintGrid,
     setPaintGrid: setExternalPaintGrid,
     undoRedoManager,
+    spots = [],
+    texturePixelated = false,
+    boardStyle = "blank",
+    scribbleLayers = [],
+    activeScribbleId = null,
+    scribbleDrawing = false,
+    scribbleSettings = { tool: "pencil", color: "#2b2b30", size: 4 },
+    onStrokeComplete = () => {},
+    onScribbleErase = () => {},
 }) => {
+    const style = getBoardStyle(boardStyle)
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const [viewport, setViewport] = useState<ViewPort>({ x: 0, y: 0, zoom: 1 })
@@ -49,6 +92,154 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     const [isShiftHeld, setIsShiftHeld] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isPaintDragging, setIsPaintDragging] = useState(false)
+
+    // Load the background texture once per URL; redraw when it's ready
+    const [textureImage, setTextureImage] = useState<HTMLImageElement | null>(
+        null
+    )
+    useEffect(() => {
+        if (!backgroundTexture) {
+            setTextureImage(null)
+            return
+        }
+        let cancelled = false
+        const img = new Image()
+        img.onload = () => {
+            if (!cancelled) setTextureImage(img)
+        }
+        img.src = backgroundTexture
+        return () => {
+            cancelled = true
+        }
+    }, [backgroundTexture])
+
+    // Remember where the user was looking
+    useBoardSlice<ViewPort>("viewport", viewport, (v) =>
+        setViewport(v ?? { x: 0, y: 0, zoom: 1 })
+    )
+
+    // Latest viewport for the fly-to animation, which runs outside renders
+    const viewportRef = useRef(viewport)
+    useEffect(() => {
+        viewportRef.current = viewport
+    }, [viewport])
+
+    // Middle-mouse drag draws a selection marquee (container coords)
+    const [marquee, setMarquee] = useState<{
+        x1: number
+        y1: number
+        x2: number
+        y2: number
+    } | null>(null)
+
+    useEffect(() => {
+        const container = containerRef.current
+        if (!container) return
+        let start: { x: number; y: number; shift: boolean } | null = null
+
+        const local = (e: MouseEvent) => {
+            const r = container.getBoundingClientRect()
+            return { x: e.clientX - r.left, y: e.clientY - r.top }
+        }
+        const toWorld = (p: { x: number; y: number }) => {
+            const v = viewportRef.current
+            return {
+                x: (p.x - container.clientWidth / 2) / v.zoom - v.x,
+                y: (p.y - container.clientHeight / 2) / v.zoom - v.y,
+            }
+        }
+
+        const onDown = (e: MouseEvent) => {
+            if (e.button !== 1) return
+            // Capture phase: keeps humbugs from treating it as a drag, and
+            // preventDefault stops the browser's middle-click autoscroll
+            e.preventDefault()
+            e.stopPropagation()
+            const p = local(e)
+            start = { ...p, shift: e.shiftKey }
+            setMarquee({ x1: p.x, y1: p.y, x2: p.x, y2: p.y })
+        }
+        const onMove = (e: MouseEvent) => {
+            if (!start) return
+            const p = local(e)
+            setMarquee({ x1: start.x, y1: start.y, x2: p.x, y2: p.y })
+        }
+        const onUp = (e: MouseEvent) => {
+            if (!start || e.button !== 1) return
+            const p = local(e)
+            const a = toWorld(start)
+            const b = toWorld(p)
+            const detail: AreaSelectDetail = {
+                x1: Math.min(a.x, b.x),
+                y1: Math.min(a.y, b.y),
+                x2: Math.max(a.x, b.x),
+                y2: Math.max(a.y, b.y),
+                additive: start.shift,
+            }
+            window.dispatchEvent(new CustomEvent(AREA_SELECT_EVENT, { detail }))
+            start = null
+            setMarquee(null)
+        }
+        const noAutoScroll = (e: MouseEvent) => {
+            if (e.button === 1) e.preventDefault()
+        }
+
+        container.addEventListener("mousedown", onDown, true)
+        container.addEventListener("auxclick", noAutoScroll)
+        window.addEventListener("mousemove", onMove)
+        window.addEventListener("mouseup", onUp)
+        return () => {
+            container.removeEventListener("mousedown", onDown, true)
+            container.removeEventListener("auxclick", noAutoScroll)
+            window.removeEventListener("mousemove", onMove)
+            window.removeEventListener("mouseup", onUp)
+        }
+    }, [])
+
+    // Smoothly fly the camera to a world point (Go Home, spot tabs).
+    // Any wheel or mouse-down on the board cancels the flight.
+    useEffect(() => {
+        let frame = 0
+        const cancel = () => cancelAnimationFrame(frame)
+
+        const handleFlyTo = (event: Event) => {
+            const target = (event as CustomEvent<FlyToDetail>).detail
+            cancel()
+            const from = viewportRef.current
+            const to = {
+                x: -target.x,
+                y: -target.y,
+                zoom: Math.max(
+                    MIN_ZOOM,
+                    Math.min(MAX_ZOOM, target.zoom ?? from.zoom)
+                ),
+            }
+            const start = performance.now()
+            const step = (now: number) => {
+                const t = Math.min(1, (now - start) / FLY_DURATION_MS)
+                const k = easeInOutCubic(t)
+                setViewport({
+                    x: from.x + (to.x - from.x) * k,
+                    y: from.y + (to.y - from.y) * k,
+                    // Interpolate zoom geometrically so it feels even
+                    zoom: from.zoom * Math.pow(to.zoom / from.zoom, k),
+                })
+                if (t < 1) frame = requestAnimationFrame(step)
+            }
+            frame = requestAnimationFrame(step)
+        }
+
+        const container = containerRef.current
+        window.addEventListener(FLY_TO_EVENT, handleFlyTo)
+        container?.addEventListener("wheel", cancel, { passive: true })
+        container?.addEventListener("mousedown", cancel)
+        return () => {
+            cancel()
+            window.removeEventListener(FLY_TO_EVENT, handleFlyTo)
+            container?.removeEventListener("wheel", cancel)
+            container?.removeEventListener("mousedown", cancel)
+        }
+    }, [])
 
     // Track changes during a paint drag operation for batched undo
     const paintDragChanges = useRef<
@@ -222,62 +413,66 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
             const { width, height } = canvas
 
-            // Clear canvas
-            ctx.clearRect(0, 0, width, height)
+            // Board base colour
+            ctx.fillStyle = style.base
+            ctx.fillRect(0, 0, width, height)
 
             // Draw background texture if present
-            if (backgroundTexture) {
-                const img = new Image()
-                img.src = backgroundTexture
+            if (textureImage) {
+                const img = textureImage
+                const baseTextureSize = 320 // Base 320x320 pixel texture tiles
+                const scaledTextureSize = baseTextureSize * textureScale
+                ctx.imageSmoothingEnabled = !texturePixelated
 
-                // Only draw if image is loaded
-                if (img.complete && img.naturalWidth > 0) {
-                    const baseTextureSize = 320 // Base 320x320 pixel texture tiles
-                    const scaledTextureSize = baseTextureSize * textureScale
+                // Calculate visible texture range (canvas coords are
+                // container-relative)
+                const topLeft = containerToWorld(0, 0)
+                const bottomRight = containerToWorld(width, height)
 
-                    // Calculate visible texture range
-                    const topLeft = screenToWorld(0, 0)
-                    const bottomRight = screenToWorld(width, height)
+                const startTileX = Math.floor(topLeft.x / scaledTextureSize)
+                const endTileX = Math.ceil(
+                    bottomRight.x / scaledTextureSize
+                )
+                const startTileY = Math.floor(topLeft.y / scaledTextureSize)
+                const endTileY = Math.ceil(
+                    bottomRight.y / scaledTextureSize
+                )
 
-                    const startTileX = Math.floor(topLeft.x / scaledTextureSize)
-                    const endTileX = Math.ceil(
-                        bottomRight.x / scaledTextureSize
-                    )
-                    const startTileY = Math.floor(topLeft.y / scaledTextureSize)
-                    const endTileY = Math.ceil(
-                        bottomRight.y / scaledTextureSize
-                    )
+                // Draw texture tiles
+                for (let tileX = startTileX; tileX <= endTileX; tileX++) {
+                    for (
+                        let tileY = startTileY;
+                        tileY <= endTileY;
+                        tileY++
+                    ) {
+                        const worldX = tileX * scaledTextureSize
+                        const worldY = tileY * scaledTextureSize
+                        const screenPos = worldToScreen(worldX, worldY)
+                        const nextPos = worldToScreen(
+                            worldX + scaledTextureSize,
+                            worldY + scaledTextureSize
+                        )
 
-                    // Draw texture tiles
-                    for (let tileX = startTileX; tileX <= endTileX; tileX++) {
-                        for (
-                            let tileY = startTileY;
-                            tileY <= endTileY;
-                            tileY++
-                        ) {
-                            const worldX = tileX * scaledTextureSize
-                            const worldY = tileY * scaledTextureSize
-                            const screenPos = worldToScreen(worldX, worldY)
-
-                            const tileScreenSize =
-                                scaledTextureSize * viewport.zoom
-
-                            ctx.drawImage(
-                                img,
-                                screenPos.x,
-                                screenPos.y,
-                                tileScreenSize,
-                                tileScreenSize
-                            )
-                        }
+                        // Snap to whole pixels so tiles never show seams
+                        const x = Math.floor(screenPos.x)
+                        const y = Math.floor(screenPos.y)
+                        ctx.drawImage(
+                            img,
+                            x,
+                            y,
+                            Math.floor(nextPos.x) - x,
+                            Math.floor(nextPos.y) - y
+                        )
                     }
                 }
             }
 
+            ctx.imageSmoothingEnabled = true
+
             // Draw painted grid squares
             if (paintGrid.size > 0) {
-                const topLeft = screenToWorld(0, 0)
-                const bottomRight = screenToWorld(width, height)
+                const topLeft = containerToWorld(0, 0)
+                const bottomRight = containerToWorld(width, height)
 
                 const startGridX = Math.floor(topLeft.x / GRID_SIZE)
                 const endGridX = Math.ceil(bottomRight.x / GRID_SIZE)
@@ -310,8 +505,8 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             if (!showGridLines) return
 
             // Calculate visible grid range
-            const topLeft = screenToWorld(0, 0)
-            const bottomRight = screenToWorld(width, height)
+            const topLeft = containerToWorld(0, 0)
+            const bottomRight = containerToWorld(width, height)
 
             const startX = Math.floor(topLeft.x / GRID_SIZE) * GRID_SIZE
             const endX = Math.ceil(bottomRight.x / GRID_SIZE) * GRID_SIZE
@@ -319,7 +514,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             const endY = Math.ceil(bottomRight.y / GRID_SIZE) * GRID_SIZE
 
             // Set grid style
-            ctx.strokeStyle = viewport.zoom > 0.5 ? "#e0e0e0" : "#f0f0f0"
+            ctx.strokeStyle = viewport.zoom > 0.5 ? style.grid : style.gridFar
             ctx.lineWidth = 1
 
             // Draw vertical lines
@@ -365,12 +560,14 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         },
         [
             viewport,
-            screenToWorld,
+            containerToWorld,
             worldToScreen,
             showGridLines,
-            backgroundTexture,
+            textureImage,
+            texturePixelated,
             textureScale,
             paintGrid,
+            style,
         ]
     )
 
@@ -730,8 +927,15 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 isShiftHeld ? "shift-pan-mode" : ""
             } ${activePaintTool === "paint" ? "paint-mode" : ""} ${
                 activePaintTool === "eraser" ? "eraser-mode" : ""
+            } ${
+                scribbleDrawing
+                    ? scribbleSettings.tool === "eraser"
+                        ? "scribble-eraser"
+                        : "scribble-pencil"
+                    : ""
             }`}
             ref={containerRef}
+            style={{ backgroundColor: style.base }}
         >
             <canvas
                 ref={canvasRef}
@@ -747,7 +951,6 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             <HumbugManager
                 scale={viewport.zoom}
                 containerRef={containerRef}
-                screenToWorld={screenToWorld}
                 containerToWorld={containerToWorld}
                 worldToScreen={worldToScreen}
                 contextMenuEvent={contextMenuEvent}
@@ -758,6 +961,48 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 onModalStateChange={handleModalStateChange}
                 undoRedoManager={undoRedoManager}
             />
+
+            <ScribbleOverlay
+                layers={scribbleLayers}
+                activeLayerId={activeScribbleId}
+                drawing={scribbleDrawing}
+                settings={scribbleSettings}
+                viewport={viewport}
+                containerRef={containerRef}
+                onStrokeComplete={onStrokeComplete}
+                onErase={onScribbleErase}
+            />
+
+            {marquee && (
+                <div
+                    className='area-select-marquee'
+                    style={{
+                        left: Math.min(marquee.x1, marquee.x2),
+                        top: Math.min(marquee.y1, marquee.y2),
+                        width: Math.abs(marquee.x2 - marquee.x1),
+                        height: Math.abs(marquee.y2 - marquee.y1),
+                    }}
+                />
+            )}
+
+            {/* Spot markers sit above humbugs but never block interaction */}
+            <div className='spot-markers' aria-hidden='true'>
+                {spots.map((spot) => {
+                    const screen = worldToScreen(spot.x, spot.y)
+                    return (
+                        <div
+                            key={spot.id}
+                            className='spot-marker'
+                            style={{ left: screen.x, top: screen.y }}
+                        >
+                            <Icon name='flag' size={26} className='jicon-play' />
+                            <span className='spot-marker-label'>
+                                {spot.name}
+                            </span>
+                        </div>
+                    )
+                })}
+            </div>
 
             <div className='viewport-info'>
                 <div>Zoom: {(viewport.zoom * 100).toFixed(0)}%</div>

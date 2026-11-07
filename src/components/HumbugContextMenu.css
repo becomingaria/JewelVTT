@@ -43,7 +43,7 @@
     border: none;
     background: none;
     text-align: left;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     display: flex;
     align-items: center;
     gap: 12px;
@@ -65,10 +65,17 @@
 }
 
 .humbug-context-menu-option .option-icon {
-    font-size: 16px;
-    width: 20px;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
+    color: #444;
+}
+
+.humbug-context-menu-option.danger .option-icon {
+    color: #dc3545;
 }
 
 .humbug-context-menu-option .option-label {

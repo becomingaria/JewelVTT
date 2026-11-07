@@ -55,7 +55,7 @@
     background: none;
     border: none;
     font-size: 24px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     color: #666;
     padding: 0;
     width: 30px;
@@ -74,10 +74,19 @@
 
 .sidebar-content {
     flex: 1;
+    min-height: 0;
+    /* The menu can be taller than the window: let it scroll */
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 20px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+/* Sections keep their natural height inside the scrolling column */
+.sidebar-content > * {
+    flex-shrink: 0;
 }
 
 .sidebar-button {
@@ -88,7 +97,7 @@
     background-color: #f8f9fa;
     border: 1px solid #e0e0e0;
     border-radius: 6px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     font-size: 14px;
     font-weight: 500;
     color: #333;
@@ -136,9 +145,55 @@
 }
 
 .toggle-icon {
-    font-size: 16px;
-    min-width: 20px;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    color: #444;
+}
+
+.sidebar-toggle > span:nth-child(2) {
+    flex: 1;
+}
+
+/* Animated on/off switch */
+.toggle-switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 34px;
+    height: 20px;
+    border-radius: 10px;
+    background-color: #bdc3c7;
+    transition: background-color 0.25s ease;
+}
+
+.toggle-switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toggle-switch.on {
+    background-color: #2ecc71;
+}
+
+.toggle-switch.on::after {
+    transform: translateX(14px);
+}
+
+.sidebar-toggle:hover .toggle-switch::after {
+    width: 19px;
+}
+
+.sidebar-toggle:hover .toggle-switch.on::after {
+    transform: translateX(11px);
 }
 
 .toggle-status {
@@ -153,8 +208,8 @@
 }
 
 .button-icon {
-    font-size: 16px;
-    min-width: 20px;
+    color: #444;
+    min-width: 24px;
     text-align: center;
     display: flex;
     align-items: center;
@@ -229,7 +284,7 @@
     background: #f0f0f0;
     border: 1px solid #ddd;
     border-radius: 4px;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     text-align: center;
 }
 
@@ -322,7 +377,7 @@
     border: none;
     border-radius: 6px;
     font-weight: 500;
-    cursor: pointer;
+    cursor: var(--cursor-pointer, pointer);
     transition: all 0.2s ease;
     min-width: 100px;
 }
@@ -348,4 +403,88 @@
 
 .modal-button:active {
     transform: translateY(1px);
+}
+
+.sidebar-button-danger .button-icon {
+    color: white;
+}
+
+/* Board style picker */
+.board-style-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.board-style-option {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 4px;
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: var(--cursor-pointer, pointer);
+    transition: all 0.2s ease;
+}
+
+.board-style-option:hover {
+    border-color: #ccc;
+    transform: translateY(-2px);
+}
+
+.board-style-option.selected {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+}
+
+.board-style-swatch {
+    display: block;
+    height: 52px;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background-size: 80px 80px;
+    image-rendering: pixelated;
+    transition: background-position 3s linear;
+}
+
+.board-style-option:hover .board-style-swatch {
+    background-position: 40px 20px;
+}
+
+.board-style-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #333;
+    text-align: center;
+}
+
+.board-style-note {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #666;
+}
+
+.sidebar-kbd {
+    margin-left: auto;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 11px;
+    color: #666;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+}
+
+.sidebar-how-to {
+    background: linear-gradient(135deg, #f4ecff, #ebe0ff);
+    border-color: #d7c4fb;
+    color: #3b1d6e;
+}
+
+.sidebar-how-to:hover {
+    background: linear-gradient(135deg, #ece0ff, #e1d2ff);
+    border-color: #c4a8f7;
 }

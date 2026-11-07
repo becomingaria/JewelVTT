@@ -1,9 +1,10 @@
-import React from "react"
+import React, { useLayoutEffect, useRef, useState } from "react"
 import type {
     Point,
     HumbugType,
     ContextMenuOption,
 } from "../types/humbug.types"
+import { Icon } from "./Icon"
 import "./ContextMenu.css"
 
 interface ContextMenuProps {
@@ -13,15 +14,18 @@ interface ContextMenuProps {
     onCreateHumbug: (type: HumbugType, position: Point) => void
     snapToGrid: boolean
     onToggleSnapToGrid: () => void
+    onGoHome: () => void
+    onAddSpot: (position: Point) => void
 }
 
 const CONTEXT_MENU_OPTIONS: ContextMenuOption[] = [
-    { label: "Text Box", type: "text", icon: "📝" },
-    { label: "Image", type: "image", icon: "🖼️" },
-    { label: "Map", type: "map", icon: "🗺️" },
-    { label: "Token", type: "token", icon: "🪙" },
-    { label: "Map Pin", type: "map-pin", icon: "📍" },
-    { label: "Solid Color", type: "solid-color", icon: "🟦" },
+    { label: "Text Box", type: "text", icon: "text" },
+    { label: "Image", type: "image", icon: "image" },
+    { label: "Map", type: "map", icon: "map" },
+    { label: "Token", type: "token", icon: "token" },
+    { label: "Map Pin", type: "map-pin", icon: "pin" },
+    { label: "Solid Color", type: "solid-color", icon: "swatch" },
+    { label: "Document / Link", type: "document", icon: "document" },
 ]
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -31,7 +35,26 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     onCreateHumbug,
     snapToGrid,
     onToggleSnapToGrid,
+    onGoHome,
+    onAddSpot,
 }) => {
+    const menuRef = useRef<HTMLDivElement>(null)
+    const [placement, setPlacement] = useState(position)
+
+    // Keep the menu inside the board: flip/shift it when it would overflow
+    useLayoutEffect(() => {
+        const menu = menuRef.current
+        const bounds = menu?.offsetParent as HTMLElement | null
+        if (!menu || !bounds) return
+        const margin = 8
+        const { offsetWidth: w, offsetHeight: h } = menu
+        let { x, y } = position
+        if (x + w + margin > bounds.clientWidth) x = Math.max(margin, x - w)
+        if (y + h + margin > bounds.clientHeight)
+            y = Math.max(margin, bounds.clientHeight - h - margin)
+        setPlacement({ x, y })
+    }, [position, isOpen])
+
     if (!isOpen) return null
 
     const handleOptionClick = (type: HumbugType) => {
@@ -46,10 +69,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
             {/* Context Menu */}
             <div
+                ref={menuRef}
                 className='context-menu'
                 style={{
-                    left: position.x,
-                    top: position.y,
+                    left: placement.x,
+                    top: placement.y,
                 }}
             >
                 <div className='context-menu-header'>
@@ -62,10 +86,41 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                             className='context-menu-option'
                             onClick={() => handleOptionClick(option.type)}
                         >
-                            <span className='option-icon'>{option.icon}</span>
+                            <span className='option-icon'>
+                                <Icon name={option.icon} />
+                            </span>
                             <span className='option-label'>{option.label}</span>
                         </button>
                     ))}
+                </div>
+
+                <div className='context-menu-separator' />
+
+                <div className='context-menu-options'>
+                    <button
+                        className='context-menu-option'
+                        onClick={() => {
+                            onAddSpot(position)
+                            onClose()
+                        }}
+                    >
+                        <span className='option-icon'>
+                            <Icon name='flag' />
+                        </span>
+                        <span className='option-label'>Snap to Spot</span>
+                    </button>
+                    <button
+                        className='context-menu-option'
+                        onClick={() => {
+                            onGoHome()
+                            onClose()
+                        }}
+                    >
+                        <span className='option-icon'>
+                            <Icon name='home' />
+                        </span>
+                        <span className='option-label'>Go Home</span>
+                    </button>
                 </div>
 
                 <div className='context-menu-separator' />
@@ -79,7 +134,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                         }}
                     >
                         <span className='option-icon'>
-                            {snapToGrid ? "🔳" : "⬜"}
+                            <Icon
+                                name='grid'
+                                className={snapToGrid ? "" : "is-off"}
+                            />
                         </span>
                         <span className='option-label'>Snap to Grid</span>
                         <span className='toggle-indicator'>

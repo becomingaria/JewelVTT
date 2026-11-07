@@ -1,5 +1,13 @@
 import React, { useRef, useEffect, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
+import { Icon } from "./Icon"
+
+// Swap plain cursor keywords for the app's pixel cursors (resize stays native)
+const PIXEL_CURSORS: Record<string, string> = {
+    move: "var(--cursor-grab, move)",
+    pointer: "var(--cursor-pointer, pointer)",
+    default: "var(--cursor-default, default)",
+}
 import "./ImageCropper.css"
 
 interface CropArea {
@@ -217,7 +225,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
 
         // Update cursor based on position
         const cursor = getCursorForPosition(x, y)
-        canvas.style.cursor = cursor
+        canvas.style.cursor = PIXEL_CURSORS[cursor] ?? cursor
 
         if (!isDragging && !isResizing) return
 
@@ -437,7 +445,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
                 <div className='image-cropper-header'>
                     <h3>Crop Image</h3>
                     <button onClick={onCancel} className='close-button'>
-                        ×
+                        <Icon name='close' size={20} />
                     </button>
                 </div>
 
