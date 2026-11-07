@@ -368,3 +368,7 @@ input[type="color"] {
     resize: vertical;
     font-family: inherit;
 }
+
+.size-hint {
+    margin: -8px 0 16px;
+}

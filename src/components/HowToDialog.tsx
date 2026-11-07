@@ -37,6 +37,13 @@ const SECTIONS: Section[] = [
                     (or <Key>H</Key>) flies you back to the centre.
                 </p>
                 <p>
+                    Use the <strong>2D / 2.5D</strong> switch on the right of
+                    the top bar (or <Key>V</Key>) to tip the board into an
+                    isometric view. Tokens, notes and pins stand up like
+                    paper standees while maps stay on the floor. Pan, zoom,
+                    drag, paint and draw all work the same way.
+                </p>
+                <p>
                     <strong>Spots</strong> are bookmarks: right-click and
                     choose <em>Snap to Spot</em> (or press <Key>F</Key>) to
                     plant a flag. Each spot gets a tab in the top bar. Click a
@@ -64,8 +71,37 @@ const SECTIONS: Section[] = [
                     browse the folders or search, and click one.
                 </p>
                 <p>
-                    Select an object to move, resize and rotate it.
-                    Right-click it to edit, lock, reorder or delete it.
+                    Sizes are in <strong>grid squares</strong> (1 square = 5
+                    ft): a medium token is 1 × 1, a large one 2 × 2.
+                </p>
+                <p>
+                    Select an object to move and resize it, or nudge it with the{" "}
+                    <Key>← ↑ → ↓</Key> keys (two at once for diagonals). Drag
+                    the <strong>knob above it</strong> to rotate: it softly
+                    snaps to 45° and 90° (hold <Key>Alt</Key> for free
+                    rotation) and shows the angle as you turn. Right-click an
+                    object to edit, lock, reorder or delete it.
+                </p>
+            </>
+        ),
+    },
+    {
+        id: "party",
+        title: "My Party",
+        icon: "token",
+        body: (
+            <>
+                <p>
+                    Keep up to eight player tokens ready in{" "}
+                    <strong>My Party</strong> in the menu: click a{" "}
+                    <strong>+</strong> slot to pick from the token library, or
+                    upload your own picture.
+                </p>
+                <p>
+                    <em>Add My Party</em> drops everyone in the middle of the
+                    screen, one square apart and arranged like the pips on a
+                    die. They arrive selected, so the arrow keys or a drag move
+                    the whole party at once.
                 </p>
             </>
         ),
@@ -169,8 +205,18 @@ const SECTIONS: Section[] = [
                     upload your own texture.
                 </p>
                 <p>
+                    Use the <Icon name='gear' size={16} /> gear next to{" "}
+                    <em>Grid Lines</em> to switch between squares and{" "}
+                    <strong>hexagons</strong>. Snap-to-grid and the arrow keys
+                    follow whichever grid you pick. The gear next to{" "}
+                    <em>Drag Tails</em> picks how movement trails look.
+                </p>
+                <p>
                     Turn on the <strong>Tool Apron</strong> in the menu to
-                    paint grid squares, erase them, or fill the board.
+                    paint grid squares or erase them. Choose{" "}
+                    <em>Transparent</em> to paint the board bare again, and
+                    use the <em>Dump</em> bucket then click the board to fill
+                    an enclosed area.
                 </p>
             </>
         ),
@@ -186,11 +232,24 @@ const SECTIONS: Section[] = [
                     work, so an accidental refresh won't lose anything.
                 </p>
                 <p>
-                    To keep a copy or move it to another computer, use{" "}
-                    <em>Save Board</em> (<Key>{MOD}S</Key>). That downloads a{" "}
-                    <code>.jvtt.json</code> file. <em>Open Board</em> (
+                    <em>Save Board</em> (<Key>{MOD}S</Key>) keeps a{" "}
+                    <code>.jvtt.json</code> file and <em>Open Board</em> (
                     <Key>{MOD}O</Key>) loads one back. <em>Export as PNG</em> (
                     <Key>{MOD}E</Key>) saves a picture of the board.
+                </p>
+                <p>
+                    In Chrome, Edge, Brave or Opera you can pick a{" "}
+                    <strong>Local Folder</strong> in the menu. Boards then save
+                    straight into it, and Open lists what's there. In other
+                    browsers, saving downloads the file instead.
+                </p>
+                <p>
+                    <strong>Prepared Scenes</strong> (menu) loads several boards
+                    from the folder as tabs in the top bar. Click a tab to
+                    switch instantly. Each scene keeps its own changes, and an
+                    orange dot means it has changes you haven't saved.{" "}
+                    <Key>{MOD}S</Key> saves the scene you're on back to its
+                    file.
                 </p>
                 <p className='how-to-note'>
                     Images you upload are stored inside the file. Library

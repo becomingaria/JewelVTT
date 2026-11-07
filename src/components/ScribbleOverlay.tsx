@@ -5,6 +5,8 @@ import type {
     ScribbleStroke,
 } from "../types/scribble.types"
 import { SCRIBBLE_OPACITY } from "../types/scribble.types"
+import { GRAIN_FILTER_ID, strokePath } from "../utils/scribble-art"
+import { IDENTITY, invert, type Projection } from "../utils/projection"
 import "./ScribbleOverlay.css"
 
 interface ViewPort {
@@ -20,6 +22,7 @@ interface ScribbleOverlayProps {
     drawing: boolean
     settings: ScribbleSettings
     viewport: ViewPort
+    projection?: Projection
     containerRef: React.RefObject<HTMLDivElement | null>
     onStrokeComplete: (layerId: string, stroke: ScribbleStroke) => void
     onErase: (
@@ -29,20 +32,6 @@ interface ScribbleOverlayProps {
 }
 
 const ERASER_RADIUS_PX = 10
-
-const toPath = (pts: number[]) => {
-    if (pts.length < 2) return ""
-    let d = `M${pts[0]} ${pts[1]}`
-    if (pts.length === 2) return d + `l0.01 0` // a dot
-    // Smooth with quadratic curves through midpoints
-    for (let i = 2; i < pts.length - 2; i += 2) {
-        const mx = (pts[i] + pts[i + 2]) / 2
-        const my = (pts[i + 1] + pts[i + 3]) / 2
-        d += `Q${pts[i]} ${pts[i + 1]} ${mx} ${my}`
-    }
-    d += `L${pts[pts.length - 2]} ${pts[pts.length - 1]}`
-    return d
-}
 
 /** Distance from point to the closest segment of a stroke */
 function distanceToStroke(px: number, py: number, s: ScribbleStroke) {
@@ -68,6 +57,7 @@ export const ScribbleOverlay: React.FC<ScribbleOverlayProps> = ({
     drawing,
     settings,
     viewport,
+    projection = IDENTITY,
     containerRef,
     onStrokeComplete,
     onErase,
@@ -76,9 +66,9 @@ export const ScribbleOverlay: React.FC<ScribbleOverlayProps> = ({
     const [erasing, setErasing] = useState<Set<string>>(new Set())
 
     // Latest props for the native listeners
-    const latest = useRef({ layers, activeLayerId, settings, viewport, onStrokeComplete, onErase })
+    const latest = useRef({ layers, activeLayerId, settings, viewport, projection, onStrokeComplete, onErase })
     useEffect(() => {
-        latest.current = { layers, activeLayerId, settings, viewport, onStrokeComplete, onErase }
+        latest.current = { layers, activeLayerId, settings, viewport, projection, onStrokeComplete, onErase }
     })
 
     useEffect(() => {
@@ -90,12 +80,14 @@ export const ScribbleOverlay: React.FC<ScribbleOverlayProps> = ({
         let pointerId: number | null = null
 
         const toWorld = (e: PointerEvent) => {
-            const { viewport } = latest.current
+            const { viewport, projection } = latest.current
             const rect = container.getBoundingClientRect()
-            return {
-                x: (e.clientX - rect.left - rect.width / 2) / viewport.zoom - viewport.x,
-                y: (e.clientY - rect.top - rect.height / 2) / viewport.zoom - viewport.y,
-            }
+            const w = invert(
+                projection,
+                (e.clientX - rect.left - rect.width / 2) / viewport.zoom,
+                (e.clientY - rect.top - rect.height / 2) / viewport.zoom
+            )
+            return { x: w.x - viewport.x, y: w.y - viewport.y }
         }
 
         const eraseAt = (e: PointerEvent) => {
@@ -189,15 +181,17 @@ export const ScribbleOverlay: React.FC<ScribbleOverlayProps> = ({
     const container = containerRef.current
     const cx = (container?.clientWidth ?? 0) / 2
     const cy = (container?.clientHeight ?? 0) / 2
-    // World -> screen: (world + viewport) * zoom + centre
-    const transform = `translate(${cx + viewport.x * viewport.zoom} ${
-        cy + viewport.y * viewport.zoom
-    }) scale(${viewport.zoom})`
+    // World -> screen: centre + zoom * M * (world + viewport)
+    const z = viewport.zoom
+    const p = projection
+    const transform = `matrix(${z * p.m11} ${z * p.m21} ${z * p.m12} ${z * p.m22} ${
+        cx + z * (p.m11 * viewport.x + p.m12 * viewport.y)
+    } ${cy + z * (p.m21 * viewport.x + p.m22 * viewport.y)})`
 
     const renderStroke = (s: ScribbleStroke, ghost = false) => (
         <path
             key={s.id}
-            d={toPath(s.points)}
+            d={strokePath(s.points)}
             stroke={s.color}
             strokeWidth={s.size}
             opacity={ghost ? 0.25 : 1}
@@ -208,7 +202,7 @@ export const ScribbleOverlay: React.FC<ScribbleOverlayProps> = ({
         <svg className={`scribble-overlay ${drawing ? "is-drawing" : ""}`} aria-hidden='true'>
             <defs>
                 {/* Graphite grain: thins the stroke in a fine noisy pattern */}
-                <filter id='scribble-grain' x='-5%' y='-5%' width='110%' height='110%'>
+                <filter id={GRAIN_FILTER_ID} x='-5%' y='-5%' width='110%' height='110%'>
                     <feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='3' result='noise' />
                     <feColorMatrix
                         in='noise'
@@ -226,7 +220,7 @@ export const ScribbleOverlay: React.FC<ScribbleOverlayProps> = ({
                             key={layer.id}
                             className='scribble-layer'
                             opacity={SCRIBBLE_OPACITY}
-                            filter='url(#scribble-grain)'
+                            filter={`url(#${GRAIN_FILTER_ID})`}
                         >
                             {layer.strokes.map((s) => renderStroke(s, erasing.has(s.id)))}
                             {live && layer.id === activeLayerId && renderStroke(live)}

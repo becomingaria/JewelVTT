@@ -4,11 +4,13 @@ import "./Apron.css"
 
 export type PaintTool = "paint" | "eraser" | "dump" | null
 
+/** Paint colour that clears squares back to the bare board */
+export const TRANSPARENT = "transparent"
+
 interface ApronProps {
     isVisible: boolean
     onToolChange: (tool: PaintTool) => void
     onColorChange: (color: string) => void
-    onDumpFill: () => void
     activeTool: PaintTool
     selectedColor: string
 }
@@ -17,7 +19,6 @@ export const Apron: React.FC<ApronProps> = ({
     isVisible,
     onToolChange,
     onColorChange,
-    onDumpFill,
     activeTool,
     selectedColor,
 }) => {
@@ -25,13 +26,9 @@ export const Apron: React.FC<ApronProps> = ({
 
     if (!isVisible) return null
 
-    const handleToolSelect = (tool: PaintTool) => {
-        if (tool === "dump") {
-            onDumpFill()
-        } else {
-            onToolChange(tool)
-        }
-    }
+    // Dump is a tool like the others: pick it, then click the board to fill
+    const handleToolSelect = (tool: PaintTool) => onToolChange(tool)
+    const isTransparent = selectedColor === TRANSPARENT
 
     return (
         <div className='apron'>
@@ -39,16 +36,40 @@ export const Apron: React.FC<ApronProps> = ({
                 {/* Color Picker */}
                 <div className='color-picker-section'>
                     <div
-                        className='current-color'
-                        style={{ backgroundColor: selectedColor }}
+                        className={`current-color ${
+                            isTransparent ? "is-transparent" : ""
+                        }`}
+                        style={
+                            isTransparent
+                                ? undefined
+                                : { backgroundColor: selectedColor }
+                        }
                         onClick={() => setShowColorPicker(!showColorPicker)}
-                        title='Click to change color'
+                        title={
+                            isTransparent
+                                ? "Transparent: clears squares (click to change)"
+                                : "Click to change color"
+                        }
                     />
                     {showColorPicker && (
                         <div className='color-picker-dropdown'>
+                            <button
+                                type='button'
+                                className={`transparent-option ${
+                                    isTransparent ? "active" : ""
+                                }`}
+                                onClick={() => {
+                                    onColorChange(TRANSPARENT)
+                                    setShowColorPicker(false)
+                                }}
+                                title='Transparent: paints the board back to bare'
+                            >
+                                <span className='transparent-swatch' />
+                                Transparent
+                            </button>
                             <input
                                 type='color'
-                                value={selectedColor}
+                                value={isTransparent ? "#000000" : selectedColor}
                                 onChange={(e) => onColorChange(e.target.value)}
                                 className='color-input'
                             />
@@ -129,9 +150,11 @@ export const Apron: React.FC<ApronProps> = ({
                     </button>
 
                     <button
-                        className='tool-button dump-button'
+                        className={`tool-button ${
+                            activeTool === "dump" ? "active" : ""
+                        }`}
                         onClick={() => handleToolSelect("dump")}
-                        title='Dump Fill - Fill entire board with selected color'
+                        title='Dump Fill - click the board to fill that area'
                     >
                         <Icon name='bucket' size={26} />
                     </button>

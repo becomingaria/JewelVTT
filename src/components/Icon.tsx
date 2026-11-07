@@ -50,6 +50,8 @@ export type IconName =
     | "connector"
     | "eye"
     | "eye-off"
+    | "gear"
+    | "hex"
 
 interface IconProps {
     name: IconName
@@ -379,7 +381,7 @@ const ICONS: Record<IconName, React.ReactNode> = {
         </g>
     ),
     close: (
-        <g className='ji-x-spin'>
+        <g className='ji-close'>
             <path d='M6.5 6.5l11 11M17.5 6.5l-11 11' />
         </g>
     ),
@@ -512,6 +514,18 @@ const ICONS: Record<IconName, React.ReactNode> = {
                 <circle cx='12' cy='12' r='3.2' className='ji-accent-fill-solid' />
                 <circle cx='13' cy='11' r='0.9' fill='white' stroke='none' />
             </g>
+        </>
+    ),
+    gear: (
+        <g className='ji-gear'>
+            <path d='M12 2.8l1.6 2.1 2.6-.6.6 2.6 2.4 1.1-1 2.4 1.5 2.2-2.2 1.5.1 2.7-2.7.1-1.3 2.3-2.4-1.2-2.4 1.2-1.3-2.3-2.7-.1.1-2.7-2.2-1.5 1.5-2.2-1-2.4 2.4-1.1.6-2.6 2.6.6z' fill='#d5dbdb' />
+            <circle cx='12' cy='12' r='3.2' fill='#fdfefe' />
+        </g>
+    ),
+    hex: (
+        <>
+            <path className='ji-hex' d='M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z' fill='var(--ji-soft)' />
+            <path d='M12 8l3.5 2v4L12 16l-3.5-2v-4z' className='ji-accent-fill-solid' opacity='0.8' />
         </>
     ),
     "eye-off": (

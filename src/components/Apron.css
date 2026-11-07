@@ -113,16 +113,6 @@
     color: white;
 }
 
-.dump-button {
-    background: #ff6b6b !important;
-    border-color: #e55555 !important;
-    color: white;
-}
-
-.dump-button:hover {
-    background: #e55555 !important;
-    border-color: #d63031 !important;
-}
 
 .apron-placeholder {
     color: #666;
@@ -149,4 +139,43 @@
 /* Keep tool icons dark-outlined so they read on coloured buttons */
 .tool-button .jicon {
     color: #2c3e50;
+}
+
+/* Transparent paint: checkerboard swatches */
+.current-color.is-transparent,
+.transparent-swatch {
+    background-color: #fff;
+    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+}
+
+.transparent-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.transparent-option.active {
+    border-color: #3498db;
+}
+
+.transparent-swatch {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #999;
+    border-radius: 4px;
 }

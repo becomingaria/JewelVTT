@@ -134,3 +134,7 @@
         animation: none;
     }
 }
+
+.infinite-whiteboard-container.dump-mode {
+    cursor: var(--cursor-paint, cell);
+}

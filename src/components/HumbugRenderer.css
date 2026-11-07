@@ -192,7 +192,6 @@
     background: rgba(0, 122, 204, 0.1);
 }
 
-.rotate-handle,
 .delete-handle {
     position: absolute;
     width: 20px;
@@ -209,15 +208,7 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-.rotate-handle {
-    top: -10px;
-    right: -10px;
-    cursor: var(--cursor-grab, grab);
-}
 
-.rotate-handle:active {
-    cursor: var(--cursor-grabbing, grabbing);
-}
 
 .delete-handle {
     top: -10px;
@@ -226,21 +217,8 @@
     border-color: #dc3545;
 }
 
-.rotate-handle.snap-rotate {
-    cursor: var(--cursor-pointer, pointer);
-    background-color: #007bff;
-    color: white;
-    border-color: #007bff;
-    font-size: 12px;
-    font-weight: bold;
-}
 
-.rotate-handle.snap-rotate:hover {
-    background-color: #0056b3;
-    border-color: #0056b3;
-}
 
-.rotate-handle:hover,
 .delete-handle:hover {
     transform: scale(1.1);
 }
@@ -355,4 +333,96 @@
     outline: 2px dashed #6c2fcf;
     outline-offset: 3px;
     border-radius: 4px;
+}
+
+/* Rotation pin: a knob on a stem above the top edge (drag to rotate) */
+.rotate-pin {
+    position: absolute;
+    left: 50%;
+    top: -46px;
+    width: 26px;
+    height: 46px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: auto;
+    cursor: var(--cursor-grab, grab);
+}
+
+.rotate-pin:active {
+    cursor: var(--cursor-grabbing, grabbing);
+}
+
+.rotate-pin-knob {
+    order: -1;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 2px solid #007acc;
+    border-radius: 50%;
+    color: #007acc;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.rotate-pin:hover .rotate-pin-knob,
+.humbug-renderer.rotating .rotate-pin-knob {
+    transform: scale(1.15);
+    background: #007acc;
+    color: #fff;
+}
+
+.rotate-pin-stem {
+    flex: 1;
+    width: 2px;
+    background: #007acc;
+    opacity: 0.8;
+}
+
+/* Live angle while rotating, kept upright in the middle of the humbug */
+.rotate-readout {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 5;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(44, 36, 55, 0.92);
+    color: #fff;
+    border-radius: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+.rotate-readout span {
+    font-size: 11px;
+    opacity: 0.75;
+}
+
+.rotate-readout.snapped {
+    background: #6c2fcf;
+    box-shadow: 0 0 0 3px rgba(108, 47, 207, 0.3), 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+/* 2.5D standees: a soft contact shadow where they meet the floor */
+.humbug-renderer.standee::before {
+    content: "";
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    bottom: -7px;
+    height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35), transparent 70%);
+    pointer-events: none;
+    z-index: -1;
 }

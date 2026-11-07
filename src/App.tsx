@@ -24,22 +24,30 @@ import type {
 } from "./types/scribble.types"
 import { SCRIBBLE_COLORS } from "./types/scribble.types"
 import { ScribbleToolbar } from "./components/ScribbleToolbar"
+import { exportScribbleLayer } from "./utils/scribble-art"
 import {
     openBoardFromFile,
-    restoreAutosaveAndStart,
-    saveBoardToFile,
     useBoardSlice,
 } from "./utils/board-store"
 import { ToastHost } from "./components/Toast"
+import { BoardFileDialog } from "./components/BoardFileDialog"
+import { useLocalBoards } from "./utils/use-local-boards"
 import { showToast } from "./utils/toast"
 import { HowToDialog } from "./components/HowToDialog"
 import { MOD, useHotkeys } from "./utils/hotkeys"
+import type { ViewMode } from "./utils/projection"
+import {
+    loadDragTailStyle,
+    saveDragTailStyle,
+    type DragTailStyleId,
+} from "./utils/drag-tail-styles"
 import {
     DEFAULT_BOARD_STYLE,
     BOARD_STYLES,
     getBoardStyleTexture,
     getStyleTileWorld,
     type BoardStyleId,
+    type GridShape,
 } from "./utils/board-styles"
 import "./App.css"
 
@@ -47,6 +55,12 @@ function App() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [showGridLines, setShowGridLines] = useState(true)
     const [showDragTails, setShowDragTails] = useState(true)
+    const [dragTailStyle, setDragTailStyle] = useState<DragTailStyleId>(loadDragTailStyle)
+    const changeDragTailStyle = (id: DragTailStyleId) => {
+        setDragTailStyle(id)
+        saveDragTailStyle(id)
+        setShowDragTails(true)
+    }
     const [showApron, setShowApron] = useState(false)
     const [activePaintTool, setActivePaintTool] = useState<PaintTool>(null)
     const [selectedColor, setSelectedColor] = useState("#3498db")
@@ -60,6 +74,8 @@ function App() {
     const undoRedoManager = useRef(new UndoRedoManager()).current
     const [boardStyle, setBoardStyle] =
         useState<BoardStyleId>(DEFAULT_BOARD_STYLE)
+    const [gridShape, setGridShape] = useState<GridShape>("square")
+    const [viewMode, setViewMode] = useState<ViewMode>("2d")
     // A custom uploaded texture overrides the style's generated one
     const effectiveTexture = useMemo(
         () => backgroundTexture ?? getBoardStyleTexture(boardStyle),
@@ -200,6 +216,8 @@ function App() {
     useBoardSlice("boardStyle", boardStyle, (s) =>
         setBoardStyle(s ?? DEFAULT_BOARD_STYLE)
     )
+    useBoardSlice("gridShape", gridShape, (g) => setGridShape(g ?? "square"))
+    useBoardSlice("viewMode", viewMode, (v) => setViewMode(v ?? "2d"))
     useBoardSlice("customTexture", backgroundTexture, (t) =>
         setBackgroundTexture(t ?? null)
     )
@@ -211,12 +229,6 @@ function App() {
         setScribbleDrawing(false)
     })
 
-    // Restore the last session's board, then keep autosaving
-    useEffect(() => {
-        restoreAutosaveAndStart().then((restored) => {
-            if (restored) showToast("Welcome back — your board was restored")
-        })
-    }, [])
 
     // A loaded board starts a fresh undo history
     useEffect(() => {
@@ -225,16 +237,23 @@ function App() {
         return () => window.removeEventListener("jewel:boardLoaded", handleLoaded)
     }, [undoRedoManager])
 
-    const handleSaveBoard = useCallback(() => {
-        saveBoardToFile()
-        showToast("Board saved to your downloads")
-    }, [])
+    // Local folder, save/open and prepared scenes
+    const local = useLocalBoards()
 
-    const handleOpenBoard = useCallback(() => {
+    const handleSaveBoard = useCallback(() => {
+        void local.saveBoard()
+    }, [local])
+
+    const browseForBoard = useCallback(() => {
         openBoardFromFile()
             .then((loaded) => loaded && showToast("Board opened"))
             .catch((error: Error) => showToast(error.message, "error"))
     }, [])
+
+    const handleOpenBoard = useCallback(() => {
+        if (local.folder && local.supported) void local.openBoard()
+        else browseForBoard()
+    }, [local, browseForBoard])
 
     const [showHowTo, setShowHowTo] = useState(false)
     const closeHowTo = useCallback(() => setShowHowTo(false), [])
@@ -245,6 +264,7 @@ function App() {
         export: () => handleExportBoard(),
         help: () => setShowHowTo(true),
         home: goHome,
+        view: () => setViewMode((m) => (m === "iso" ? "2d" : "iso")),
         spot: () => dispatchBoardEvent(SPOT_AT_CURSOR_EVENT),
         "add-text": () => createAtCursor("text"),
         "add-image": () => createAtCursor("image"),
@@ -325,14 +345,6 @@ function App() {
         setSelectedColor(color)
     }
 
-    const handleDumpFill = () => {
-        // Dispatch a custom event that the InfiniteWhiteboard will listen for
-        const dumpEvent = new CustomEvent("dumpFill", {
-            detail: { color: selectedColor },
-        })
-        window.dispatchEvent(dumpEvent)
-    }
-
     const handleExportBoard = () => {
         // Export functionality will be implemented in InfiniteWhiteboard
         const exportEvent = new CustomEvent("exportBoard")
@@ -372,6 +384,8 @@ function App() {
     }
 
     const handleNewBoard = () => {
+        // With scenes open, the new board gets its own tab (keeps the others)
+        local.startNewSceneIfNeeded()
         // Reset all state to initial values
         setActivePaintTool(null)
         setSelectedColor("#3498db")
@@ -627,6 +641,38 @@ function App() {
                 onScribbleSelect={selectScribbleLayer}
                 onScribbleToggleVisible={toggleScribbleVisible}
                 onScribbleDelete={deleteScribbleLayer}
+                onScribbleExport={(id, format) => {
+                    const layer = scribbleLayers.find((l) => l.id === id)
+                    if (!layer) return
+                    exportScribbleLayer(layer, format)
+                        .then((file) =>
+                            showToast(
+                                file
+                                    ? `Exported “${layer.name}” as ${file}`
+                                    : `Nothing is drawn on “${layer.name}” yet`
+                            )
+                        )
+                        .catch((e: Error) => showToast(e.message, "error"))
+                }}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                scenes={local.scenes}
+                activeSceneId={local.activeSceneId}
+                onSceneSelect={local.switchScene}
+                onSceneClose={local.closeScene}
+            />
+            <BoardFileDialog
+                dialog={local.dialog}
+                folderName={local.folder?.name ?? ""}
+                openFiles={local.scenes.flatMap((s) => (s.fileName ? [s.fileName] : []))}
+                onClose={() => local.setDialog(null)}
+                onSaveAs={local.saveAs}
+                onOpen={(f) => void local.openFromFolder(f)}
+                onBrowse={() => {
+                    local.setDialog(null)
+                    browseForBoard()
+                }}
+                onAddScenes={(files) => void local.addScenesFromFolder(files)}
             />
             {scribbleDrawing && activeScribble && (
                 <ScribbleToolbar
@@ -651,6 +697,17 @@ function App() {
                     setIsSidebarOpen(false)
                     addScribbleLayer()
                 }}
+                localFolder={{
+                    supported: local.supported,
+                    name: local.folder?.name ?? null,
+                    needsPermission: !!local.folder && local.permission !== "granted",
+                    onChoose: () => void local.pickFolder(),
+                    onForget: () => void local.clearFolder(),
+                    onPreparedScenes: () => {
+                        setIsSidebarOpen(false)
+                        void local.showPreparedScenes()
+                    },
+                }}
                 onShowHowTo={() => {
                     setIsSidebarOpen(false)
                     setShowHowTo(true)
@@ -659,6 +716,13 @@ function App() {
                 onTextureScaleChange={handleTextureScaleChange}
                 showGridLines={showGridLines}
                 showDragTails={showDragTails}
+                dragTailStyle={dragTailStyle}
+                onDragTailStyleChange={changeDragTailStyle}
+                gridShape={gridShape}
+                onGridShapeChange={(g) => {
+                    setGridShape(g)
+                    setShowGridLines(true)
+                }}
                 showApron={showApron}
                 currentTexture={backgroundTexture}
                 boardStyle={boardStyle}
@@ -669,6 +733,9 @@ function App() {
                 <InfiniteWhiteboard
                     showGridLines={showGridLines}
                     showDragTails={showDragTails}
+                    dragTailStyle={dragTailStyle}
+                    gridShape={gridShape}
+                    viewMode={viewMode}
                     backgroundTexture={effectiveTexture}
                     textureScale={
                         backgroundTexture
@@ -697,7 +764,6 @@ function App() {
                 isVisible={showApron}
                 onToolChange={handlePaintToolChange}
                 onColorChange={handleColorChange}
-                onDumpFill={handleDumpFill}
                 activeTool={activePaintTool}
                 selectedColor={selectedColor}
             />

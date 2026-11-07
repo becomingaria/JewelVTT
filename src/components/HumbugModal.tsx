@@ -10,6 +10,26 @@ import {
 } from "../utils/documents"
 import "./HumbugModal.css"
 
+/** One grid square in world units (and 5 ft at the table) */
+const SQUARE = 32
+const FEET_PER_SQUARE = 5
+
+/** Starting size for new humbugs, in squares */
+const DEFAULT_SQUARES: Partial<Record<HumbugType, { width: number; height: number }>> = {
+    text: { width: 5, height: 2 },
+    image: { width: 4, height: 3 },
+    "solid-color": { width: 3, height: 3 },
+    map: { width: 30, height: 30 },
+    token: { width: 1, height: 1 },
+    document: { width: 7.5, height: 3 },
+}
+const defaultSize = (type: HumbugType) => {
+    const sq = DEFAULT_SQUARES[type] ?? { width: 4, height: 3 }
+    return { width: sq.width * SQUARE, height: sq.height * SQUARE }
+}
+/** Pixels -> squares for display (up to 2 decimals, no trailing zeros) */
+const toSquares = (px: number) => Math.round((px / SQUARE) * 100) / 100
+
 interface HumbugModalProps {
     isOpen: boolean
     type: HumbugType
@@ -29,7 +49,9 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
 }) => {
     // Common state for all humbug types
     const [opacity, setOpacity] = useState(1)
-    const [size, setSize] = useState({ width: 150, height: 100 })
+    const [size, setSize] = useState(() => defaultSize(type))
+    // Once the user types a size, stop auto-sizing (e.g. from a map's shape)
+    const [sizeTouched, setSizeTouched] = useState(false)
 
     // Text-specific state
     const [content, setContent] = useState("")
@@ -140,7 +162,7 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
         } else {
             // Reset to defaults for new humbug
             setOpacity(1)
-            setSize({ width: 150, height: 100 })
+            setSize(defaultSize(type))
             setContent("")
             setFontSize(16)
             setFontFamily("Arial, sans-serif")
@@ -165,7 +187,15 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
         }
         setShowTokenLibrary(false)
         setShowMapLibrary(false)
-    }, [existingHumbug, isOpen])
+        setSizeTouched(false)
+    }, [existingHumbug, isOpen, type])
+
+    // New maps follow the image's proportions until the user sets a size
+    useEffect(() => {
+        if (type !== "map" || existingHumbug || sizeTouched || !mapAspect) return
+        const width = DEFAULT_SQUARES.map!.width * SQUARE
+        setSize({ width, height: Math.round(width / mapAspect / (SQUARE / 2)) * (SQUARE / 2) })
+    }, [type, existingHumbug, sizeTouched, mapAspect])
 
     // Measure the map image so a new map isn't squashed into a square
     useEffect(() => {
@@ -343,7 +373,7 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
             case "map-pin":
                 specificData = {
                     color: pinColor,
-                    size: { width: 32, height: 40 }, // Standard pin size
+                    size: 32, // pins store one number (world units)
                 }
                 break
             case "map":
@@ -351,14 +381,9 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                     imageUrl: mapImageUrl,
                     imageFile: mapImageFile,
                     showGrid,
-                    // New maps: 1000 wide, keeping the image's proportions.
-                    // Edits keep whatever size the map has been resized to.
-                    size: existingHumbug
-                        ? size
-                        : {
-                              width: 1000,
-                              height: Math.round(1000 / (mapAspect ?? 1)),
-                          },
+                    // Size comes from the squares fields (auto-shaped to the
+                    // image until the user types their own)
+                    size,
                 }
                 break
             case "token":
@@ -367,8 +392,7 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                     imageFile: tokenImageFile,
                     borderColor,
                     borderWidth,
-                    // New tokens fill one grid square; edits keep their size
-                    size: existingHumbug ? size : { width: 32, height: 32 },
+                    size,
                 }
                 break
             case "document": {
@@ -384,7 +408,7 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                     fileData: useFile ? docFile.data : undefined,
                     fileName: useFile ? docFile.name : undefined,
                     mimeType: useFile ? docFile.mime : undefined,
-                    size: existingHumbug ? size : { width: 240, height: 96 },
+                    size,
                 }
                 break
             }
@@ -920,39 +944,43 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                             {type !== "map-pin" && (
                                 <div className='form-row'>
                                     <div className='form-group'>
-                                        <label>Width:</label>
+                                        <label>Width (squares):</label>
                                         <input
                                             type='number'
-                                            value={size.width}
-                                            onChange={(e) =>
-                                                setSize((prev) => ({
-                                                    ...prev,
-                                                    width: Number(
-                                                        e.target.value
-                                                    ),
-                                                }))
-                                            }
-                                            min={10}
-                                            max={500}
+                                            value={toSquares(size.width)}
+                                            onChange={(e) => {
+                                                const sq = Number(e.target.value)
+                                                if (!(sq > 0)) return
+                                                setSizeTouched(true)
+                                                setSize((prev) => ({ ...prev, width: sq * SQUARE }))
+                                            }}
+                                            min={0.5}
+                                            max={300}
+                                            step={0.5}
                                         />
                                     </div>
                                     <div className='form-group'>
-                                        <label>Height:</label>
+                                        <label>Height (squares):</label>
                                         <input
                                             type='number'
-                                            value={size.height}
-                                            onChange={(e) =>
-                                                setSize((prev) => ({
-                                                    ...prev,
-                                                    height: Number(
-                                                        e.target.value
-                                                    ),
-                                                }))
-                                            }
-                                            min={10}
-                                            max={500}
+                                            value={toSquares(size.height)}
+                                            onChange={(e) => {
+                                                const sq = Number(e.target.value)
+                                                if (!(sq > 0)) return
+                                                setSizeTouched(true)
+                                                setSize((prev) => ({ ...prev, height: sq * SQUARE }))
+                                            }}
+                                            min={0.5}
+                                            max={300}
+                                            step={0.5}
                                         />
                                     </div>
+                                </div>
+                            )}
+                            {type !== "map-pin" && (
+                                <div className='form-hint size-hint'>
+                                    {toSquares(size.width) * FEET_PER_SQUARE} ft ×{" "}
+                                    {toSquares(size.height) * FEET_PER_SQUARE} ft · 1 square = {FEET_PER_SQUARE} ft
                                 </div>
                             )}
 

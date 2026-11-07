@@ -2,7 +2,7 @@ import type { HumbugType, Point } from "../types/humbug.types"
 
 /*
  * Window events for camera navigation, following the app's existing
- * CustomEvent pattern (exportBoard, dumpFill, ...). The whiteboard owns the
+ * CustomEvent pattern (exportBoard, clearBoard, ...). The whiteboard owns the
  * viewport, so other components ask it to move rather than set it directly.
  */
 
@@ -46,7 +46,10 @@ export function createAtCursor(type: HumbugType) {
 export const dispatchBoardEvent = (name: string) =>
     window.dispatchEvent(new CustomEvent(name))
 
-/** Middle-mouse marquee finished: world-space rectangle to select */
+/**
+ * Middle-mouse marquee finished: the rectangle in board-container screen
+ * coordinates (so selection matches what you see in 2D and 2.5D alike)
+ */
 export const AREA_SELECT_EVENT = "jewel:areaSelect"
 export interface AreaSelectDetail {
     x1: number
@@ -56,3 +59,6 @@ export interface AreaSelectDetail {
     /** Shift held: add to the current selection */
     additive: boolean
 }
+
+/** Drop the party's tokens around the middle of the screen */
+export const ADD_PARTY_EVENT = "jewel:addParty"

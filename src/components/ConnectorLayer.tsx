@@ -6,6 +6,13 @@ import type {
     ConnectorSide,
 } from "../types/connector.types"
 import { Icon } from "./Icon"
+import { IDENTITY, type Projection } from "../utils/projection"
+import {
+    placeHumbug,
+    projectOnHumbug,
+    screenQuad,
+    type HumbugPlacement,
+} from "../utils/humbug-geometry"
 import "./ConnectorLayer.css"
 
 interface ConnectorLayerProps {
@@ -16,6 +23,11 @@ interface ConnectorLayerProps {
     /** Hide anchors (e.g. while a humbug is being dragged) */
     busy: boolean
     worldToScreen: (x: number, y: number) => Point
+    /** Board zoom */
+    scale: number
+    projection?: Projection
+    /** 0..1: how far humbugs stand up in 2.5D */
+    standUp?: number
     containerRef: React.RefObject<HTMLDivElement | null>
     onCreate: (from: ConnectorEnd, to: ConnectorEnd) => void
     onSelect: (id: string | null) => void
@@ -34,50 +46,48 @@ const ANCHOR_OFFSET_PX = 16
 /** How far around a humbug the pointer can roam and keep its anchors */
 const HOVER_MARGIN_PX = 30
 
-/** World-space box of a humbug (position is its top-left corner) */
-function humbugBox(h: Humbug) {
-    const w = h.type === "map-pin" ? h.size : h.size.width
-    const hgt = h.type === "map-pin" ? h.size : h.size.height
-    return { x: h.position.x, y: h.position.y, w, h: hgt }
+/** An end of a connector on screen: the edge midpoint and its outward direction */
+interface ScreenEnd {
+    p: Point
+    n: Point
 }
 
-function edgePoint(h: Humbug, side: ConnectorSide): Point {
-    const b = humbugBox(h)
+/** Midpoint of a side, in the humbug's own (element) pixels */
+function sideMidpoint(pl: HumbugPlacement, side: ConnectorSide): Point {
+    const { width: w, height: h } = pl
     switch (side) {
         case "top":
-            return { x: b.x + b.w / 2, y: b.y }
+            return { x: w / 2, y: 0 }
         case "right":
-            return { x: b.x + b.w, y: b.y + b.h / 2 }
+            return { x: w, y: h / 2 }
         case "bottom":
-            return { x: b.x + b.w / 2, y: b.y + b.h }
+            return { x: w / 2, y: h }
         case "left":
-            return { x: b.x, y: b.y + b.h / 2 }
+            return { x: 0, y: h / 2 }
     }
 }
 
-/** Side of `h` whose midpoint is closest to a world point */
-function nearestSide(h: Humbug, p: Point): ConnectorSide {
-    let best: ConnectorSide = "top"
-    let bestD = Infinity
-    for (const side of SIDES) {
-        const e = edgePoint(h, side)
-        const d = (e.x - p.x) ** 2 + (e.y - p.y) ** 2
-        if (d < bestD) {
-            bestD = d
-            best = side
-        }
-    }
-    return best
+/**
+ * Where a side of a humbug is on screen, as drawn: flat, tilted, rotated or
+ * standing up. The outward direction comes from projecting a point a little
+ * outside the edge, so it bends correctly in every view.
+ */
+function screenEnd(pl: HumbugPlacement, side: ConnectorSide): ScreenEnd {
+    const m = sideMidpoint(pl, side)
+    const n = NORMALS[side]
+    const p = projectOnHumbug(pl, m.x, m.y)
+    const q = projectOnHumbug(pl, m.x + n.x * 10, m.y + n.y * 10)
+    const len = Math.hypot(q.x - p.x, q.y - p.y) || 1
+    return { p, n: { x: (q.x - p.x) / len, y: (q.y - p.y) / len } }
 }
 
-/** Smooth curve leaving/entering each edge along its outward normal */
-function curve(a: Point, sa: ConnectorSide, b: Point, sb: ConnectorSide | null) {
-    const k = Math.max(36, Math.hypot(b.x - a.x, b.y - a.y) / 3)
-    const na = NORMALS[sa]
-    const c1 = { x: a.x + na.x * k, y: a.y + na.y * k }
-    const nb = sb ? NORMALS[sb] : { x: 0, y: 0 }
-    const c2 = { x: b.x + nb.x * k, y: b.y + nb.y * k }
-    return `M${a.x} ${a.y} C${c1.x} ${c1.y} ${c2.x} ${c2.y} ${b.x} ${b.y}`
+/** Smooth curve leaving / entering each end along its outward direction */
+function curve(a: ScreenEnd, b: ScreenEnd | Point) {
+    const end = "p" in b ? b.p : b
+    const k = Math.max(36, Math.hypot(end.x - a.p.x, end.y - a.p.y) / 3)
+    const c1 = { x: a.p.x + a.n.x * k, y: a.p.y + a.n.y * k }
+    const c2 = "p" in b ? { x: b.p.x + b.n.x * k, y: b.p.y + b.n.y * k } : end
+    return `M${a.p.x} ${a.p.y} C${c1.x} ${c1.y} ${c2.x} ${c2.y} ${end.x} ${end.y}`
 }
 
 export const ConnectorLayer: React.FC<ConnectorLayerProps> = ({
@@ -87,6 +97,9 @@ export const ConnectorLayer: React.FC<ConnectorLayerProps> = ({
     selectedConnectorId,
     busy,
     worldToScreen,
+    scale,
+    projection = IDENTITY,
+    standUp = 0,
     containerRef,
     onCreate,
     onSelect,
@@ -99,20 +112,28 @@ export const ConnectorLayer: React.FC<ConnectorLayerProps> = ({
         targetId: string | null
     } | null>(null)
 
-    const latest = useRef({ humbugs, worldToScreen, drag })
-    useEffect(() => {
-        latest.current = { humbugs, worldToScreen, drag }
-    })
-
+    // Placement of every humbug exactly as HumbugRenderer draws it
+    const ctx = {
+        scale,
+        standUp,
+        projection,
+        worldToScreen,
+        containerWidth: containerRef.current?.clientWidth ?? 0,
+    }
+    const placements = new Map(humbugs.map((h) => [h.id, placeHumbug(h, ctx)]))
     const byId = new Map(humbugs.map((h) => [h.id, h]))
-    const screenBox = (h: Humbug) => {
-        const b = humbugBox(h)
-        const tl = worldToScreen(b.x, b.y)
-        const br = worldToScreen(b.x + b.w, b.y + b.h)
-        return { x1: tl.x, y1: tl.y, x2: br.x, y2: br.y }
+    const endOf = (id: string, side: ConnectorSide) => {
+        const pl = placements.get(id)
+        return pl ? screenEnd(pl, side) : null
     }
 
-    // Track which humbug the pointer is near (topmost wins)
+    const latest = useRef({ humbugs, placements, drag })
+    useEffect(() => {
+        latest.current = { humbugs, placements, drag }
+    })
+
+    // Track which humbug the pointer is near (frontmost wins), using where
+    // each one appears on screen
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
             const container = containerRef.current
@@ -120,17 +141,20 @@ export const ConnectorLayer: React.FC<ConnectorLayerProps> = ({
             const r = container.getBoundingClientRect()
             const x = e.clientX - r.left
             const y = e.clientY - r.top
-            const { humbugs, worldToScreen } = latest.current
-            let found: Humbug | null = null
+            const { humbugs, placements } = latest.current
+            let found: { id: string; z: number } | null = null
             for (const h of humbugs) {
                 if (h.locked) continue
-                const b = humbugBox(h)
-                const tl = worldToScreen(b.x, b.y)
-                const br = worldToScreen(b.x + b.w, b.y + b.h)
+                const pl = placements.get(h.id)
+                if (!pl) continue
+                const q = screenQuad(pl)
                 const m = HOVER_MARGIN_PX
-                if (x >= tl.x - m && x <= br.x + m && y >= tl.y - m && y <= br.y + m) {
-                    if (!found || h.zIndex >= found.zIndex) found = h
-                }
+                const inside =
+                    x >= Math.min(...q.map((p) => p.x)) - m &&
+                    x <= Math.max(...q.map((p) => p.x)) + m &&
+                    y >= Math.min(...q.map((p) => p.y)) - m &&
+                    y <= Math.max(...q.map((p) => p.y)) + m
+                if (inside && (!found || pl.zIndex >= found.z)) found = { id: h.id, z: pl.zIndex }
             }
             setHoveredId(found?.id ?? null)
         }
@@ -160,11 +184,23 @@ export const ConnectorLayer: React.FC<ConnectorLayerProps> = ({
         const onUp = (e: MouseEvent) => {
             const d = latest.current.drag
             const targetId = targetAt(e)
-            const target = targetId ? latest.current.humbugs.find((h) => h.id === targetId) : null
-            const source = d ? latest.current.humbugs.find((h) => h.id === d.from.humbugId) : null
-            if (d && target && source) {
-                // Attach to the target side facing the source anchor
-                onCreate(d.from, { humbugId: target.id, side: nearestSide(target, edgePoint(source, d.from.side)) })
+            const { placements } = latest.current
+            const src = d && placements.get(d.from.humbugId)
+            const tgt = targetId ? placements.get(targetId) : undefined
+            if (d && src && tgt && targetId) {
+                // Attach to the target side nearest the source anchor, on screen
+                const from = screenEnd(src, d.from.side).p
+                let side: ConnectorSide = "top"
+                let best = Infinity
+                for (const s of SIDES) {
+                    const p = screenEnd(tgt, s).p
+                    const dist = (p.x - from.x) ** 2 + (p.y - from.y) ** 2
+                    if (dist < best) {
+                        best = dist
+                        side = s
+                    }
+                }
+                onCreate(d.from, { humbugId: targetId, side })
             }
             setDrag(null)
         }
@@ -203,15 +239,11 @@ export const ConnectorLayer: React.FC<ConnectorLayerProps> = ({
             </defs>
 
             {connectors.map((c) => {
-                const a = byId.get(c.from.humbugId)
-                const b = byId.get(c.to.humbugId)
                 // Hidden (not lost) while an endpoint is deleted, so undo restores it
+                const a = endOf(c.from.humbugId, c.from.side)
+                const b = endOf(c.to.humbugId, c.to.side)
                 if (!a || !b) return null
-                const p1 = edgePoint(a, c.from.side)
-                const p2 = edgePoint(b, c.to.side)
-                const s1 = worldToScreen(p1.x, p1.y)
-                const s2 = worldToScreen(p2.x, p2.y)
-                const d = curve(s1, c.from.side, s2, c.to.side)
+                const d = curve(a, b)
                 const isSel = c.id === selectedConnectorId
                 return (
                     <g key={c.id} className={`connector ${isSel ? "selected" : ""}`}>
@@ -235,12 +267,11 @@ export const ConnectorLayer: React.FC<ConnectorLayerProps> = ({
 
             {/* Delete button at the middle of the selected connector */}
             {selected &&
-                byId.get(selected.from.humbugId) &&
-                byId.get(selected.to.humbugId) &&
                 (() => {
-                    const a = edgePoint(byId.get(selected.from.humbugId)!, selected.from.side)
-                    const b = edgePoint(byId.get(selected.to.humbugId)!, selected.to.side)
-                    const m = worldToScreen((a.x + b.x) / 2, (a.y + b.y) / 2)
+                    const a = endOf(selected.from.humbugId, selected.from.side)
+                    const b = endOf(selected.to.humbugId, selected.to.side)
+                    if (!a || !b) return null
+                    const m = { x: (a.p.x + b.p.x) / 2, y: (a.p.y + b.p.y) / 2 }
                     return (
                         <foreignObject x={m.x - 12} y={m.y - 12} width={24} height={24} className='connector-delete-wrap'>
                             <button
@@ -259,27 +290,20 @@ export const ConnectorLayer: React.FC<ConnectorLayerProps> = ({
 
             {/* Rubber band while dragging a new connector */}
             {drag &&
-                byId.get(drag.from.humbugId) &&
                 (() => {
-                    const src = byId.get(drag.from.humbugId)!
-                    const p = edgePoint(src, drag.from.side)
-                    const s = worldToScreen(p.x, p.y)
-                    const target = drag.targetId ? byId.get(drag.targetId) : null
-                    const tb = target ? screenBox(target) : null
+                    const src = endOf(drag.from.humbugId, drag.from.side)
+                    if (!src) return null
+                    const target = drag.targetId ? placements.get(drag.targetId) : undefined
                     return (
                         <>
-                            {tb && (
-                                <rect
+                            {target && (
+                                <polygon
                                     className='connector-target'
-                                    x={tb.x1 - 4}
-                                    y={tb.y1 - 4}
-                                    width={tb.x2 - tb.x1 + 8}
-                                    height={tb.y2 - tb.y1 + 8}
-                                    rx={6}
+                                    points={screenQuad(target).map((p) => `${p.x},${p.y}`).join(" ")}
                                 />
                             )}
                             <path
-                                d={curve(s, drag.from.side, drag.pointer, null)}
+                                d={curve(src, drag.pointer)}
                                 className='connector-line connector-rubber'
                                 markerEnd='url(#connector-arrow)'
                             />
@@ -287,18 +311,17 @@ export const ConnectorLayer: React.FC<ConnectorLayerProps> = ({
                     )
                 })()}
 
-            {/* Anchor dots on the hovered / selected humbug */}
+            {/* Anchor dots just outside each side of the hovered / selected humbug */}
             {anchorHumbug &&
                 SIDES.map((side) => {
-                    const p = edgePoint(anchorHumbug, side)
-                    const s = worldToScreen(p.x, p.y)
-                    const n = NORMALS[side]
+                    const end = endOf(anchorHumbug.id, side)
+                    if (!end) return null
                     return (
                         <circle
                             key={side}
                             className='connector-anchor'
-                            cx={s.x + n.x * ANCHOR_OFFSET_PX}
-                            cy={s.y + n.y * ANCHOR_OFFSET_PX}
+                            cx={end.p.x + end.n.x * ANCHOR_OFFSET_PX}
+                            cy={end.p.y + end.n.y * ANCHOR_OFFSET_PX}
                             r={6}
                             onMouseDown={(e) => startDrag(e, anchorHumbug, side)}
                         >

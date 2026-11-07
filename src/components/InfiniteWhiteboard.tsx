@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import type { Point, Humbug } from "../types/humbug.types"
-import type { PaintTool } from "./Apron"
+import { TRANSPARENT, type PaintTool } from "./Apron"
 import { HumbugManager } from "./HumbugManager"
 import { exportBoardAsPNG, importBoardFromPNG } from "../utils/export.utils"
 import { UndoRedoManager } from "../utils/undo-redo.utils"
@@ -11,8 +11,20 @@ import {
     type FlyToDetail,
 } from "../utils/view-events"
 import type { Spot } from "../types/spot.types"
-import { getBoardStyle, type BoardStyleId } from "../utils/board-styles"
+import {
+    getBoardStyle,
+    type BoardStyleId,
+    type GridShape,
+} from "../utils/board-styles"
 import { useBoardSlice } from "../utils/board-store"
+import {
+    apply,
+    invert,
+    projectionForTilt,
+    type Projection,
+    type ViewMode,
+} from "../utils/projection"
+import type { DragTailStyleId } from "../utils/drag-tail-styles"
 import { ScribbleOverlay } from "./ScribbleOverlay"
 import type {
     ScribbleLayer,
@@ -35,6 +47,10 @@ const MAX_ZOOM = 5
 interface InfiniteWhiteboardProps {
     showGridLines?: boolean
     showDragTails?: boolean
+    dragTailStyle?: DragTailStyleId
+    gridShape?: GridShape
+    /** 2D top-down or 2.5D isometric camera */
+    viewMode?: ViewMode
     backgroundTexture?: string | null
     textureScale?: number
     activePaintTool?: PaintTool
@@ -64,6 +80,9 @@ const easeInOutCubic = (t: number) =>
 export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
     showGridLines = true,
     showDragTails = true,
+    dragTailStyle = "ruler",
+    gridShape = "square",
+    viewMode = "2d",
     backgroundTexture = null,
     textureScale = 1.0,
     activePaintTool = null,
@@ -113,6 +132,34 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         }
     }, [backgroundTexture])
 
+    // Camera tilt: 0 = flat 2D, 1 = isometric. Animated so switching views
+    // looks like the board pitching down / back up.
+    const [tilt, setTilt] = useState(viewMode === "iso" ? 1 : 0)
+    const tiltRef = useRef(tilt)
+    useEffect(() => {
+        tiltRef.current = tilt
+    }, [tilt])
+    useEffect(() => {
+        const target = viewMode === "iso" ? 1 : 0
+        const from = tiltRef.current
+        if (from === target) return
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        if (reduce) {
+            setTilt(target)
+            return
+        }
+        let frame = 0
+        const start = performance.now()
+        const step = (now: number) => {
+            const t = Math.min(1, (now - start) / 550)
+            setTilt(from + (target - from) * easeInOutCubic(t))
+            if (t < 1) frame = requestAnimationFrame(step)
+        }
+        frame = requestAnimationFrame(step)
+        return () => cancelAnimationFrame(frame)
+    }, [viewMode])
+    const projection: Projection = useMemo(() => projectionForTilt(tilt), [tilt])
+
     // Remember where the user was looking
     useBoardSlice<ViewPort>("viewport", viewport, (v) =>
         setViewport(v ?? { x: 0, y: 0, zoom: 1 })
@@ -141,13 +188,6 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             const r = container.getBoundingClientRect()
             return { x: e.clientX - r.left, y: e.clientY - r.top }
         }
-        const toWorld = (p: { x: number; y: number }) => {
-            const v = viewportRef.current
-            return {
-                x: (p.x - container.clientWidth / 2) / v.zoom - v.x,
-                y: (p.y - container.clientHeight / 2) / v.zoom - v.y,
-            }
-        }
 
         const onDown = (e: MouseEvent) => {
             if (e.button !== 1) return
@@ -167,13 +207,11 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         const onUp = (e: MouseEvent) => {
             if (!start || e.button !== 1) return
             const p = local(e)
-            const a = toWorld(start)
-            const b = toWorld(p)
             const detail: AreaSelectDetail = {
-                x1: Math.min(a.x, b.x),
-                y1: Math.min(a.y, b.y),
-                x2: Math.max(a.x, b.x),
-                y2: Math.max(a.y, b.y),
+                x1: Math.min(start.x, p.x),
+                y1: Math.min(start.y, p.y),
+                x2: Math.max(start.x, p.x),
+                y2: Math.max(start.y, p.y),
                 additive: start.shift,
             }
             window.dispatchEvent(new CustomEvent(AREA_SELECT_EVENT, { detail }))
@@ -267,16 +305,14 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             const containerX = screenX - rect.left
             const containerY = screenY - rect.top
 
-            return {
-                x:
-                    (containerX - container.clientWidth / 2) / viewport.zoom -
-                    viewport.x,
-                y:
-                    (containerY - container.clientHeight / 2) / viewport.zoom -
-                    viewport.y,
-            }
+            const w = invert(
+                projection,
+                (containerX - container.clientWidth / 2) / viewport.zoom,
+                (containerY - container.clientHeight / 2) / viewport.zoom
+            )
+            return { x: w.x - viewport.x, y: w.y - viewport.y }
         },
-        [viewport]
+        [viewport, projection]
     )
 
     // Convert container-relative coordinates to world coordinates
@@ -285,16 +321,14 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             const container = containerRef.current
             if (!container) return { x: 0, y: 0 }
 
-            return {
-                x:
-                    (containerX - container.clientWidth / 2) / viewport.zoom -
-                    viewport.x,
-                y:
-                    (containerY - container.clientHeight / 2) / viewport.zoom -
-                    viewport.y,
-            }
+            const w = invert(
+                projection,
+                (containerX - container.clientWidth / 2) / viewport.zoom,
+                (containerY - container.clientHeight / 2) / viewport.zoom
+            )
+            return { x: w.x - viewport.x, y: w.y - viewport.y }
         },
-        [viewport]
+        [viewport, projection]
     )
 
     // Convert world coordinates to screen coordinates
@@ -303,16 +337,13 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             const container = containerRef.current
             if (!container) return { x: 0, y: 0 }
 
+            const s = apply(projection, worldX + viewport.x, worldY + viewport.y)
             return {
-                x:
-                    (worldX + viewport.x) * viewport.zoom +
-                    container.clientWidth / 2,
-                y:
-                    (worldY + viewport.y) * viewport.zoom +
-                    container.clientHeight / 2,
+                x: s.x * viewport.zoom + container.clientWidth / 2,
+                y: s.y * viewport.zoom + container.clientHeight / 2,
             }
         },
-        [viewport]
+        [viewport, projection]
     )
 
     // Start a paint stroke (batched operation)
@@ -354,7 +385,12 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             setPaintGrid((prev) => {
                 const newGrid = new Map(prev)
 
-                if (forceErase || activePaintTool === "eraser") {
+                // Painting with "transparent" clears squares like the eraser
+                if (
+                    forceErase ||
+                    activePaintTool === "eraser" ||
+                    selectedColor === TRANSPARENT
+                ) {
                     if (isPartOfStroke) {
                         // Batch the change
                         if (!paintDragChanges.current.has(key)) {
@@ -408,158 +444,156 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         ]
     )
 
-    // Draw the grid
+    // Draw the board: base colour, texture, painted squares, grid and axes.
+    // Everything is drawn in world units under one canvas transform, so the
+    // same code renders the flat 2D board and the tilted 2.5D one.
     const drawGrid = useCallback(
         (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
             const { width, height } = canvas
+            const z = viewport.zoom
+            const p = projection
+            const cx = width / 2
+            const cy = height / 2
 
-            // Board base colour
+            ctx.setTransform(1, 0, 0, 1, 0, 0)
             ctx.fillStyle = style.base
             ctx.fillRect(0, 0, width, height)
 
-            // Draw background texture if present
+            // world -> screen as a canvas matrix (see utils/projection.ts)
+            ctx.setTransform(
+                z * p.m11,
+                z * p.m21,
+                z * p.m12,
+                z * p.m22,
+                cx + z * (p.m11 * viewport.x + p.m12 * viewport.y),
+                cy + z * (p.m21 * viewport.x + p.m22 * viewport.y)
+            )
+
+            // Visible world area: bounding box of the four screen corners
+            const corners = [
+                containerToWorld(0, 0),
+                containerToWorld(width, 0),
+                containerToWorld(0, height),
+                containerToWorld(width, height),
+            ]
+            const minX = Math.min(...corners.map((c) => c.x))
+            const maxX = Math.max(...corners.map((c) => c.x))
+            const minY = Math.min(...corners.map((c) => c.y))
+            const maxY = Math.max(...corners.map((c) => c.y))
+
+            // Texture: one seamless pattern fill (no tile seams at any angle)
             if (textureImage) {
-                const img = textureImage
-                const baseTextureSize = 320 // Base 320x320 pixel texture tiles
-                const scaledTextureSize = baseTextureSize * textureScale
-                ctx.imageSmoothingEnabled = !texturePixelated
-
-                // Calculate visible texture range (canvas coords are
-                // container-relative)
-                const topLeft = containerToWorld(0, 0)
-                const bottomRight = containerToWorld(width, height)
-
-                const startTileX = Math.floor(topLeft.x / scaledTextureSize)
-                const endTileX = Math.ceil(
-                    bottomRight.x / scaledTextureSize
-                )
-                const startTileY = Math.floor(topLeft.y / scaledTextureSize)
-                const endTileY = Math.ceil(
-                    bottomRight.y / scaledTextureSize
-                )
-
-                // Draw texture tiles
-                for (let tileX = startTileX; tileX <= endTileX; tileX++) {
-                    for (
-                        let tileY = startTileY;
-                        tileY <= endTileY;
-                        tileY++
-                    ) {
-                        const worldX = tileX * scaledTextureSize
-                        const worldY = tileY * scaledTextureSize
-                        const screenPos = worldToScreen(worldX, worldY)
-                        const nextPos = worldToScreen(
-                            worldX + scaledTextureSize,
-                            worldY + scaledTextureSize
+                const tileWorld = 320 * textureScale
+                const pattern = ctx.createPattern(textureImage, "repeat")
+                if (pattern) {
+                    pattern.setTransform(
+                        new DOMMatrix().scale(
+                            tileWorld / textureImage.naturalWidth,
+                            tileWorld / textureImage.naturalHeight
                         )
-
-                        // Snap to whole pixels so tiles never show seams
-                        const x = Math.floor(screenPos.x)
-                        const y = Math.floor(screenPos.y)
-                        ctx.drawImage(
-                            img,
-                            x,
-                            y,
-                            Math.floor(nextPos.x) - x,
-                            Math.floor(nextPos.y) - y
-                        )
-                    }
+                    )
+                    ctx.imageSmoothingEnabled = !texturePixelated
+                    ctx.fillStyle = pattern
+                    ctx.fillRect(minX, minY, maxX - minX, maxY - minY)
+                    ctx.imageSmoothingEnabled = true
                 }
             }
 
-            ctx.imageSmoothingEnabled = true
-
-            // Draw painted grid squares
+            // Painted grid squares
             if (paintGrid.size > 0) {
-                const topLeft = containerToWorld(0, 0)
-                const bottomRight = containerToWorld(width, height)
-
-                const startGridX = Math.floor(topLeft.x / GRID_SIZE)
-                const endGridX = Math.ceil(bottomRight.x / GRID_SIZE)
-                const startGridY = Math.floor(topLeft.y / GRID_SIZE)
-                const endGridY = Math.ceil(bottomRight.y / GRID_SIZE)
-
-                for (let gridX = startGridX; gridX <= endGridX; gridX++) {
-                    for (let gridY = startGridY; gridY <= endGridY; gridY++) {
-                        const key = `${gridX},${gridY}`
-                        const color = paintGrid.get(key)
-
-                        if (color) {
-                            const worldX = gridX * GRID_SIZE
-                            const worldY = gridY * GRID_SIZE
-                            const screenPos = worldToScreen(worldX, worldY)
-                            const screenSize = GRID_SIZE * viewport.zoom
-
-                            ctx.fillStyle = color
-                            ctx.fillRect(
-                                screenPos.x,
-                                screenPos.y,
-                                screenSize,
-                                screenSize
-                            )
+                const gx0 = Math.floor(minX / GRID_SIZE)
+                const gx1 = Math.ceil(maxX / GRID_SIZE)
+                const gy0 = Math.floor(minY / GRID_SIZE)
+                const gy1 = Math.ceil(maxY / GRID_SIZE)
+                // Iterate whichever is smaller: painted cells or visible cells
+                const visibleCells = (gx1 - gx0 + 1) * (gy1 - gy0 + 1)
+                const drawCell = (gx: number, gy: number, color: string) => {
+                    ctx.fillStyle = color
+                    // tiny overlap hides anti-aliasing hairlines between cells
+                    ctx.fillRect(gx * GRID_SIZE, gy * GRID_SIZE, GRID_SIZE + 0.3, GRID_SIZE + 0.3)
+                }
+                if (paintGrid.size < visibleCells) {
+                    paintGrid.forEach((color, key) => {
+                        const [gx, gy] = key.split(",").map(Number)
+                        if (gx >= gx0 && gx <= gx1 && gy >= gy0 && gy <= gy1) drawCell(gx, gy, color)
+                    })
+                } else {
+                    for (let gx = gx0; gx <= gx1; gx++)
+                        for (let gy = gy0; gy <= gy1; gy++) {
+                            const color = paintGrid.get(`${gx},${gy}`)
+                            if (color) drawCell(gx, gy, color)
                         }
-                    }
                 }
             }
 
-            if (!showGridLines) return
+            if (showGridLines) {
+                ctx.strokeStyle = z > 0.5 ? style.grid : style.gridFar
+                ctx.lineWidth = 1 / z // 1 screen pixel
 
-            // Calculate visible grid range
-            const topLeft = containerToWorld(0, 0)
-            const bottomRight = containerToWorld(width, height)
+                if (gridShape === "hex") {
+                    // Pointy-top hexagons as wide as a grid square, odd rows
+                    // shifted half a hex. Skip when they'd be too small to see.
+                    const w = GRID_SIZE
+                    const r = w / Math.sqrt(3) // centre-to-corner
+                    const rowStep = 1.5 * r
+                    if (w * z >= 8) {
+                        const row0 = Math.floor(minY / rowStep) - 1
+                        const row1 = Math.ceil(maxY / rowStep) + 1
+                        const col0 = Math.floor(minX / w) - 1
+                        const col1 = Math.ceil(maxX / w) + 1
+                        ctx.beginPath()
+                        for (let row = row0; row <= row1; row++) {
+                            const hy = row * rowStep
+                            const shift = ((row % 2) + 2) % 2 ? w / 2 : 0
+                            for (let col = col0; col <= col1; col++) {
+                                const hx = col * w + shift
+                                for (let k = 0; k <= 6; k++) {
+                                    const a = (Math.PI / 3) * k - Math.PI / 2
+                                    const px = hx + r * Math.cos(a)
+                                    const py = hy + r * Math.sin(a)
+                                    if (k === 0) ctx.moveTo(px, py)
+                                    else ctx.lineTo(px, py)
+                                }
+                            }
+                        }
+                        ctx.stroke()
+                    }
+                } else if (GRID_SIZE * z >= 3) {
+                    ctx.beginPath()
+                    for (let x = Math.floor(minX / GRID_SIZE) * GRID_SIZE; x <= maxX; x += GRID_SIZE) {
+                        ctx.moveTo(x, minY)
+                        ctx.lineTo(x, maxY)
+                    }
+                    for (let y = Math.floor(minY / GRID_SIZE) * GRID_SIZE; y <= maxY; y += GRID_SIZE) {
+                        ctx.moveTo(minX, y)
+                        ctx.lineTo(maxX, y)
+                    }
+                    ctx.stroke()
+                }
 
-            const startX = Math.floor(topLeft.x / GRID_SIZE) * GRID_SIZE
-            const endX = Math.ceil(bottomRight.x / GRID_SIZE) * GRID_SIZE
-            const startY = Math.floor(topLeft.y / GRID_SIZE) * GRID_SIZE
-            const endY = Math.ceil(bottomRight.y / GRID_SIZE) * GRID_SIZE
-
-            // Set grid style
-            ctx.strokeStyle = viewport.zoom > 0.5 ? style.grid : style.gridFar
-            ctx.lineWidth = 1
-
-            // Draw vertical lines
-            for (let x = startX; x <= endX; x += GRID_SIZE) {
-                const screenPos = worldToScreen(x, 0)
+                // Coordinate axes and origin
+                ctx.strokeStyle = "#ff0000"
+                ctx.lineWidth = 2 / z
                 ctx.beginPath()
-                ctx.moveTo(screenPos.x, 0)
-                ctx.lineTo(screenPos.x, height)
+                ctx.moveTo(minX, 0)
+                ctx.lineTo(maxX, 0)
+                ctx.moveTo(0, minY)
+                ctx.lineTo(0, maxY)
                 ctx.stroke()
+
+                ctx.setTransform(1, 0, 0, 1, 0, 0)
+                const origin = worldToScreen(0, 0)
+                ctx.fillStyle = "#ff0000"
+                ctx.beginPath()
+                ctx.arc(origin.x, origin.y, 4, 0, Math.PI * 2)
+                ctx.fill()
             }
 
-            // Draw horizontal lines
-            for (let y = startY; y <= endY; y += GRID_SIZE) {
-                const screenPos = worldToScreen(0, y)
-                ctx.beginPath()
-                ctx.moveTo(0, screenPos.y)
-                ctx.lineTo(width, screenPos.y)
-                ctx.stroke()
-            }
-
-            // Draw coordinate axes
-            const origin = worldToScreen(0, 0)
-            ctx.strokeStyle = "#ff0000"
-            ctx.lineWidth = 2
-
-            // X-axis
-            ctx.beginPath()
-            ctx.moveTo(0, origin.y)
-            ctx.lineTo(width, origin.y)
-            ctx.stroke()
-
-            // Y-axis
-            ctx.beginPath()
-            ctx.moveTo(origin.x, 0)
-            ctx.lineTo(origin.x, height)
-            ctx.stroke()
-
-            // Draw origin marker
-            ctx.fillStyle = "#ff0000"
-            ctx.beginPath()
-            ctx.arc(origin.x, origin.y, 4, 0, Math.PI * 2)
-            ctx.fill()
+            ctx.setTransform(1, 0, 0, 1, 0, 0)
         },
         [
             viewport,
+            projection,
             containerToWorld,
             worldToScreen,
             showGridLines,
@@ -568,6 +602,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             textureScale,
             paintGrid,
             style,
+            gridShape,
         ]
     )
 
@@ -613,9 +648,74 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         [viewport, isModalOpen]
     )
 
+    // Dump (bucket) fill: flood the connected area of the clicked square's
+    // colour. Empty space is unbounded, so the fill stays within the visible
+    // board (plus a margin). Recorded as one undoable stroke.
+    const dumpFillAt = useCallback(
+        (e: React.MouseEvent) => {
+            const container = containerRef.current
+            if (!container) return
+            const world = screenToWorld(e.clientX, e.clientY)
+            const sx = Math.floor(world.x / GRID_SIZE)
+            const sy = Math.floor(world.y / GRID_SIZE)
+            const target = paintGrid.get(`${sx},${sy}`)
+            const fill = selectedColor === TRANSPARENT ? undefined : selectedColor
+            if (target === fill) return
+
+            // Visible board area (all four corners: it's a diamond in 2.5D)
+            const w = container.clientWidth
+            const h = container.clientHeight
+            const corners = [
+                containerToWorld(0, 0),
+                containerToWorld(w, 0),
+                containerToWorld(0, h),
+                containerToWorld(w, h),
+            ]
+            const pad = 4
+            const minX = Math.floor(Math.min(...corners.map((c) => c.x)) / GRID_SIZE) - pad
+            const maxX = Math.ceil(Math.max(...corners.map((c) => c.x)) / GRID_SIZE) + pad
+            const minY = Math.floor(Math.min(...corners.map((c) => c.y)) / GRID_SIZE) - pad
+            const maxY = Math.ceil(Math.max(...corners.map((c) => c.y)) / GRID_SIZE) + pad
+
+            const changes = new Map<string, { oldColor?: string; newColor?: string }>()
+            const seen = new Set<string>()
+            const queue: [number, number][] = [[sx, sy]]
+            while (queue.length) {
+                const [x, y] = queue.pop()!
+                const key = `${x},${y}`
+                if (seen.has(key) || x < minX || x > maxX || y < minY || y > maxY) continue
+                seen.add(key)
+                if (paintGrid.get(key) !== target) continue
+                changes.set(key, { oldColor: target, newColor: fill })
+                queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1])
+            }
+            if (changes.size === 0) return
+
+            setPaintGrid((prev) => {
+                const next = new Map(prev)
+                changes.forEach((c, key) => {
+                    if (c.newColor) next.set(key, c.newColor)
+                    else next.delete(key)
+                })
+                return next
+            })
+            undoRedoManager?.addAction({
+                type: "PAINT_STROKE",
+                timestamp: Date.now(),
+                changes,
+            })
+        },
+        [paintGrid, selectedColor, screenToWorld, containerToWorld, setPaintGrid, undoRedoManager]
+    )
+
     // Handle mouse down
     const handleMouseDown = useCallback(
         (e: React.MouseEvent) => {
+            if (activePaintTool === "dump") {
+                if (e.button === 0) dumpFillAt(e)
+                return
+            }
+
             // Handle paint tool clicks
             if (activePaintTool === "paint" || activePaintTool === "eraser") {
                 startPaintStroke()
@@ -634,7 +734,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             setIsDragging(true)
             setLastMousePos({ x: e.clientX, y: e.clientY })
         },
-        [activePaintTool, paintGridSquare, startPaintStroke]
+        [activePaintTool, paintGridSquare, startPaintStroke, dumpFillAt]
     )
 
     // Handle mouse move
@@ -657,13 +757,17 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
 
             if (!isDragging) return
 
-            const deltaX = e.clientX - lastMousePos.x
-            const deltaY = e.clientY - lastMousePos.y
+            // Screen drag -> board movement (through the camera tilt)
+            const d = invert(
+                projection,
+                e.clientX - lastMousePos.x,
+                e.clientY - lastMousePos.y
+            )
 
             setViewport((prev) => ({
                 ...prev,
-                x: prev.x + deltaX / prev.zoom,
-                y: prev.y + deltaY / prev.zoom,
+                x: prev.x + d.x / prev.zoom,
+                y: prev.y + d.y / prev.zoom,
             }))
 
             setLastMousePos({ x: e.clientX, y: e.clientY })
@@ -671,6 +775,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         [
             isDragging,
             lastMousePos,
+            projection,
             isPaintDragging,
             activePaintTool,
             paintGridSquare,
@@ -691,7 +796,11 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             e.preventDefault()
 
             // If paint tools are active, don't show context menu
-            if (activePaintTool === "paint" || activePaintTool === "eraser") {
+            if (
+                activePaintTool === "paint" ||
+                activePaintTool === "eraser" ||
+                activePaintTool === "dump"
+            ) {
                 return
             }
 
@@ -868,66 +977,13 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         }
     }, [])
 
-    // Listen for dump fill events
-    useEffect(() => {
-        const handleDumpFill = (event: CustomEvent) => {
-            const { color } = event.detail
-
-            // Record the current paint grid for undo
-            const previousGrid = new Map(paintGrid)
-            undoRedoManager?.addAction({
-                type: "DUMP_FILL",
-                timestamp: Date.now(),
-                color: color,
-                previousGrid: previousGrid,
-            })
-
-            setPaintGrid(new Map()) // Clear the grid first
-
-            // Fill a reasonable area around the current viewport
-            const container = containerRef.current
-            if (!container) return
-
-            const topLeft = screenToWorld(0, 0)
-            const bottomRight = screenToWorld(
-                container.clientWidth,
-                container.clientHeight
-            )
-
-            // Expand the area a bit beyond viewport
-            const padding = 10 // grid squares
-            const startGridX = Math.floor(topLeft.x / GRID_SIZE) - padding
-            const endGridX = Math.ceil(bottomRight.x / GRID_SIZE) + padding
-            const startGridY = Math.floor(topLeft.y / GRID_SIZE) - padding
-            const endGridY = Math.ceil(bottomRight.y / GRID_SIZE) + padding
-
-            const newGrid = new Map<string, string>()
-            for (let gridX = startGridX; gridX <= endGridX; gridX++) {
-                for (let gridY = startGridY; gridY <= endGridY; gridY++) {
-                    const key = `${gridX},${gridY}`
-                    newGrid.set(key, color)
-                }
-            }
-            setPaintGrid(newGrid)
-        }
-
-        window.addEventListener("dumpFill", handleDumpFill as EventListener)
-
-        return () => {
-            window.removeEventListener(
-                "dumpFill",
-                handleDumpFill as EventListener
-            )
-        }
-    }, [screenToWorld, setPaintGrid, paintGrid, undoRedoManager])
-
     return (
         <div
             className={`infinite-whiteboard-container ${
                 isShiftHeld ? "shift-pan-mode" : ""
             } ${activePaintTool === "paint" ? "paint-mode" : ""} ${
                 activePaintTool === "eraser" ? "eraser-mode" : ""
-            } ${
+            } ${activePaintTool === "dump" ? "dump-mode" : ""} ${
                 scribbleDrawing
                     ? scribbleSettings.tool === "eraser"
                         ? "scribble-eraser"
@@ -955,6 +1011,10 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 worldToScreen={worldToScreen}
                 contextMenuEvent={contextMenuEvent}
                 showDragTails={showDragTails}
+                dragTailStyle={dragTailStyle}
+                projection={projection}
+                standUp={tilt}
+                gridShape={gridShape}
                 isShiftHeld={isShiftHeld}
                 onExportRequest={handleExportRequest}
                 onImportRequest={handleImportRequest}
@@ -968,6 +1028,7 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 drawing={scribbleDrawing}
                 settings={scribbleSettings}
                 viewport={viewport}
+                projection={projection}
                 containerRef={containerRef}
                 onStrokeComplete={onStrokeComplete}
                 onErase={onScribbleErase}

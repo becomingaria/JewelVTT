@@ -1,6 +1,28 @@
 import React, { useState, useRef } from "react"
 import type { Humbug, Point } from "../types/humbug.types"
 import { Icon } from "./Icon"
+import { pinSize } from "../utils/humbug.utils"
+import { IDENTITY, type Projection } from "../utils/projection"
+import { isStandee, placeHumbug } from "../utils/humbug-geometry"
+
+const normalizeDeg = (d: number) => ((d % 360) + 360) % 360
+
+/**
+ * Pull the angle onto 90° points (±7°) and 45° points (±5°). Works on the
+ * continuous (unwrapped) angle, so 359° snaps forward to 360°, not back to 0°.
+ */
+function softSnap(deg: number): { deg: number; snapped: boolean } {
+    for (const [step, tolerance] of [
+        [90, 7],
+        [45, 5],
+    ]) {
+        const nearest = Math.round(deg / step) * step
+        if (Math.abs(deg - nearest) <= tolerance) {
+            return { deg: nearest, snapped: true }
+        }
+    }
+    return { deg, snapped: false }
+}
 import { DocumentCard } from "./DocumentCard"
 import "./HumbugRenderer.css"
 
@@ -12,7 +34,8 @@ interface HumbugRendererProps {
     isDragging?: boolean
     onSelect: (id: string) => void
     onMove: (id: string, newPosition: Point) => void
-    onRotate: (id: string, rotation: number) => void
+    /** Live update while dragging; pass `commitFrom` on release to record undo */
+    onRotate: (id: string, rotation: number, commitFrom?: number) => void
     onResize: (
         id: string,
         newSize: { width: number; height: number },
@@ -24,6 +47,12 @@ interface HumbugRendererProps {
     onContextMenu: (e: React.MouseEvent, humbugId: string) => void
     scale: number
     worldToScreen: (worldX: number, worldY: number) => Point
+    /** Board-container pixel -> world (inverse camera projection) */
+    containerToWorld: (containerX: number, containerY: number) => Point
+    /** Camera tilt; identity in 2D */
+    projection?: Projection
+    /** 0 in 2D, 1 in 2.5D: how far non-map humbugs have stood up */
+    standUp?: number
     containerRef: React.RefObject<HTMLDivElement | null>
     snapToGridEnabled?: boolean
     isShiftHeld?: boolean
@@ -43,13 +72,36 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
     onContextMenu,
     scale,
     worldToScreen,
+    containerToWorld,
+    projection = IDENTITY,
+    standUp = 0,
     containerRef,
     snapToGridEnabled = false,
     isShiftHeld = false,
 }) => {
+    /** Mouse event -> world point (through the camera projection) */
+    const pointerWorld = (e: { clientX: number; clientY: number }) => {
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (!rect) return { x: 0, y: 0 }
+        return containerToWorld(e.clientX - rect.left, e.clientY - rect.top)
+    }
+
+    /** Footprint of the humbug in world units */
+    const worldSize = () =>
+        humbug.type === "map-pin"
+            ? { width: pinSize(humbug), height: pinSize(humbug) }
+            : "size" in humbug
+            ? humbug.size
+            : { width: 100, height: 100 }
+
     const [interactionMode, setInteractionMode] = useState<
         "none" | "dragging" | "rotating" | "resizing"
     >("none")
+    // Angle readout shown while the rotation pin is dragged
+    const [liveRotation, setLiveRotation] = useState<{
+        deg: number
+        snapped: boolean
+    } | null>(null)
     const [, setActiveResizeHandle] = useState<string | null>(null)
     const elementRef = useRef<HTMLDivElement>(null)
     const initialRotation = useRef<number>(0)
@@ -88,28 +140,20 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
         const container = containerRef.current
         if (!container) return
 
-        const containerRect = container.getBoundingClientRect()
-
-        // Get the humbug's screen position (relative to container)
-        const humbugScreenPos = worldToScreen(
-            humbug.position.x,
-            humbug.position.y
-        )
-
-        // Convert client coordinates to container coordinates
-        const containerX = e.clientX - containerRect.left
-        const containerY = e.clientY - containerRect.top
-
-        // Calculate offset from click position to humbug's top-left corner
+        // Offset from the humbug's corner to the grabbed point, in world
+        // units, so dragging stays under the cursor in 2D and 2.5D
+        const pointer = pointerWorld(e)
         const offset = {
-            x: containerX - humbugScreenPos.x,
-            y: containerY - humbugScreenPos.y,
+            x: pointer.x - humbug.position.x,
+            y: pointer.y - humbug.position.y,
         }
 
         // Start dragging
         onStartDrag(humbug.id, offset)
     }
 
+    // Rotation pin: drag around the centre. Soft-snaps to 90° and 45°
+    // points (hold Alt for free rotation); one undo step per drag.
     const handleRotateMouseDown = (e: React.MouseEvent) => {
         // If shift key is held, allow event to bubble up for panning
         if (e.shiftKey) {
@@ -121,45 +165,46 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
 
         if (humbug.locked) return
 
-        if (snapToGridEnabled) {
-            // Snap to 90-degree increments when snap-to-grid is enabled
-            const currentRotation = humbug.rotation
-            const snapRotations = [0, 90, 180, 270]
-
-            // Find the next rotation in the sequence
-            let nextRotation = 90
-            for (let i = 0; i < snapRotations.length; i++) {
-                if (Math.abs(currentRotation - snapRotations[i]) < 45) {
-                    nextRotation = snapRotations[(i + 1) % snapRotations.length]
-                    break
-                }
-            }
-
-            onRotate(humbug.id, nextRotation)
-            return
-        }
-
-        // Original continuous rotation when snap-to-grid is disabled
         setInteractionMode("rotating")
         initialRotation.current = humbug.rotation
 
-        const rect = elementRef.current?.getBoundingClientRect()
-        if (rect) {
-            rotationCenter.current = {
-                x: rect.left + rect.width / 2,
-                y: rect.top + rect.height / 2,
-            }
+        // Centre of the humbug on the board (world units)
+        const box = worldSize()
+        rotationCenter.current = {
+            x: humbug.position.x + box.width / 2,
+            y: humbug.position.y + box.height / 2,
         }
+        const angleTo = (ev: { clientX: number; clientY: number }) => {
+            const p = pointerWorld(ev)
+            return (Math.atan2(p.y - rotationCenter.current.y, p.x - rotationCenter.current.x) * 180) / Math.PI
+        }
+        // Accumulate the pointer's turning so the angle stays continuous:
+        // crossing 359° -> 360° keeps going instead of jumping back to 0°
+        // (which would make the element spin backwards the long way).
+        let prevAngle = angleTo(e)
+        let turned = 0
+        let current = humbug.rotation
+        setLiveRotation({ deg: normalizeDeg(current), snapped: false })
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const dx = moveEvent.clientX - rotationCenter.current.x
-            const dy = moveEvent.clientY - rotationCenter.current.y
-            const angle = Math.atan2(dy, dx) * (180 / Math.PI)
-            onRotate(humbug.id, angle)
+            const a = angleTo(moveEvent)
+            let d = a - prevAngle
+            if (d > 180) d -= 360
+            if (d < -180) d += 360
+            turned += d
+            prevAngle = a
+            const raw = initialRotation.current + turned
+            const r = moveEvent.altKey ? { deg: raw, snapped: false } : softSnap(raw)
+            current = r.deg
+            setLiveRotation({ deg: normalizeDeg(r.deg), snapped: r.snapped })
+            onRotate(humbug.id, current)
         }
 
         const handleMouseUp = () => {
             setInteractionMode("none")
+            setLiveRotation(null)
+            // Commit once, recording the whole drag as a single undo step
+            onRotate(humbug.id, current, initialRotation.current)
             document.removeEventListener("mousemove", handleMouseMove)
             document.removeEventListener("mouseup", handleMouseUp)
         }
@@ -188,12 +233,13 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                 ? humbug.size
                 : { width: 100, height: 100 }
 
-        const startX = e.clientX
-        const startY = e.clientY
+        // Resize in world units so handles track the cursor at any angle
+        const start = pointerWorld(e)
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const deltaX = moveEvent.clientX - startX
-            const deltaY = moveEvent.clientY - startY
+            const now = pointerWorld(moveEvent)
+            const deltaX = now.x - start.x
+            const deltaY = now.y - start.y
 
             let newWidth = initialSize.current.width
             let newHeight = initialSize.current.height
@@ -202,65 +248,65 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                 case "e":
                     newWidth = Math.max(
                         20,
-                        initialSize.current.width + deltaX / scale
+                        initialSize.current.width + deltaX
                     )
                     break
                 case "w":
                     newWidth = Math.max(
                         20,
-                        initialSize.current.width - deltaX / scale
+                        initialSize.current.width - deltaX
                     )
                     break
                 case "s":
                     newHeight = Math.max(
                         20,
-                        initialSize.current.height + deltaY / scale
+                        initialSize.current.height + deltaY
                     )
                     break
                 case "n":
                     newHeight = Math.max(
                         20,
-                        initialSize.current.height - deltaY / scale
+                        initialSize.current.height - deltaY
                     )
                     break
                 case "se":
                     newWidth = Math.max(
                         20,
-                        initialSize.current.width + deltaX / scale
+                        initialSize.current.width + deltaX
                     )
                     newHeight = Math.max(
                         20,
-                        initialSize.current.height + deltaY / scale
+                        initialSize.current.height + deltaY
                     )
                     break
                 case "sw":
                     newWidth = Math.max(
                         20,
-                        initialSize.current.width - deltaX / scale
+                        initialSize.current.width - deltaX
                     )
                     newHeight = Math.max(
                         20,
-                        initialSize.current.height + deltaY / scale
+                        initialSize.current.height + deltaY
                     )
                     break
                 case "ne":
                     newWidth = Math.max(
                         20,
-                        initialSize.current.width + deltaX / scale
+                        initialSize.current.width + deltaX
                     )
                     newHeight = Math.max(
                         20,
-                        initialSize.current.height - deltaY / scale
+                        initialSize.current.height - deltaY
                     )
                     break
                 case "nw":
                     newWidth = Math.max(
                         20,
-                        initialSize.current.width - deltaX / scale
+                        initialSize.current.width - deltaX
                     )
                     newHeight = Math.max(
                         20,
-                        initialSize.current.height - deltaY / scale
+                        initialSize.current.height - deltaY
                     )
                     break
             }
@@ -288,6 +334,24 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
 
         document.addEventListener("mousemove", handleMouseMove)
         document.addEventListener("mouseup", handleMouseUp)
+    }
+
+    // Flat on the (possibly tilted) board, or standing up as a 2.5D standee;
+    // the same geometry drives connector anchors (utils/humbug-geometry.ts)
+    const standee = isStandee(humbug, standUp)
+    const geometry = placeHumbug(humbug, {
+        scale,
+        standUp,
+        projection,
+        worldToScreen,
+        containerWidth: containerRef.current?.clientWidth ?? 0,
+    })
+    const placement: React.CSSProperties = {
+        left: geometry.left,
+        top: geometry.top,
+        transform: geometry.transform,
+        transformOrigin: geometry.transformOrigin,
+        zIndex: geometry.zIndex,
     }
 
     const handleDoubleClick = () => {
@@ -338,7 +402,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                     >
                         <Icon
                             name='pin'
-                            size={humbug.size * scale}
+                            size={pinSize(humbug) * scale}
                             style={
                                 {
                                     "--ji-accent": humbug.color,
@@ -348,7 +412,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                         {humbug.label && (
                             <span
                                 className='map-pin-label'
-                                style={{ fontSize: humbug.size * 0.6 * scale }}
+                                style={{ fontSize: pinSize(humbug) * 0.6 * scale }}
                             >
                                 {humbug.label}
                             </span>
@@ -455,7 +519,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
             ref={elementRef}
             className={`humbug-renderer humbug-element ${
                 isSelected ? "selected" : ""
-            } ${isMultiSelected ? "multi-selected" : ""} ${humbug.locked ? "locked" : ""} ${
+            } ${isMultiSelected ? "multi-selected" : ""} ${standee ? "standee" : ""} ${humbug.locked ? "locked" : ""} ${
                 isDragging ? "dragging" : ""
             } ${interactionMode === "rotating" ? "rotating" : ""} ${
                 interactionMode === "resizing" ? "resizing" : ""
@@ -464,10 +528,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
             }`}
             style={{
                 position: "absolute",
-                left: worldToScreen(humbug.position.x, humbug.position.y).x,
-                top: worldToScreen(humbug.position.x, humbug.position.y).y,
-                transform: `rotate(${humbug.rotation}deg)`,
-                zIndex: humbug.zIndex,
+                ...placement,
                 opacity: humbug.opacity,
                 pointerEvents: isShiftHeld ? "none" : "auto",
             }}
@@ -548,25 +609,16 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                         </>
                     )}
 
-                    <button
-                        className={`rotate-handle ${
-                            snapToGridEnabled ? "snap-rotate" : ""
-                        }`}
+                    <div
+                        className='rotate-pin'
                         onMouseDown={handleRotateMouseDown}
-                        title={
-                            snapToGridEnabled
-                                ? "Click to rotate 90°"
-                                : "Drag to rotate"
-                        }
+                        title='Drag to rotate (snaps to 45° and 90°; hold Alt for free rotation)'
                     >
-                        <Icon
-                            name='rotate'
-                            size={14}
-                            className={
-                                snapToGridEnabled ? "ji-quarter-turn" : ""
-                            }
-                        />
-                    </button>
+                        <span className='rotate-pin-stem' />
+                        <span className='rotate-pin-knob'>
+                            <Icon name='rotate' size={12} />
+                        </span>
+                    </div>
                     <button
                         className='delete-handle'
                         onClick={(e) => {
@@ -577,6 +629,17 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                     >
                         <Icon name='close' size={13} />
                     </button>
+                </div>
+            )}
+
+            {/* Live rotation readout, kept upright */}
+            {liveRotation && (
+                <div
+                    className={`rotate-readout ${liveRotation.snapped ? "snapped" : ""}`}
+                    style={{ transform: `translate(-50%, -50%) rotate(${-humbug.rotation}deg)` }}
+                >
+                    <strong>{Math.round(liveRotation.deg)}°</strong>
+                    <span>{Math.round((liveRotation.deg / 360) * 100)}%</span>
                 </div>
             )}
 

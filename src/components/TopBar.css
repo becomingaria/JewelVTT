@@ -306,3 +306,153 @@
 .scribble-tab-eye:hover {
     background-color: #dee2e6;
 }
+
+/* 2D / 2.5D camera switch */
+.view-toggle {
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 3px;
+    background: #e9ecef;
+    border-radius: 9px;
+}
+
+.view-toggle button {
+    position: relative;
+    z-index: 1;
+    width: 52px;
+    padding: 6px 0;
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-weight: 700;
+    color: #666;
+    cursor: var(--cursor-pointer, pointer);
+    transition: color 0.2s ease;
+}
+
+.view-toggle button[aria-checked="true"] {
+    color: #fff;
+}
+
+.view-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 52px;
+    bottom: 3px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #3b1d6e, #6c2fcf);
+    box-shadow: 0 2px 6px rgba(108, 47, 207, 0.35);
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.view-toggle.is-iso .view-toggle-thumb {
+    transform: translateX(52px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .view-toggle-thumb {
+        transition: none;
+    }
+}
+
+/* Prepared scene tabs */
+.scene-tab {
+    background-color: #f4f1fb;
+    border-color: #ddd3f3;
+}
+
+.scene-tab.active {
+    background-color: #fff;
+    border-color: #6c2fcf;
+    box-shadow: 0 0 0 3px rgba(108, 47, 207, 0.12);
+}
+
+.scene-tab .unsaved-name {
+    font-style: italic;
+}
+
+.scene-dirty {
+    width: 7px;
+    height: 7px;
+    margin-left: 2px;
+    border-radius: 50%;
+    background: #e67e22;
+}
+
+.scene-discard {
+    margin-right: 5px;
+    padding: 3px 8px;
+    background: #c0392b;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: var(--cursor-pointer, pointer);
+    animation: spot-tab-in 0.2s ease;
+}
+
+/* Spots and scribbles follow scenes with a divider */
+.scene-tabs + .spot-tabs {
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 1px solid #e0e0e0;
+}
+
+.scribble-tab-export.open {
+    background-color: #dee2e6;
+}
+
+/* Export menu for a scribble layer */
+.layer-export-menu {
+    position: fixed;
+    z-index: 1200;
+    width: 200px;
+    padding: 6px;
+    background: #fffdf7;
+    border: 1px solid #e0d6c2;
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    animation: spot-tab-in 0.2s ease;
+}
+
+.layer-export-title {
+    padding: 4px 8px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #8a7f6a;
+}
+
+.layer-export-menu button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding: 7px 8px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    text-align: left;
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.layer-export-menu button:hover {
+    background: #f4ecff;
+}
+
+.layer-export-menu button span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2c2437;
+}
+
+.layer-export-menu button small {
+    font-size: 11px;
+    color: #8a7f6a;
+}

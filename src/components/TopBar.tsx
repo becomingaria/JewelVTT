@@ -1,6 +1,55 @@
 import React, { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import type { Spot } from "../types/spot.types"
 import type { ScribbleLayer } from "../types/scribble.types"
+import type { ViewMode } from "../utils/projection"
+import type { Scene } from "../utils/use-local-boards"
+import type { ScribbleExportFormat } from "../utils/scribble-art"
+
+const EXPORT_OPTIONS: { format: ScribbleExportFormat; label: string; hint: string }[] = [
+    { format: "png-transparent", label: "PNG · transparent", hint: "Just the lines" },
+    { format: "png-white", label: "PNG · white", hint: "Lines on white" },
+    { format: "svg", label: "SVG", hint: "Sharp at any size" },
+]
+
+/** Small export menu anchored under a tab button (portalled: tabs scroll) */
+const ExportMenu: React.FC<{
+    anchor: HTMLElement
+    onPick: (format: ScribbleExportFormat) => void
+    onClose: () => void
+}> = ({ anchor, onPick, onClose }) => {
+    const ref = useRef<HTMLDivElement>(null)
+    const rect = anchor.getBoundingClientRect()
+    useEffect(() => {
+        const onDown = (e: MouseEvent) => {
+            if (!ref.current?.contains(e.target as Node) && !anchor.contains(e.target as Node)) onClose()
+        }
+        const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose()
+        window.addEventListener("mousedown", onDown)
+        window.addEventListener("keydown", onKey)
+        return () => {
+            window.removeEventListener("mousedown", onDown)
+            window.removeEventListener("keydown", onKey)
+        }
+    }, [anchor, onClose])
+    return createPortal(
+        <div
+            ref={ref}
+            className='layer-export-menu'
+            role='menu'
+            style={{ top: rect.bottom + 6, left: Math.max(8, rect.left + rect.width / 2 - 100) }}
+        >
+            <div className='layer-export-title'>Export layer</div>
+            {EXPORT_OPTIONS.map((o) => (
+                <button key={o.format} type='button' role='menuitem' onClick={() => onPick(o.format)}>
+                    <span>{o.label}</span>
+                    <small>{o.hint}</small>
+                </button>
+            ))}
+        </div>,
+        document.body
+    )
+}
 import { Icon } from "./Icon"
 import "./TopBar.css"
 
@@ -20,6 +69,82 @@ interface TopBarProps {
     onScribbleSelect: (id: string) => void
     onScribbleToggleVisible: (id: string) => void
     onScribbleDelete: (id: string) => void
+    onScribbleExport: (id: string, format: ScribbleExportFormat) => void
+    viewMode: ViewMode
+    onViewModeChange: (mode: ViewMode) => void
+    scenes: Scene[]
+    activeSceneId: string | null
+    onSceneSelect: (id: string) => void
+    onSceneClose: (id: string) => void
+}
+
+/** Prepared scene tabs: click to switch boards, × to close */
+const SceneTabs: React.FC<{
+    scenes: Scene[]
+    activeSceneId: string | null
+    onSelect: (id: string) => void
+    onClose: (id: string) => void
+}> = ({ scenes, activeSceneId, onSelect, onClose }) => {
+    // Closing a scene with unsaved changes takes a second click
+    const [confirmId, setConfirmId] = useState<string | null>(null)
+    useEffect(() => {
+        if (!confirmId) return
+        const t = window.setTimeout(() => setConfirmId(null), 3000)
+        return () => window.clearTimeout(t)
+    }, [confirmId])
+
+    return (
+        <div className='spot-tabs scene-tabs' role='tablist' aria-label='Prepared scenes'>
+            {scenes.map((scene) => {
+                const active = scene.id === activeSceneId
+                const confirming = confirmId === scene.id
+                return (
+                    <div key={scene.id} className={`spot-tab scene-tab ${active ? "active" : ""}`}>
+                        <button
+                            type='button'
+                            role='tab'
+                            aria-selected={active}
+                            className='spot-tab-main'
+                            onClick={() => onSelect(scene.id)}
+                            title={
+                                scene.fileName
+                                    ? `${scene.fileName}${scene.dirty ? " (unsaved changes)" : ""}`
+                                    : "Not saved to the folder yet"
+                            }
+                        >
+                            <Icon name='map' size={18} className={active ? "jicon-play" : ""} />
+                            <span className={`spot-tab-name ${scene.fileName ? "" : "unsaved-name"}`}>
+                                {scene.name}
+                            </span>
+                            {scene.dirty && <span className='scene-dirty' aria-label='Unsaved changes' />}
+                        </button>
+                        {confirming ? (
+                            <button
+                                type='button'
+                                className='scene-discard'
+                                onClick={() => {
+                                    setConfirmId(null)
+                                    onClose(scene.id)
+                                }}
+                            >
+                                Discard?
+                            </button>
+                        ) : (
+                            <button
+                                type='button'
+                                className='spot-tab-delete'
+                                aria-label={`Close ${scene.name}`}
+                                title='Close scene'
+                                onClick={() => (scene.dirty ? setConfirmId(scene.id) : onClose(scene.id))}
+                            >
+                                <Icon name='close' size={14} />
+                            </button>
+                        )}
+                    </div>
+                )
+            })}
+        </div>
+    )
 }
 
 interface SpotTabProps {
@@ -134,8 +259,16 @@ export const TopBar: React.FC<TopBarProps> = ({
     onScribbleSelect,
     onScribbleToggleVisible,
     onScribbleDelete,
+    onScribbleExport,
+    viewMode,
+    onViewModeChange,
+    scenes,
+    activeSceneId,
+    onSceneSelect,
+    onSceneClose,
 }) => {
     const tabsRef = useRef<HTMLDivElement>(null)
+    const [exportFor, setExportFor] = useState<{ id: string; anchor: HTMLElement } | null>(null)
 
     // Scroll a newly added / edited tab into view
     useEffect(() => {
@@ -178,6 +311,15 @@ export const TopBar: React.FC<TopBarProps> = ({
                     />
                 </div>
             </div>
+
+            {scenes.length > 0 && (
+                <SceneTabs
+                    scenes={scenes}
+                    activeSceneId={activeSceneId}
+                    onSelect={onSceneSelect}
+                    onClose={onSceneClose}
+                />
+            )}
 
             {spots.length > 0 && (
                 <div
@@ -263,6 +405,24 @@ export const TopBar: React.FC<TopBarProps> = ({
                                 </button>
                                 <button
                                     type='button'
+                                    className={`scribble-tab-eye scribble-tab-export ${
+                                        exportFor?.id === layer.id ? "open" : ""
+                                    }`}
+                                    onClick={(e) => {
+                                        const anchor = e.currentTarget
+                                        setExportFor((cur) =>
+                                            cur?.id === layer.id ? null : { id: layer.id, anchor }
+                                        )
+                                    }}
+                                    aria-label={`Export ${layer.name}`}
+                                    aria-haspopup='menu'
+                                    aria-expanded={exportFor?.id === layer.id}
+                                    title='Export this layer as an image'
+                                >
+                                    <Icon name='export' size={16} />
+                                </button>
+                                <button
+                                    type='button'
                                     className='spot-tab-delete'
                                     onClick={() => onScribbleDelete(layer.id)}
                                     aria-label={`Remove ${layer.name}`}
@@ -275,6 +435,42 @@ export const TopBar: React.FC<TopBarProps> = ({
                     })}
                 </div>
             )}
+
+            {exportFor && (
+                <ExportMenu
+                    anchor={exportFor.anchor}
+                    onClose={() => setExportFor(null)}
+                    onPick={(format) => {
+                        onScribbleExport(exportFor.id, format)
+                        setExportFor(null)
+                    }}
+                />
+            )}
+
+            <div
+                className={`view-toggle ${viewMode === "iso" ? "is-iso" : ""}`}
+                role='radiogroup'
+                aria-label='Camera view'
+                title='Switch view (V)'
+            >
+                <span className='view-toggle-thumb' aria-hidden='true' />
+                <button
+                    type='button'
+                    role='radio'
+                    aria-checked={viewMode === "2d"}
+                    onClick={() => onViewModeChange("2d")}
+                >
+                    2D
+                </button>
+                <button
+                    type='button'
+                    role='radio'
+                    aria-checked={viewMode === "iso"}
+                    onClick={() => onViewModeChange("iso")}
+                >
+                    2.5D
+                </button>
+            </div>
         </div>
     )
 }

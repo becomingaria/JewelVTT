@@ -111,3 +111,9 @@
         animation: none;
     }
 }
+
+/* Anchors would sit on the unrotated edges mid-rotation/resize: hide them */
+.infinite-whiteboard-container:has(.humbug-renderer.rotating, .humbug-renderer.resizing)
+    .connector-anchor {
+    display: none;
+}

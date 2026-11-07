@@ -11,10 +11,20 @@ import { HumbugRenderer } from "./HumbugRenderer"
 import { HumbugModal } from "./HumbugModal"
 import { HumbugContextMenu } from "./HumbugContextMenu"
 import { DragTailRenderer } from "./DragTailRenderer"
-import { snapToGrid, generateId } from "../utils/humbug.utils"
+import {
+    generateId,
+    hexStep,
+    humbugFootprint,
+    nearestHexCenter,
+    snapForGrid,
+    snapToGrid,
+} from "../utils/humbug.utils"
+import type { GridShape } from "../utils/board-styles"
+import { MAX_PARTY, pipLayout, type PartyMember } from "../utils/party"
 import { UndoRedoManager } from "../utils/undo-redo.utils"
 import { ClipboardManager } from "../utils/clipboard.utils"
 import {
+    ADD_PARTY_EVENT,
     AREA_SELECT_EVENT,
     CREATE_AT_CURSOR_EVENT,
     DELETE_SELECTION_EVENT,
@@ -25,6 +35,8 @@ import {
     requestAddSpot,
 } from "../utils/view-events"
 import { useBoardSlice } from "../utils/board-store"
+import type { DragTailStyleId } from "../utils/drag-tail-styles"
+import { IDENTITY, type Projection } from "../utils/projection"
 import { ConnectorLayer } from "./ConnectorLayer"
 import type { Connector, ConnectorEnd } from "../types/connector.types"
 
@@ -35,6 +47,12 @@ interface HumbugManagerProps {
     worldToScreen: (worldX: number, worldY: number) => Point
     contextMenuEvent?: React.MouseEvent | null
     showDragTails?: boolean
+    dragTailStyle?: DragTailStyleId
+    projection?: Projection
+    /** 0..1: how far humbugs stand up in 2.5D */
+    standUp?: number
+    /** Square or hex: decides how snap-to-grid and arrow keys behave */
+    gridShape?: GridShape
     isShiftHeld?: boolean
     onExportRequest?: (
         humbugs: Humbug[],
@@ -52,6 +70,10 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     worldToScreen,
     contextMenuEvent,
     showDragTails = true,
+    dragTailStyle = "ruler",
+    projection = IDENTITY,
+    standUp = 0,
+    gridShape = "square",
     isShiftHeld = false,
     onExportRequest,
     onImportRequest,
@@ -238,9 +260,11 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 containerPosition.x,
                 containerPosition.y
             )
-            const finalPosition = snapToGridEnabled
-                ? snapToGrid(worldPosition, 32)
-                : worldPosition
+            // Hex snapping needs the final size, so it happens on create
+            const finalPosition =
+                snapToGridEnabled && gridShape === "square"
+                    ? snapToGrid(worldPosition, 32)
+                    : worldPosition
 
             setModalState({
                 isOpen: true,
@@ -257,7 +281,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 contextMenu: { isOpen: false, position: { x: 0, y: 0 } },
             }))
         },
-        [containerToWorld, snapToGridEnabled]
+        [containerToWorld, snapToGridEnabled, gridShape]
     )
 
     // Create new Humbug from modal data or update existing one
@@ -299,9 +323,22 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                             ? Math.max(...prev.humbugs.map((h) => h.zIndex))
                             : 99
 
+                    // On a hex grid, centre the new humbug in its hex
+                    const rawSize = humbugData.size as
+                        | number
+                        | { width: number; height: number }
+                        | undefined
+                    const footprint =
+                        typeof rawSize === "number"
+                            ? { width: rawSize, height: rawSize }
+                            : rawSize ?? { width: 32, height: 32 }
+                    const position =
+                        snapToGridEnabled && gridShape === "hex"
+                            ? snapForGrid(modalState.position, footprint, "hex")
+                            : modalState.position
+
                     const baseHumbug = {
                         id: generateId(),
-                        position: modalState.position,
                         rotation: 0,
                         locked: false,
                         zIndex: maxZ + 1,
@@ -310,6 +347,8 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                         updatedAt: Date.now(),
                         type: modalState.type!,
                         ...humbugData,
+                        // The dialog echoes the raw click position; keep ours
+                        position,
                     } as Humbug
 
                     // Record creation for undo
@@ -335,7 +374,14 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             })
             setEditingHumbugId(null)
         },
-        [modalState.position, modalState.type, editingHumbugId, undoRedoManager]
+        [
+            modalState.position,
+            modalState.type,
+            editingHumbugId,
+            undoRedoManager,
+            snapToGridEnabled,
+            gridShape,
+        ]
     )
 
     // Toggle snap to grid
@@ -433,9 +479,9 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         (id: string, newPosition: Point) => {
             // Don't snap to grid while actively dragging to prevent jumping
             // Only snap when drag is complete
-            const finalPosition =
+            const finalFor = (h: Humbug) =>
                 snapToGridEnabled && !isDragging
-                    ? snapToGrid(newPosition, 32)
+                    ? snapForGrid(newPosition, humbugFootprint(h), gridShape)
                     : newPosition
 
             setState((prev) => {
@@ -443,7 +489,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                     humbug.id === id
                         ? {
                               ...humbug,
-                              position: finalPosition,
+                              position: finalFor(humbug),
                               updatedAt: Date.now(),
                           }
                         : humbug
@@ -539,25 +585,24 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 }
             })
         },
-        [snapToGridEnabled, showDragTails, isDragging]
+        [snapToGridEnabled, showDragTails, isDragging, gridShape]
     )
 
     // Rotate Humbug
+    // Live updates while the pin is dragged; when `commitFrom` is given (on
+    // release) the whole drag is recorded as one undo step
     const rotateHumbug = useCallback(
-        (id: string, rotation: number) => {
+        (id: string, rotation: number, commitFrom?: number) => {
+            if (commitFrom !== undefined && commitFrom !== rotation) {
+                undoRedoManager.addAction({
+                    type: "ROTATE_HUMBUG",
+                    timestamp: Date.now(),
+                    humbugId: id,
+                    oldRotation: commitFrom,
+                    newRotation: rotation,
+                })
+            }
             setState((prev) => {
-                const humbug = prev.humbugs.find((h) => h.id === id)
-                if (humbug && humbug.rotation !== rotation) {
-                    // Record rotation action for undo
-                    undoRedoManager.addAction({
-                        type: "ROTATE_HUMBUG",
-                        timestamp: Date.now(),
-                        humbugId: id,
-                        oldRotation: humbug.rotation,
-                        newRotation: rotation,
-                    })
-                }
-
                 return {
                     ...prev,
                     humbugs: prev.humbugs.map((h) =>
@@ -711,12 +756,206 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         deleteConnector,
     ])
 
+    // Arrow keys move the selection one grid square; two arrows held together
+    // move diagonally. Near-simultaneous presses are merged into one step.
+    const nudgeRef = useRef({ humbugs: state.humbugs, single: state.selectedHumbugId, multi: multiSelectedIds, gridShape })
+    useEffect(() => {
+        nudgeRef.current = { humbugs: state.humbugs, single: state.selectedHumbugId, multi: multiSelectedIds, gridShape }
+    })
+    useEffect(() => {
+        const ARROWS: Record<string, [number, number]> = {
+            ArrowUp: [0, -1],
+            ArrowDown: [0, 1],
+            ArrowLeft: [-1, 0],
+            ArrowRight: [1, 0],
+        }
+        const held = new Set<string>()
+        // Keys pressed since the last step, kept even if already released, so
+        // a very quick tap still moves
+        const tapped = new Set<string>()
+        let pending: number | undefined
+
+        const step = () => {
+            pending = undefined
+            let dx = 0
+            let dy = 0
+            new Set([...held, ...tapped]).forEach((k) => {
+                dx += ARROWS[k][0]
+                dy += ARROWS[k][1]
+            })
+            tapped.clear()
+            if (!dx && !dy) return
+            const { humbugs, single, multi, gridShape } = nudgeRef.current
+            const ids = new Set(multi.length ? multi : single ? [single] : [])
+            const moving = humbugs.filter((h) => ids.has(h.id) && !h.locked)
+            if (!moving.length) return
+            // Squares: one square in each held direction. Hexes: to the
+            // neighbouring hex (rows are offset, so up/down lean sideways).
+            // Every step lands on a cell: the lead humbug moves from the
+            // nearest cell centre to the neighbouring one (so something that
+            // was slightly off-grid settles into the grid), and the rest of
+            // the selection moves by the same amount.
+            const lead = moving[0]
+            const size = humbugFootprint(lead)
+            let offset: Point
+            if (gridShape === "hex") {
+                const centre = {
+                    x: lead.position.x + size.width / 2,
+                    y: lead.position.y + size.height / 2,
+                }
+                const from = nearestHexCenter(centre.x, centre.y)
+                const stepBy = hexStep(dx, dy, from.y)
+                offset = {
+                    x: from.x + stepBy.x - centre.x,
+                    y: from.y + stepBy.y - centre.y,
+                }
+            } else {
+                const target = snapToGrid(
+                    {
+                        x: lead.position.x + Math.sign(dx) * 32,
+                        y: lead.position.y + Math.sign(dy) * 32,
+                    },
+                    32
+                )
+                offset = { x: target.x - lead.position.x, y: target.y - lead.position.y }
+            }
+            setState((prev) => ({
+                ...prev,
+                humbugs: prev.humbugs.map((h) =>
+                    moving.some((m) => m.id === h.id)
+                        ? {
+                              ...h,
+                              position: { x: h.position.x + offset.x, y: h.position.y + offset.y },
+                              updatedAt: Date.now(),
+                          }
+                        : h
+                ),
+            }))
+            const moves = moving.map((h) => ({
+                type: "MOVE_HUMBUG" as const,
+                timestamp: Date.now(),
+                humbugId: h.id,
+                oldPosition: h.position,
+                newPosition: { x: h.position.x + offset.x, y: h.position.y + offset.y },
+            }))
+            undoRedoManager.addAction(
+                moves.length === 1
+                    ? moves[0]
+                    : { type: "BATCH_ACTION", timestamp: Date.now(), actions: moves }
+            )
+        }
+
+        const onDown = (e: KeyboardEvent) => {
+            if (!(e.key in ARROWS) || e.metaKey || e.ctrlKey || e.altKey) return
+            const t = e.target as HTMLElement
+            if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return
+            if (document.querySelector(".humbug-modal, .image-cropper-modal, .token-library-drawer, .how-to-dialog, .board-file-dialog"))
+                return
+            const { single, multi } = nudgeRef.current
+            if (!single && !multi.length) return
+            e.preventDefault()
+            held.add(e.key)
+            tapped.add(e.key)
+            if (pending === undefined) pending = window.setTimeout(step, 25)
+        }
+        const onUp = (e: KeyboardEvent) => held.delete(e.key)
+        const clear = () => held.clear()
+        window.addEventListener("keydown", onDown)
+        window.addEventListener("keyup", onUp)
+        window.addEventListener("blur", clear)
+        return () => {
+            window.clearTimeout(pending)
+            window.removeEventListener("keydown", onDown)
+            window.removeEventListener("keyup", onUp)
+            window.removeEventListener("blur", clear)
+        }
+    }, [undoRedoManager])
+
+    // "Add my party": tokens around the middle of the screen, one square apart,
+    // laid out like dice pips. They arrive selected so the group can be moved
+    // together, and one undo removes them all.
+    useEffect(() => {
+        const onParty = (e: Event) => {
+            const members = (e as CustomEvent<PartyMember[]>).detail.slice(0, MAX_PARTY)
+            const container = containerRef.current
+            if (!members.length || !container) return
+            const SQ = 32
+            const spacing = SQ * 2 // one token plus one empty square
+            const centre = containerToWorld(container.clientWidth / 2, container.clientHeight / 2)
+            // Close up an unused middle row/column so neighbours are always
+            // exactly one empty square apart (e.g. four make a tight 2×2)
+            const raw = pipLayout(members.length)
+            const usesMiddleCol = raw.some(([x]) => x === 0)
+            const usesMiddleRow = raw.some(([, y]) => y === 0)
+            const layout = raw.map(([x, y]) => [
+                usesMiddleCol ? x : x / 2,
+                usesMiddleRow ? y : y / 2,
+            ])
+            const now = Date.now()
+            // Built outside the state updater (React may run updaters twice)
+            const existing = nudgeRef.current.humbugs
+            const maxZ = existing.length ? Math.max(...existing.map((h) => h.zIndex)) : 99
+            const created: Humbug[] = members.map((m, i) => {
+                const [gx, gy] = layout[i]
+                const position = snapForGrid(
+                    {
+                        x: centre.x + gx * spacing - SQ / 2,
+                        y: centre.y + gy * spacing - SQ / 2,
+                    },
+                    { width: SQ, height: SQ },
+                    gridShape
+                )
+                return {
+                    id: generateId(),
+                    type: "token",
+                    imageUrl: m.imageUrl,
+                    size: { width: SQ, height: SQ },
+                    originalSize: { width: SQ, height: SQ },
+                    borderColor: "#6c2fcf",
+                    borderWidth: 2,
+                    position,
+                    rotation: 0,
+                    locked: false,
+                    zIndex: maxZ + 1 + i,
+                    opacity: 1,
+                    createdAt: now,
+                    updatedAt: now,
+                }
+            })
+            setState((prev) => ({
+                ...prev,
+                humbugs: [...prev.humbugs, ...created],
+                selectedHumbugId: null,
+            }))
+            setMultiSelectedIds(created.map((h) => h.id))
+            undoRedoManager.addAction({
+                type: "BATCH_ACTION",
+                timestamp: now,
+                actions: created.map((humbug) => ({
+                    type: "CREATE_HUMBUG" as const,
+                    timestamp: now,
+                    humbug,
+                })),
+            })
+        }
+        window.addEventListener(ADD_PARTY_EVENT, onParty)
+        return () => window.removeEventListener(ADD_PARTY_EVENT, onParty)
+    }, [containerRef, containerToWorld, gridShape, undoRedoManager])
+
     // Area selection: marquee results, select-all, and ways to clear it
     useEffect(() => {
+        // Where the humbug actually appears on screen (flat, tilted or
+        // standing), in board-container coordinates
         const boxOf = (h: Humbug) => {
-            const w = h.type === "map-pin" ? h.size : h.size.width
-            const hgt = h.type === "map-pin" ? h.size : h.size.height
-            return { x1: h.position.x, y1: h.position.y, x2: h.position.x + w, y2: h.position.y + hgt }
+            const el = document.querySelector(`[data-humbug-id="${h.id}"]`)
+            const container = containerRef.current
+            if (!el || !container) {
+                const p = worldToScreen(h.position.x, h.position.y)
+                return { x1: p.x, y1: p.y, x2: p.x, y2: p.y }
+            }
+            const r = el.getBoundingClientRect()
+            const c = container.getBoundingClientRect()
+            return { x1: r.left - c.left, y1: r.top - c.top, x2: r.right - c.left, y2: r.bottom - c.top }
         }
         const onArea = (e: Event) => {
             const r = (e as CustomEvent<AreaSelectDetail>).detail
@@ -758,9 +997,13 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         }
         const onDown = (e: MouseEvent) => {
             const t = e.target as HTMLElement
+            // Clicking empty board deselects everything (standard convention)
             if (e.button === 0 && t.classList?.contains("infinite-whiteboard-canvas")) {
                 setMultiSelectedIds([])
                 setSelectedConnectorId(null)
+                setState((prev) =>
+                    prev.selectedHumbugId ? { ...prev, selectedHumbugId: null } : prev
+                )
             }
         }
         window.addEventListener(AREA_SELECT_EVENT, onArea)
@@ -773,7 +1016,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             window.removeEventListener("keydown", onKey)
             window.removeEventListener("mousedown", onDown)
         }
-    }, [state.humbugs])
+    }, [state.humbugs, worldToScreen, containerRef])
 
     // Edit Humbug - open modal with existing data
     const editHumbug = useCallback(
@@ -989,11 +1232,10 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             const containerX = e.clientX - rect.left
             const containerY = e.clientY - rect.top
 
-            // Calculate the world position where the humbug should be placed
-            // by subtracting the drag offset from the current mouse position
-            const targetScreenX = containerX - dragOffset.x
-            const targetScreenY = containerY - dragOffset.y
-            const worldPos = containerToWorld(targetScreenX, targetScreenY)
+            // The drag offset is in world units (pointer minus humbug corner),
+            // so this works at any camera angle
+            const pointer = containerToWorld(containerX, containerY)
+            const worldPos = { x: pointer.x - dragOffset.x, y: pointer.y - dragOffset.y }
 
             moveHumbug(draggedHumbugRef.current, worldPos)
 
@@ -1027,7 +1269,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 const start = dragged && group.get(dragged.id)
                 if (dragged && start) {
                     const end = snapToGridEnabled
-                        ? snapToGrid(dragged.position, 32)
+                        ? snapForGrid(dragged.position, humbugFootprint(dragged), gridShape)
                         : dragged.position
                     const dx = end.x - start.x
                     const dy = end.y - start.y
@@ -1068,7 +1310,11 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                         (h) => h.id === draggedHumbugRef.current
                     )
                     if (humbug) {
-                        const snappedPosition = snapToGrid(humbug.position, 32)
+                        const snappedPosition = snapForGrid(
+                            humbug.position,
+                            humbugFootprint(humbug),
+                            gridShape
+                        )
                         moveHumbug(draggedHumbugRef.current, snappedPosition)
                     }
                 }
@@ -1130,6 +1376,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             document.removeEventListener("mouseleave", handleMouseLeave)
         }
     }, [
+        gridShape,
         isDragging,
         containerRef,
         containerToWorld,
@@ -1692,6 +1939,9 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                     onStartDrag={startDragging}
                     scale={scale}
                     worldToScreen={worldToScreen}
+                    containerToWorld={containerToWorld}
+                    projection={projection}
+                    standUp={standUp}
                     containerRef={containerRef}
                     onContextMenu={showHumbugContextMenu} // Add context menu handler
                     snapToGridEnabled={snapToGridEnabled}
@@ -1704,6 +1954,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 <DragTailRenderer
                     dragTail={state.dragTail}
                     worldToScreen={worldToScreen}
+                    tailStyle={dragTailStyle}
                 />
             )}
             </div>
@@ -1715,6 +1966,9 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 selectedConnectorId={selectedConnectorId}
                 busy={isDragging}
                 worldToScreen={worldToScreen}
+                scale={scale}
+                projection={projection}
+                standUp={standUp}
                 containerRef={containerRef}
                 onCreate={createConnector}
                 onSelect={(id) => {

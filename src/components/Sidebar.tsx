@@ -1,6 +1,37 @@
 import React, { useState } from "react"
 import { Icon } from "./Icon"
 import { MOD } from "../utils/hotkeys"
+import { PartySection } from "./PartySection"
+import { DRAG_TAIL_STYLES, type DragTailStyleId } from "../utils/drag-tail-styles"
+import { renderTail, tailDefs, type TailGeometry } from "./drag-tail-art"
+import type { GridShape } from "../utils/board-styles"
+
+// Miniature tail for the style picker tiles
+const TAIL_PREVIEW: TailGeometry = {
+    start: { x: 10, y: 34 },
+    end: { x: 62, y: 10 },
+    marks: [0.2, 0.4, 0.6, 0.8].map((t) => ({ x: 10 + 52 * t, y: 34 - 24 * t })),
+    distance: 4,
+    s: 0.55,
+    label: false,
+}
+
+// Tiny line art for the grid shape tiles
+const hexRow = (y: number, x0: number) =>
+    Array.from({ length: 6 }, (_, i) => {
+        const cx = x0 + i * 14
+        return `M${cx} ${y - 8}l6 3.5v7l-6 3.5-6-3.5v-7z`
+    }).join("")
+const GRID_SHAPES: { id: GridShape; label: string; preview: string }[] = [
+    {
+        id: "square",
+        label: "Squares",
+        preview:
+            Array.from({ length: 6 }, (_, i) => `M${i * 13 + 4} 0V44`).join("") +
+            Array.from({ length: 4 }, (_, i) => `M0 ${i * 13 + 4}H72`).join(""),
+    },
+    { id: "hex", label: "Hexagons", preview: hexRow(10, 4) + hexRow(22, 11) + hexRow(34, 4) },
+]
 import {
     BOARD_STYLES,
     getBoardStyleTexture,
@@ -20,6 +51,14 @@ interface SidebarProps {
     onSaveBoard: () => void
     onOpenBoard: () => void
     onShowHowTo: () => void
+    localFolder: {
+        supported: boolean
+        name: string | null
+        needsPermission: boolean
+        onChoose: () => void
+        onForget: () => void
+        onPreparedScenes: () => void
+    }
     onAddScribbleLayer: () => void
     onTextureChange: (textureUrl: string | null) => void
     onTextureScaleChange: (scale: number) => void
@@ -30,6 +69,10 @@ interface SidebarProps {
     textureScale: number
     boardStyle: BoardStyleId
     onBoardStyleChange: (style: BoardStyleId) => void
+    dragTailStyle: DragTailStyleId
+    onDragTailStyleChange: (style: DragTailStyleId) => void
+    gridShape: GridShape
+    onGridShapeChange: (shape: GridShape) => void
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -44,6 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onSaveBoard,
     onOpenBoard,
     onShowHowTo,
+    localFolder,
     onAddScribbleLayer,
     onTextureChange,
     onTextureScaleChange,
@@ -54,7 +98,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     textureScale,
     boardStyle,
     onBoardStyleChange,
+    dragTailStyle,
+    onDragTailStyleChange,
+    gridShape,
+    onGridShapeChange,
 }) => {
+    const [openOptions, setOpenOptions] = useState<"grid" | "tails" | null>(null)
     const [showNewBoardConfirm, setShowNewBoardConfirm] = useState(false)
     const handleImportBoard = () => {
         const input = document.createElement("input")
@@ -192,6 +241,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
 
                     <div className='sidebar-section'>
+                        <h4>Local Folder</h4>
+                        {!localFolder.supported ? (
+                            <p className='local-folder-note'>
+                                Saving into a folder needs Chrome, Edge, Brave or Opera.
+                                In this browser, Save Board downloads the file instead.
+                            </p>
+                        ) : localFolder.name ? (
+                            <>
+                                <div className='local-folder-card'>
+                                    <Icon name='open' />
+                                    <div>
+                                        <strong>{localFolder.name}</strong>
+                                        <span>
+                                            {localFolder.needsPermission
+                                                ? "Will ask for permission when you save or open"
+                                                : "Boards save and open here"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button className='sidebar-button' onClick={localFolder.onPreparedScenes}>
+                                    <span className='button-icon'>
+                                        <Icon name='layers' />
+                                    </span>
+                                    <span>Prepared Scenes…</span>
+                                </button>
+                                <div className='local-folder-actions'>
+                                    <button onClick={localFolder.onChoose}>Change folder…</button>
+                                    <button onClick={localFolder.onForget}>Forget</button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <button className='sidebar-button' onClick={localFolder.onChoose}>
+                                    <span className='button-icon'>
+                                        <Icon name='open' />
+                                    </span>
+                                    <span>Choose Local Folder…</span>
+                                </button>
+                                <p className='local-folder-note'>
+                                    Pick a folder for your boards. Save Board writes there, Open
+                                    lists it, and you can load several boards as scene tabs.
+                                </p>
+                            </>
+                        )}
+                    </div>
+
+                    <PartySection onAdded={onClose} />
+
+                    <div className='sidebar-section'>
                         <h4>Draw</h4>
                         <button
                             className='sidebar-button'
@@ -207,39 +305,104 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     <div className='sidebar-section'>
                         <h4>View Settings</h4>
-                        <button
-                            className='sidebar-button sidebar-toggle'
-                            onClick={onToggleGridLines}
-                        >
-                            <span className='toggle-icon'>
-                                <Icon name='grid' />
-                            </span>
-                            <span>Grid Lines & Axes</span>
-                            <span
-                                className={`toggle-switch ${
-                                    showGridLines ? "on" : ""
-                                }`}
-                                role='switch'
-                                aria-checked={showGridLines}
-                            />
-                        </button>
+                        <div className='sidebar-toggle-row'>
+                            <button
+                                className='sidebar-button sidebar-toggle'
+                                onClick={onToggleGridLines}
+                            >
+                                <span className='toggle-icon'>
+                                    <Icon name={gridShape === "hex" ? "hex" : "grid"} />
+                                </span>
+                                <span>Grid Lines & Axes</span>
+                                <span
+                                    className={`toggle-switch ${
+                                        showGridLines ? "on" : ""
+                                    }`}
+                                    role='switch'
+                                    aria-checked={showGridLines}
+                                />
+                            </button>
+                            <button
+                                type='button'
+                                className={`sidebar-gear ${openOptions === "grid" ? "open" : ""}`}
+                                aria-label='Grid options'
+                                aria-expanded={openOptions === "grid"}
+                                title='Grid options'
+                                onClick={() => setOpenOptions((o) => (o === "grid" ? null : "grid"))}
+                            >
+                                <Icon name='gear' size={20} />
+                            </button>
+                        </div>
+                        {openOptions === "grid" && (
+                            <div className='option-tiles option-tiles-2' role='radiogroup' aria-label='Grid shape'>
+                                {GRID_SHAPES.map((g) => (
+                                    <button
+                                        key={g.id}
+                                        type='button'
+                                        role='radio'
+                                        aria-checked={gridShape === g.id}
+                                        className={`option-tile ${gridShape === g.id ? "selected" : ""}`}
+                                        onClick={() => onGridShapeChange(g.id)}
+                                    >
+                                        <svg viewBox='0 0 72 44' className='option-tile-preview' aria-hidden='true'>
+                                            <rect width='72' height='44' fill='#ead7ad' />
+                                            <path d={g.preview} fill='none' stroke='rgba(110,72,25,0.55)' strokeWidth='1' />
+                                        </svg>
+                                        <span>{g.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
 
-                        <button
-                            className='sidebar-button sidebar-toggle'
-                            onClick={onToggleDragTails}
-                        >
-                            <span className='toggle-icon'>
-                                <Icon name='trail' />
-                            </span>
-                            <span>Drag Tails</span>
-                            <span
-                                className={`toggle-switch ${
-                                    showDragTails ? "on" : ""
-                                }`}
-                                role='switch'
-                                aria-checked={showDragTails}
-                            />
-                        </button>
+                        <div className='sidebar-toggle-row'>
+                            <button
+                                className='sidebar-button sidebar-toggle'
+                                onClick={onToggleDragTails}
+                            >
+                                <span className='toggle-icon'>
+                                    <Icon name='trail' />
+                                </span>
+                                <span>Drag Tails</span>
+                                <span
+                                    className={`toggle-switch ${
+                                        showDragTails ? "on" : ""
+                                    }`}
+                                    role='switch'
+                                    aria-checked={showDragTails}
+                                />
+                            </button>
+                            <button
+                                type='button'
+                                className={`sidebar-gear ${openOptions === "tails" ? "open" : ""}`}
+                                aria-label='Drag tail style'
+                                aria-expanded={openOptions === "tails"}
+                                title='Drag tail style'
+                                onClick={() => setOpenOptions((o) => (o === "tails" ? null : "tails"))}
+                            >
+                                <Icon name='gear' size={20} />
+                            </button>
+                        </div>
+                        {openOptions === "tails" && (
+                            <div className='option-tiles' role='radiogroup' aria-label='Drag tail style'>
+                                {DRAG_TAIL_STYLES.map((t) => (
+                                    <button
+                                        key={t.id}
+                                        type='button'
+                                        role='radio'
+                                        aria-checked={dragTailStyle === t.id}
+                                        className={`option-tile ${dragTailStyle === t.id ? "selected" : ""}`}
+                                        onClick={() => onDragTailStyleChange(t.id)}
+                                    >
+                                        <svg viewBox='0 0 72 44' className='option-tile-preview' aria-hidden='true'>
+                                            {tailDefs()}
+                                            <rect width='72' height='44' fill='#7d9a5a' />
+                                            {renderTail(t.id, TAIL_PREVIEW)}
+                                        </svg>
+                                        <span>{t.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
 
                         <button
                             className='sidebar-button sidebar-toggle'

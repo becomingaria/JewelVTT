@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { STORES, idbGet, idbSet } from "./idb"
 
 /*
  * Board persistence.
@@ -148,38 +149,8 @@ export function openBoardFromFile(): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------- autosave
-const DB_NAME = "jewel-vtt"
-const STORE = "autosave"
 const AUTOSAVE_KEY = "current"
 const AUTOSAVE_DELAY_MS = 800
-
-function openDb(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, 1)
-        req.onupgradeneeded = () => req.result.createObjectStore(STORE)
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error)
-    })
-}
-
-async function idb<T>(
-    mode: IDBTransactionMode,
-    run: (store: IDBObjectStore) => IDBRequest<T>
-): Promise<T> {
-    const db = await openDb()
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, mode)
-        const req = run(tx.objectStore(STORE))
-        tx.oncomplete = () => {
-            db.close()
-            resolve(req.result)
-        }
-        tx.onerror = () => {
-            db.close()
-            reject(tx.error)
-        }
-    })
-}
 
 let autosaveEnabled = false
 let autosaveTimer: number | undefined
@@ -202,7 +173,7 @@ async function writeAutosave() {
     if (json === lastSavedJson) return
     setStatus("saving")
     try {
-        await idb("readwrite", (s) => s.put(file, AUTOSAVE_KEY))
+        await idbSet(STORES.autosave, AUTOSAVE_KEY, file)
         lastSavedJson = json
         setStatus("saved")
     } catch (error) {
@@ -239,9 +210,7 @@ export function restoreAutosaveAndStart(): Promise<boolean> {
 async function restoreAndStart(): Promise<boolean> {
     let restored = false
     try {
-        const saved = await idb<BoardFile | undefined>("readonly", (s) =>
-            s.get(AUTOSAVE_KEY)
-        )
+        const saved = await idbGet<BoardFile>(STORES.autosave, AUTOSAVE_KEY)
         if (saved?.format === BOARD_FILE_FORMAT && saved.board) {
             applyBoard(saved)
             lastSavedJson = JSON.stringify(saved.board)
@@ -256,4 +225,20 @@ async function restoreAndStart(): Promise<boolean> {
     })
     window.addEventListener("pagehide", flushAutosave)
     return restored
+}
+
+/** The current board as JSON (used to tell whether a scene has unsaved changes) */
+export const currentBoardJson = () => JSON.stringify(snapshotBoard().board)
+
+/** A saveable board file as text */
+export const boardFileText = () => JSON.stringify(snapshotBoard())
+
+/** Load a board from its saved slices (e.g. switching scenes) */
+export function applyBoardSlices(board: Record<string, unknown>) {
+    applyBoard({
+        format: BOARD_FILE_FORMAT,
+        version: BOARD_FILE_VERSION,
+        savedAt: new Date().toISOString(),
+        board,
+    })
 }

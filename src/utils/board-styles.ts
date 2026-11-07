@@ -28,6 +28,9 @@ export interface BoardStyle {
 }
 
 export const DEFAULT_BOARD_STYLE: BoardStyleId = "parchment"
+
+/** Grid drawn over the board: classic squares or pointy-top hexagons */
+export type GridShape = "square" | "hex"
 const TILE_PX = 256
 /** World units one tile covers (2 world px per texel at 100% zoom) */
 export const STYLE_TILE_WORLD = 512

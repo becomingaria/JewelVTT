@@ -16,6 +16,7 @@ export type HotkeyAction =
     | "export"
     | "help"
     | "home"
+    | "view"
     | "spot"
     | "add-text"
     | "add-image"
@@ -27,6 +28,7 @@ export type HotkeyAction =
     | "scribble"
     | "select-all"
     | "delete"
+    | "nudge"
 
 export interface HotkeyDef {
     action: HotkeyAction
@@ -54,16 +56,25 @@ export const HOTKEYS: HotkeyDef[] = [
 
     { action: "home", key: "h", label: "Fly home to the centre", group: "Navigate" },
     { action: "spot", key: "f", label: "Drop a spot flag at the cursor", group: "Navigate" },
+    { action: "view", key: "v", label: "Switch between 2D and 2.5D views", group: "Navigate" },
 
     { action: "scribble", key: "b", label: "Pencil on/off (scribble layer)", group: "Edit" },
     { action: "select-all", key: "a", mod: true, label: "Select everything", group: "Edit" },
     { action: "delete", key: "Delete", label: "Delete selection", group: "Edit" },
+    // Handled in HumbugManager; listed here so the guide shows it
+    { action: "nudge", key: "Arrows", label: "Move selection one square (two arrows = diagonal)", group: "Edit" },
 ]
 
 /** Human-readable key combo, e.g. "⌘S" or "Shift+?" */
 export function formatHotkey(def: HotkeyDef) {
     const key =
-        def.key === "Delete" ? "Delete / ⌫" : def.key.length === 1 ? def.key.toUpperCase() : def.key
+        def.key === "Delete"
+            ? "Delete / ⌫"
+            : def.key === "Arrows"
+            ? "← ↑ → ↓"
+            : def.key.length === 1
+            ? def.key.toUpperCase()
+            : def.key
     return `${def.mod ? MOD : ""}${def.shift ? "Shift+" : ""}${key}`
 }
 
@@ -81,6 +92,7 @@ const isTyping = (target: EventTarget | null) => {
 function matches(def: HotkeyDef, e: KeyboardEvent) {
     const mod = IS_MAC ? e.metaKey : e.ctrlKey
     if (!!def.mod !== mod) return false
+    if (def.key === "Arrows") return false // handled by HumbugManager
     if (def.key === "Delete") return e.key === "Delete" || e.key === "Backspace"
     if (def.key === "?") return e.key === "?" || (e.key === "/" && e.shiftKey)
     if (!!def.shift !== e.shiftKey) return false
@@ -107,7 +119,7 @@ export function useHotkeys(
             // Leave keys alone while a dialog/drawer is open
             if (
                 document.querySelector(
-                    ".humbug-modal, .image-cropper-modal, .token-library-drawer, .how-to-dialog"
+                    ".humbug-modal, .image-cropper-modal, .token-library-drawer, .how-to-dialog, .board-file-dialog"
                 )
             ) {
                 return
