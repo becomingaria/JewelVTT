@@ -310,3 +310,9 @@ input[type="color"] {
         padding: 16px;
     }
 }
+
+.file-button-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}

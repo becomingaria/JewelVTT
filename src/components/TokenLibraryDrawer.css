@@ -1,0 +1,286 @@
+/* Sits above the humbug modal (z-index 4000) and below the image cropper */
+.token-library-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.2);
+    z-index: 4999;
+    pointer-events: auto;
+    animation: token-library-fade-in 0.2s ease;
+}
+
+.token-library-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 380px;
+    max-width: 100vw;
+    background: #ffffff;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
+    z-index: 5000;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    animation: token-library-slide-in 0.25s ease;
+}
+
+@keyframes token-library-slide-in {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes token-library-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.token-library-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    background-color: #f8f9fa;
+}
+
+.token-library-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333333;
+}
+
+.token-library-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: #666666;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.token-library-close:hover {
+    background-color: #e9ecef;
+    color: #333333;
+}
+
+.token-library-toolbar {
+    padding: 12px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.token-library-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.token-library-search:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.token-library-breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+}
+
+.token-library-crumb {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #3498db;
+    cursor: pointer;
+}
+
+.token-library-crumb:hover:not(:disabled) {
+    background-color: #e9ecef;
+    color: #2980b9;
+}
+
+.token-library-crumb:disabled {
+    color: #333333;
+    font-weight: 600;
+    cursor: default;
+}
+
+.token-library-crumb-sep {
+    color: #999999;
+}
+
+.token-library-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 20px 20px;
+}
+
+.token-library-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 8px;
+    text-align: center;
+    color: #666666;
+    font-size: 14px;
+}
+
+.token-library-retry {
+    padding: 8px 16px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.token-library-retry:hover {
+    background-color: #2980b9;
+}
+
+.token-library-result-count {
+    font-size: 12px;
+    color: #666666;
+    margin-bottom: 8px;
+}
+
+/* Folder list */
+.token-library-folders {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.token-library-folder {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 8px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 14px;
+    color: #333333;
+    transition: all 0.2s ease;
+}
+
+.token-library-folder:hover {
+    background-color: #f8f9fa;
+    border-color: #e0e0e0;
+}
+
+.token-library-folder-preview {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    overflow: hidden;
+}
+
+.token-library-folder-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.token-library-folder-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.token-library-folder-count {
+    font-size: 12px;
+    color: #999999;
+}
+
+.token-library-chevron {
+    color: #999999;
+    font-size: 18px;
+    line-height: 1;
+}
+
+/* Token grid */
+.token-library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+}
+
+.token-library-token {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 4px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 0;
+}
+
+.token-library-token:hover {
+    background-color: #f8f9fa;
+    border-color: #3498db;
+}
+
+.token-library-token:focus-visible {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.token-library-token img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+}
+
+.token-library-token-name {
+    width: 100%;
+    font-size: 12px;
+    color: #555555;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

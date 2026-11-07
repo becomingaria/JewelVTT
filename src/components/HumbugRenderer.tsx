@@ -45,9 +45,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
     const [interactionMode, setInteractionMode] = useState<
         "none" | "dragging" | "rotating" | "resizing"
     >("none")
-    const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
-        null
-    )
+    const [, setActiveResizeHandle] = useState<string | null>(null)
     const elementRef = useRef<HTMLDivElement>(null)
     const initialRotation = useRef<number>(0)
     const initialSize = useRef<{ width: number; height: number }>({

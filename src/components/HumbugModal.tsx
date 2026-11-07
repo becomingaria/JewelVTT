@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useCallback } from "react"
 import type { HumbugType, Humbug } from "../types/humbug.types"
 import { ImageCropper } from "./ImageCropper"
+import { TokenLibraryDrawer } from "./TokenLibraryDrawer"
 import "./HumbugModal.css"
 
 interface HumbugModalProps {
@@ -54,6 +55,7 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
     const [tokenImageFile, setTokenImageFile] = useState<File | null>(null)
     const [borderColor, setBorderColor] = useState("#007acc")
     const [borderWidth, setBorderWidth] = useState(4)
+    const [showTokenLibrary, setShowTokenLibrary] = useState(false)
 
     // Cropping state
     const [showCropper, setShowCropper] = useState(false)
@@ -118,6 +120,7 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
             setBorderColor("#007acc")
             setBorderWidth(4)
         }
+        setShowTokenLibrary(false)
     }, [existingHumbug, isOpen])
 
     const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,6 +162,15 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
             setShowCropper(true)
         }
     }
+
+    const handleLibraryTokenSelect = (url: string) => {
+        setTokenImageUrl(url)
+        setTokenImageFile(null)
+        if (tokenFileInputRef.current) tokenFileInputRef.current.value = ""
+        setShowTokenLibrary(false)
+    }
+
+    const closeTokenLibrary = useCallback(() => setShowTokenLibrary(false), [])
 
     const handleImageUrlCrop = () => {
         if (imageUrl) {
@@ -558,15 +570,24 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                                 onChange={handleTokenImageFileChange}
                                 className='file-input'
                             />
-                            <button
-                                type='button'
-                                onClick={() =>
-                                    tokenFileInputRef.current?.click()
-                                }
-                                className='file-button'
-                            >
-                                Choose File
-                            </button>
+                            <div className='file-button-row'>
+                                <button
+                                    type='button'
+                                    onClick={() =>
+                                        tokenFileInputRef.current?.click()
+                                    }
+                                    className='file-button'
+                                >
+                                    Choose File
+                                </button>
+                                <button
+                                    type='button'
+                                    onClick={() => setShowTokenLibrary(true)}
+                                    className='file-button'
+                                >
+                                    Select from Library
+                                </button>
+                            </div>
                         </div>
 
                         <div className='form-separator'>or</div>
@@ -742,6 +763,14 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                     </div>
                 </div>
             </div>
+
+            {type === "token" && (
+                <TokenLibraryDrawer
+                    isOpen={showTokenLibrary}
+                    onClose={closeTokenLibrary}
+                    onSelect={handleLibraryTokenSelect}
+                />
+            )}
 
             {showCropper && cropImageUrl && (
                 <ImageCropper

@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Token art library (large binary assets, kept out of git)
+public/Token_Library/
