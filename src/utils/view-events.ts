@@ -15,6 +15,10 @@ export interface FlyToDetail {
     y: number
     /** Target zoom; keeps the current zoom when omitted */
     zoom?: number
+    /** Zoom so this world-size box (centred on x,y) fills the view; overrides zoom */
+    fit?: { width: number; height: number; /** screen px margin */ padding?: number }
+    /** Jump without animating (reduced motion) */
+    instant?: boolean
 }
 
 export const HOME: FlyToDetail = { x: 0, y: 0, zoom: 1 }

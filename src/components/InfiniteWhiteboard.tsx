@@ -246,14 +246,24 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             const target = (event as CustomEvent<FlyToDetail>).detail
             cancel()
             const from = viewportRef.current
+            const el = containerRef.current
+            const pad = target.fit?.padding ?? 0
+            const fitZoom =
+                target.fit && el
+                    ? Math.min(
+                          (el.clientWidth - 2 * pad) / Math.max(1, target.fit.width),
+                          (el.clientHeight - 2 * pad) / Math.max(1, target.fit.height)
+                      )
+                    : undefined
             const to = {
                 x: -target.x,
                 y: -target.y,
                 zoom: Math.max(
                     MIN_ZOOM,
-                    Math.min(MAX_ZOOM, target.zoom ?? from.zoom)
+                    Math.min(MAX_ZOOM, fitZoom ?? target.zoom ?? from.zoom)
                 ),
             }
+            if (target.instant) return setViewport(to)
             const start = performance.now()
             const step = (now: number) => {
                 const t = Math.min(1, (now - start) / FLY_DURATION_MS)
