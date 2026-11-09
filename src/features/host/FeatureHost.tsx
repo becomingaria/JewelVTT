@@ -2,7 +2,8 @@ import React, { useEffect } from "react"
 import { FEATURES, isTypingTarget, matchesHotkey } from "../registry"
 import { applyPrefsToDocument, usePrefs, useReducedMotion } from "../prefs"
 import { activeToolStore, toggleActiveTool, useTableMode } from "../view-state"
-import { mapKindStore } from "../map-kind"
+import { mapKindStore, useMapKind } from "../map-kind"
+import { setAmbient } from "../sound"
 import { cameraStore, pointerWorldStore } from "../board-bridge"
 import { ToolDock } from "./ToolDock"
 
@@ -14,6 +15,12 @@ export const FeatureHost: React.FC = () => {
     const prefs = usePrefs()
     const reducedMotion = useReducedMotion()
     const tableMode = useTableMode()
+    const mapKind = useMapKind()
+
+    // Ambient loop follows the map kind (silent unless sound + ambient are on)
+    useEffect(() => {
+        setAmbient(mapKind === "dungeon" ? "dungeon" : mapKind === "hexcrawl" ? "wilderness" : null)
+    }, [mapKind, prefs.sound, prefs.ambient, prefs.volume])
 
     useEffect(() => {
         applyPrefsToDocument(prefs, reducedMotion)
