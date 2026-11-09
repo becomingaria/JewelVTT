@@ -4,6 +4,7 @@ import { Icon } from "./Icon"
 import { pinSize } from "../utils/humbug.utils"
 import { IDENTITY, type Projection } from "../utils/projection"
 import { IS_MAC } from "../utils/hotkeys"
+import { HumbugBadges } from "../features/host/BoardOverlays"
 import { isStandee, placeHumbug } from "../utils/humbug-geometry"
 
 const normalizeDeg = (d: number) => ((d % 360) + 360) % 360
@@ -551,6 +552,9 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
             onContextMenu={(e) => onContextMenu(e, humbug.id)}
         >
             {renderHumbugContent()}
+
+            {/* Feature badges: HP, conditions, light... */}
+            <HumbugBadges humbug={humbug} scale={scale} />
 
             {/* Selection handles */}
             {isSelected && !humbug.locked && (

@@ -32,6 +32,8 @@ import type {
     ScribbleStroke,
 } from "../types/scribble.types"
 import { Icon } from "./Icon"
+import { BoardOverlays } from "../features/host/BoardOverlays"
+import { cameraStore, type BoardCamera } from "../features/board-bridge"
 import "./InfiniteWhiteboard.css"
 
 interface ViewPort {
@@ -345,6 +347,25 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         },
         [viewport, projection]
     )
+
+    // The camera, shared with feature overlays and the board bridge
+    const camera: BoardCamera = useMemo(
+        () => ({
+            scale: viewport.zoom,
+            viewport,
+            worldToScreen,
+            containerToWorld,
+            projection,
+            viewMode,
+            gridShape,
+            container: containerRef.current,
+        }),
+        // containerRef is stable; its element exists once mounted
+        [viewport, worldToScreen, containerToWorld, projection, viewMode, gridShape]
+    )
+    useEffect(() => {
+        cameraStore.set({ ...camera, container: containerRef.current })
+    }, [camera])
 
     // Start a paint stroke (batched operation)
     const startPaintStroke = useCallback(() => {
@@ -1033,6 +1054,9 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 onStrokeComplete={onStrokeComplete}
                 onErase={onScribbleErase}
             />
+
+            {/* Feature overlays: light, fog, measure, templates, builders... */}
+            <BoardOverlays camera={camera} />
 
             {marquee && (
                 <div

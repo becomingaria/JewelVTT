@@ -37,6 +37,7 @@ import {
     getBoardStyleTexture,
     type BoardStyleId,
 } from "../utils/board-styles"
+import { MAP_KINDS, type MapKind } from "../features/map-kind"
 import "./Sidebar.css"
 
 interface SidebarProps {
@@ -47,7 +48,7 @@ interface SidebarProps {
     onToggleApron: () => void
     onExportBoard: () => void
     onImportBoard: (file: File) => void
-    onNewBoard: () => void
+    onNewBoard: (kind: MapKind) => void
     onSaveBoard: () => void
     onOpenBoard: () => void
     onShowHowTo: () => void
@@ -105,6 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const [openOptions, setOpenOptions] = useState<"grid" | "tails" | null>(null)
     const [showNewBoardConfirm, setShowNewBoardConfirm] = useState(false)
+    const [newBoardKind, setNewBoardKind] = useState<MapKind>("freeform")
     const handleImportBoard = () => {
         const input = document.createElement("input")
         input.type = "file"
@@ -127,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
 
     const handleConfirmNewBoard = () => {
-        onNewBoard()
+        onNewBoard(newBoardKind)
         setShowNewBoardConfirm(false)
     }
 
@@ -570,6 +572,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <h3>Create New Board</h3>
                         </div>
                         <div className='modal-content'>
+                            <fieldset className='new-board-kinds'>
+                                <legend>What kind of map?</legend>
+                                {MAP_KINDS.map((k) => (
+                                    <label
+                                        key={k.id}
+                                        className={`new-board-kind ${newBoardKind === k.id ? "selected" : ""}`}
+                                    >
+                                        <input
+                                            type='radio'
+                                            name='new-board-kind'
+                                            value={k.id}
+                                            checked={newBoardKind === k.id}
+                                            onChange={() => setNewBoardKind(k.id)}
+                                        />
+                                        <Icon name={k.icon} size={22} />
+                                        <span>
+                                            <strong>{k.label}</strong>
+                                            <small>{k.description}</small>
+                                        </span>
+                                    </label>
+                                ))}
+                            </fieldset>
                             <p>Are you sure you want to create a new board?</p>
                             <p>
                                 <strong>

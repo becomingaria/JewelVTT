@@ -49,6 +49,10 @@ import {
     type BoardStyleId,
     type GridShape,
 } from "./utils/board-styles"
+import { FeatureHost } from "./features/host/FeatureHost"
+import { setUndoManager } from "./features/board-bridge"
+import { mapKindStore, useMapKind, type MapKind } from "./features/map-kind"
+import { mapKindDefaults } from "./features/registry"
 import "./App.css"
 
 function App() {
@@ -72,6 +76,8 @@ function App() {
 
     // Undo/Redo manager
     const undoRedoManager = useRef(new UndoRedoManager()).current
+    // Features record their own undo steps on the same history
+    useEffect(() => setUndoManager(undoRedoManager), [undoRedoManager])
     const [boardStyle, setBoardStyle] =
         useState<BoardStyleId>(DEFAULT_BOARD_STYLE)
     const [gridShape, setGridShape] = useState<GridShape>("square")
@@ -223,6 +229,8 @@ function App() {
     )
     useBoardSlice("textureScale", textureScale, (s) => setTextureScale(s ?? 1))
     useBoardSlice("spots", spots, (s) => setSpots(s ?? []))
+    const mapKind = useMapKind()
+    useBoardSlice("mapKind", mapKind, (k) => mapKindStore.set(k ?? "freeform"))
     useBoardSlice("scribbles", scribbleLayers, (layers) => {
         setScribbleLayers(layers ?? [])
         setActiveScribbleId(null)
@@ -383,9 +391,15 @@ function App() {
         setTextureScale(scale)
     }
 
-    const handleNewBoard = () => {
+    const handleNewBoard = (kind: MapKind = "freeform") => {
         // With scenes open, the new board gets its own tab (keeps the others)
         local.startNewSceneIfNeeded()
+        // The map kind picks the grid, style and tools the board starts with
+        const defaults = mapKindDefaults(kind)
+        mapKindStore.set(kind)
+        setGridShape(defaults.gridShape)
+        setBoardStyle(defaults.boardStyle)
+        setShowGridLines(defaults.showGrid)
         // Reset all state to initial values
         setActivePaintTool(null)
         setSelectedColor("#3498db")
@@ -410,6 +424,7 @@ function App() {
     const performUndo = useCallback(() => {
         const action = undoRedoManager.getUndoAction()
         if (!action) return
+        if (action.type === "CUSTOM") return action.undo()
 
         switch (action.type) {
             case "PAINT_SQUARE":
@@ -503,6 +518,7 @@ function App() {
     const performRedo = useCallback(() => {
         const action = undoRedoManager.getRedoAction()
         if (!action) return
+        if (action.type === "CUSTOM") return action.redo()
 
         switch (action.type) {
             case "PAINT_SQUARE":
@@ -758,6 +774,7 @@ function App() {
                     onScribbleErase={handleScribbleErase}
                 />
             </div>
+            <FeatureHost />
             <ToastHost />
             <HowToDialog isOpen={showHowTo} onClose={closeHowTo} />
             <Apron

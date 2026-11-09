@@ -48,6 +48,17 @@ import type { DragTailStyleId } from "../utils/drag-tail-styles"
 import { IDENTITY, type Projection } from "../utils/projection"
 import { ConnectorLayer } from "./ConnectorLayer"
 import type { Connector, ConnectorEnd } from "../types/connector.types"
+import {
+    humbugsStore,
+    registerHumbugHandlers,
+    selectionStore,
+} from "../features/board-bridge"
+import {
+    isHumbugHidden,
+    isHumbugLayerLocked,
+    useLayerState,
+    useTableMode,
+} from "../features/view-state"
 
 interface HumbugManagerProps {
     scale: number
@@ -154,6 +165,127 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     const localUndoRedoManager = useRef(new UndoRedoManager()).current
     const undoRedoManager = externalUndoRedoManager || localUndoRedoManager
     const clipboardManager = useRef(new ClipboardManager()).current
+
+    // ---- Feature bridge: publish humbugs/selection, accept feature edits
+    const latestHumbugsRef = useRef(state.humbugs)
+    useEffect(() => {
+        latestHumbugsRef.current = state.humbugs
+        humbugsStore.set(state.humbugs)
+    }, [state.humbugs])
+    useEffect(() => {
+        selectionStore.set(
+            multiSelectedIds.length
+                ? multiSelectedIds
+                : state.selectedHumbugId
+                ? [state.selectedHumbugId]
+                : []
+        )
+    }, [multiSelectedIds, state.selectedHumbugId])
+    // Pre-drag originals for live (non-undoable) feature updates, so the
+    // final undoable update records one step from the true starting point
+    const liveOriginalsRef = useRef(new Map<string, Humbug>())
+    useEffect(() => {
+        registerHumbugHandlers({
+            add: (incoming, select) => {
+                if (!incoming.length) return
+                const existing = latestHumbugsRef.current
+                let z = existing.length ? Math.max(...existing.map((h) => h.zIndex)) : 99
+                const created = incoming.map((h) => ({
+                    ...h,
+                    id: h.id || generateId(),
+                    zIndex: h.zIndex || ++z,
+                })) as Humbug[]
+                setState((prev) => ({ ...prev, humbugs: [...prev.humbugs, ...created] }))
+                undoRedoManager.addAction({
+                    type: "BATCH_ACTION",
+                    timestamp: Date.now(),
+                    actions: created.map((humbug) => ({
+                        type: "CREATE_HUMBUG" as const,
+                        timestamp: Date.now(),
+                        humbug,
+                    })),
+                })
+                if (select) {
+                    const ids = created.map((h) => h.id)
+                    setMultiSelectedIds(ids.length > 1 ? ids : [])
+                    setState((prev) => ({
+                        ...prev,
+                        selectedHumbugId: ids.length === 1 ? ids[0] : null,
+                    }))
+                }
+            },
+            update: (patches, undoable) => {
+                const byId = new Map(latestHumbugsRef.current.map((h) => [h.id, h]))
+                const changes: { old: Humbug; next: Humbug }[] = []
+                for (const p of patches) {
+                    const cur = byId.get(p.id)
+                    if (!cur) continue
+                    const next = { ...cur, ...p.changes, updatedAt: Date.now() } as Humbug
+                    let old = cur
+                    if (!undoable) {
+                        if (!liveOriginalsRef.current.has(p.id)) liveOriginalsRef.current.set(p.id, cur)
+                    } else {
+                        old = liveOriginalsRef.current.get(p.id) ?? cur
+                        liveOriginalsRef.current.delete(p.id)
+                    }
+                    changes.push({ old, next })
+                }
+                if (!changes.length) return
+                const nextById = new Map(changes.map((c) => [c.next.id, c.next]))
+                setState((prev) => ({
+                    ...prev,
+                    humbugs: prev.humbugs.map((h) => nextById.get(h.id) ?? h),
+                }))
+                if (undoable) {
+                    undoRedoManager.addAction({
+                        type: "BATCH_ACTION",
+                        timestamp: Date.now(),
+                        actions: changes.map((c) => ({
+                            type: "EDIT_HUMBUG" as const,
+                            timestamp: Date.now(),
+                            humbugId: c.next.id,
+                            oldHumbug: c.old,
+                            newHumbug: c.next,
+                        })),
+                    })
+                }
+            },
+            remove: (ids) => {
+                const gone = latestHumbugsRef.current.filter((h) => ids.includes(h.id))
+                if (!gone.length) return
+                setState((prev) => ({
+                    ...prev,
+                    humbugs: prev.humbugs.filter((h) => !ids.includes(h.id)),
+                    selectedHumbugId: ids.includes(prev.selectedHumbugId ?? "")
+                        ? null
+                        : prev.selectedHumbugId,
+                }))
+                setMultiSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
+                undoRedoManager.addAction({
+                    type: "BATCH_ACTION",
+                    timestamp: Date.now(),
+                    actions: gone.map((humbug) => ({
+                        type: "DELETE_HUMBUG" as const,
+                        timestamp: Date.now(),
+                        humbug,
+                    })),
+                })
+            },
+            select: (ids) => {
+                setSelectedConnectorId(null)
+                setMultiSelectedIds(ids.length > 1 ? ids : [])
+                setState((prev) => ({
+                    ...prev,
+                    selectedHumbugId: ids.length === 1 ? ids[0] : null,
+                }))
+            },
+        })
+        return () => registerHumbugHandlers(null)
+    }, [undoRedoManager])
+
+    // Layers and Table Mode decide what's drawn and what's locked
+    const layerState = useLayerState()
+    const tableMode = useTableMode()
 
     // Flowchart connectors between humbug edges
     const [connectors, setConnectors] = useState<Connector[]>([])
@@ -1986,7 +2118,12 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 z-indexes can't climb over board overlays (scribbles, connectors,
                 spot flags) or the menus below */}
             <div className='humbug-layer'>
-            {state.humbugs.map((humbug) => (
+            {state.humbugs
+                .filter((h) => !isHumbugHidden(h, layerState, tableMode))
+                .map((h) =>
+                    !h.locked && isHumbugLayerLocked(h, layerState) ? { ...h, locked: true } : h
+                )
+                .map((humbug) => (
                 <HumbugRenderer
                     key={humbug.id}
                     humbug={humbug}

@@ -20,6 +20,7 @@ export type ActionType =
     | "SCRIBBLE_LAYER_DELETE"
     | "CONNECTOR_ADD"
     | "CONNECTOR_DELETE"
+    | "CUSTOM"
 
 export interface BaseAction {
     type: ActionType
@@ -130,7 +131,16 @@ export interface ConnectorDeleteAction extends BaseAction {
     connector: Connector
 }
 
+/** Undo step for feature-owned state (see features/board-bridge pushUndo) */
+export interface CustomAction extends BaseAction {
+    type: "CUSTOM"
+    label: string
+    undo: () => void
+    redo: () => void
+}
+
 export type Action =
+    | CustomAction
     | ScribbleLayerDeleteAction
     | ConnectorAddAction
     | ConnectorDeleteAction

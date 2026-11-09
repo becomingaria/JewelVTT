@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Icon, type IconName } from "./Icon"
 import { HOTKEYS, IS_MAC, MOD, formatHotkey, type HotkeyDef } from "../utils/hotkeys"
+import { FEATURES, formatHotkeySpec } from "../features/registry"
 import "./HowToDialog.css"
 
 interface HowToDialogProps {
@@ -266,6 +267,15 @@ const SECTIONS: Section[] = [
     },
 ]
 
+/** Guide sections contributed by features */
+const FEATURE_SECTIONS: Section[] = FEATURES.flatMap((f) => f.help ?? [])
+/** Hotkeys contributed by feature tools and commands */
+const FEATURE_KEYS = FEATURES.flatMap((f) => [
+    ...(f.tools ?? []).flatMap((t) => (t.hotkey ? [{ id: t.id, key: formatHotkeySpec(t.hotkey), label: t.label }] : [])),
+    ...(f.commands ?? []).flatMap((c) => (c.hotkey ? [{ id: c.id, key: formatHotkeySpec(c.hotkey), label: c.label }] : [])),
+])
+const ALL_SECTIONS: Section[] = [...SECTIONS, ...FEATURE_SECTIONS]
+
 const GROUP_ORDER: HotkeyDef["group"][] = ["Board", "Add", "Navigate", "Edit"]
 
 export const HowToDialog: React.FC<HowToDialogProps> = ({ isOpen, onClose }) => {
@@ -317,7 +327,7 @@ export const HowToDialog: React.FC<HowToDialogProps> = ({ isOpen, onClose }) => 
 
                 <div className='how-to-layout'>
                     <nav className='how-to-nav' aria-label='Guide sections'>
-                        {[...SECTIONS, { id: "keys", title: "Keyboard shortcuts", icon: "help" as IconName }].map(
+                        {[...ALL_SECTIONS, { id: "keys", title: "Keyboard shortcuts", icon: "help" as IconName }].map(
                             (s) => (
                                 <button
                                     key={s.id}
@@ -335,7 +345,7 @@ export const HowToDialog: React.FC<HowToDialogProps> = ({ isOpen, onClose }) => 
                     </nav>
 
                     <div className='how-to-body' ref={bodyRef}>
-                        {SECTIONS.map((s) => (
+                        {ALL_SECTIONS.map((s) => (
                             <section key={s.id} id={`how-to-${s.id}`}>
                                 <h3>
                                     <Icon name={s.icon} size={22} className='jicon-play' />
@@ -369,6 +379,23 @@ export const HowToDialog: React.FC<HowToDialogProps> = ({ isOpen, onClose }) => 
                                     </table>
                                 </div>
                             ))}
+                            {FEATURE_KEYS.length > 0 && (
+                                <div className='how-to-keys-group'>
+                                    <h4>Tools</h4>
+                                    <table>
+                                        <tbody>
+                                            {FEATURE_KEYS.map((k) => (
+                                                <tr key={k.id}>
+                                                    <td>
+                                                        <Key>{k.key}</Key>
+                                                    </td>
+                                                    <td>{k.label}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                             <p className='how-to-note'>
                                 Also: <Key>{MOD}Z</Key> undo,{" "}
                                 <Key>{MOD}Shift+Z</Key> redo, <Key>{MOD}C</Key>{" "}

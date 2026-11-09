@@ -5,6 +5,8 @@ import type {
     Humbug,
 } from "../types/humbug.types"
 import { Icon } from "./Icon"
+import { FEATURES } from "../features/registry"
+import { FeatureIcon } from "../features/host/FeatureIcon"
 import "./HumbugContextMenu.css"
 
 interface HumbugContextMenuProps {
@@ -90,6 +92,24 @@ export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
                             <span className='option-label'>{option.label}</span>
                         </button>
                     ))}
+                    {/* Entries contributed by features (light, HP, layers...) */}
+                    {FEATURES.flatMap((f) => f.humbugMenu ?? [])
+                        .filter((item) => !item.when || item.when(humbug))
+                        .map((item) => (
+                            <button
+                                key={item.id}
+                                className='humbug-context-menu-option'
+                                onClick={() => {
+                                    item.run(humbug)
+                                    onClose()
+                                }}
+                            >
+                                <span className='option-icon'>
+                                    <FeatureIcon icon={item.icon} />
+                                </span>
+                                <span className='option-label'>{item.label}</span>
+                            </button>
+                        ))}
                 </div>
             </div>
         </>

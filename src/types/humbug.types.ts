@@ -22,6 +22,26 @@ export interface HumbugBase {
     opacity: number // 0.0 to 1.0
     createdAt: number
     updatedAt: number
+    /** Board layer (see features/view-state). Default comes from the type. */
+    layer?: "map" | "objects" | "tokens" | "gm"
+    /** Humbugs sharing a groupId select and move together */
+    groupId?: string
+    /** Gives off light in dark scenes (fog & light feature) */
+    light?: LightSource
+    /** Feature-owned extras, keyed by feature id (kept in saved boards) */
+    ext?: Record<string, unknown>
+}
+
+export interface LightSource {
+    /** Bright radius in feet (one grid square = 5 ft, or 10 ft on dungeon maps) */
+    bright: number
+    /** Extra dim radius beyond the bright one, in feet */
+    dim: number
+    color?: string
+    /** Gentle flicker (disabled under reduced motion) */
+    flicker?: boolean
+    /** Burns out after this many dungeon turns (torch = 6); undefined = never */
+    turnsLeft?: number
 }
 
 export type HumbugType =
@@ -79,6 +99,13 @@ export interface TokenHumbug extends HumbugBase {
     originalSize: Size
     borderColor: string
     borderWidth: number
+    /** Display name (initiative, logs, badges) */
+    name?: string
+    hp?: { current: number; max: number }
+    /** Condition ids, e.g. "poisoned", "asleep" (tracker feature) */
+    conditions?: string[]
+    /** Creature size; drives footprint in squares */
+    sizeCategory?: "tiny" | "small" | "medium" | "large" | "huge" | "gargantuan"
 }
 
 /** A link (e.g. a Notion page) or an attached file, shown as a card */
