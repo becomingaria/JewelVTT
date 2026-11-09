@@ -11,6 +11,7 @@ export type BoardStyleId =
     | "grass"
     | "stone"
     | "blank"
+    | "overland"
 
 export interface BoardStyle {
     id: BoardStyleId
@@ -272,6 +273,38 @@ function stone(size: number) {
     })
 }
 
+/** Aged map paper for overland hex maps: mottled, foxed, with laid lines */
+function overland(size: number) {
+    const body = fbm(4, 5, 131)
+    const wash = fbm(2, 3, 137)
+    const fox = fbm(7, 3, 139)
+    const rand = mulberry32(149)
+    const light = hex("#efe2c0")
+    const dark = hex("#d8c294")
+    const age = hex("#b89a62")
+    const spot = hex("#a67c48")
+    const img = paint(size, (u, v, _x, y) => {
+        let c = mix(light, dark, 0.8 * band(body(u, v) * 1.25 - 0.12, 6))
+        c = mix(c, age, 0.35 * smooth(0.55, 0.8, wash(u, v)))
+        // Foxing: small rusty freckles
+        c = mix(c, spot, 0.5 * smooth(0.78, 0.86, fox(u, v)))
+        // Faint laid lines from the paper mould
+        if (y % 8 === 0) c = mix(c, dark, 0.18)
+        const grain = (rand() - 0.5) * 9
+        return [c[0] + grain, c[1] + grain, c[2] + grain * 0.6]
+    })
+    // Fibres: short pale and dark flecks
+    for (let i = 0; i < (size * size) / 400; i++) {
+        const x = rand() * size
+        const y = rand() * size
+        const len = 2 + Math.floor(rand() * 3)
+        const c = rand() < 0.5 ? hex("#f7eed6") : hex("#c4a878")
+        const dx = rand() < 0.5 ? 1 : 0
+        for (let k = 0; k < len; k++) plot(img, x + k * dx, y + k * (1 - dx), c)
+    }
+    return img
+}
+
 export const BOARD_STYLES: BoardStyle[] = [
     {
         id: "parchment",
@@ -325,6 +358,14 @@ export const BOARD_STYLES: BoardStyle[] = [
         grid: "#e0e0e0",
         gridFar: "#f0f0f0",
         base: "#ffffff",
+    },
+    {
+        id: "overland",
+        label: "Overland map",
+        grid: "rgba(92, 60, 24, 0.3)",
+        gridFar: "rgba(92, 60, 24, 0.15)",
+        base: "#e6d4aa",
+        generate: overland,
     },
 ]
 
