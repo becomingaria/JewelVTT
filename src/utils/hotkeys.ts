@@ -100,18 +100,36 @@ function matches(def: HotkeyDef, e: KeyboardEvent) {
     return e.key.toLowerCase() === def.key
 }
 
+type HotkeyHandlers = Partial<Record<HotkeyAction, () => boolean | void>>
+
+// The handlers of the mounted useHotkeys (App), so the command palette can
+// run a core action exactly as its key would (workflow feature, #26)
+let activeHandlers: { current: HotkeyHandlers } | null = null
+
+/** Run a core hotkey action as if its key was pressed. False if unhandled. */
+export function runHotkeyAction(action: HotkeyAction): boolean {
+    const handler = activeHandlers?.current[action]
+    if (!handler) return false
+    handler()
+    return true
+}
+
 /**
  * Listen for the shortcuts in HOTKEYS. Handlers return false to let the
  * key through (e.g. Delete with nothing selected). Ignored while typing or
  * while a modal dialog is open (unless `allowInModal`).
  */
-export function useHotkeys(
-    handlers: Partial<Record<HotkeyAction, () => boolean | void>>
-) {
+export function useHotkeys(handlers: HotkeyHandlers) {
     const latest = useRef(handlers)
     useEffect(() => {
         latest.current = handlers
     })
+    useEffect(() => {
+        activeHandlers = latest
+        return () => {
+            if (activeHandlers === latest) activeHandlers = null
+        }
+    }, [])
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -119,7 +137,7 @@ export function useHotkeys(
             // Leave keys alone while a dialog/drawer is open
             if (
                 document.querySelector(
-                    ".humbug-modal, .image-cropper-modal, .token-library-drawer, .how-to-dialog, .board-file-dialog"
+                    ".humbug-modal, .image-cropper-modal, .token-library-drawer, .how-to-dialog, .board-file-dialog, .workflow-palette"
                 )
             ) {
                 return
