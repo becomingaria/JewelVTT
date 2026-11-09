@@ -39,7 +39,7 @@ export const DUNGEON_HELP: HelpSection = {
                     Choose a seed, size, number of rooms and corridor style, and what to include. The minimap updates as
                     you go. The same seed always gives the same dungeon.
                 </li>
-                <li>Build places it at the centre of the view, with numbered rooms. Undo twice to take it away again.</li>
+                <li>Build places it at the centre of the view, with numbered rooms. One undo takes it away again.</li>
                 <li>Starter dungeons are ready-made seeds with a short description. Customise opens one in the generator.</li>
             </ul>
         </>
