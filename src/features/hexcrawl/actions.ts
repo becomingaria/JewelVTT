@@ -2,6 +2,7 @@ import {
     addHumbugs,
     humbugBase,
     humbugsStore,
+    undoGroup,
     updateHumbugs,
 } from "../board-bridge"
 import { cellAt, cellCenter, cellDistance, cellKey, cellNeighbors, type Cell } from "../grid"
@@ -107,20 +108,21 @@ export function moveParty(to: Cell): boolean {
     const next = afterMove(todaysProgress(h), cost)
     const forced = next.used > budget
 
-    // Position and today's progress change together: one undo step
+    // Position, today's progress and the revealed hexes: one undo step
     const size = humbugFootprint(h)
     const c = cellCenter(to, "hex")
-    updateHumbugs([
-        {
-            id: h.id,
-            changes: {
-                position: { x: c.x - size.width / 2, y: c.y - size.height / 2 },
-                ext: { ...h.ext, hexcrawl: { ...hexExt(h), travel: next } },
+    undoGroup("Travel", () => {
+        updateHumbugs([
+            {
+                id: h.id,
+                changes: {
+                    position: { x: c.x - size.width / 2, y: c.y - size.height / 2 },
+                    ext: { ...h.ext, hexcrawl: { ...hexExt(h), travel: next } },
+                },
             },
-        },
-    ])
-
-    fog.reveal([to, ...cellNeighbors(to, "hex")])
+        ])
+        fog.reveal([to, ...cellNeighbors(to, "hex")])
+    })
 
     const where = terrainName(terrain)
     const dir = DIRECTION_NAMES[directionTo(from, to)]

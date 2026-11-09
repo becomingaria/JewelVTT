@@ -1,5 +1,5 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef } from "react"
-import { addHumbugs, humbugsStore, removeHumbugs } from "../board-bridge"
+import { addHumbugs, humbugsStore, removeHumbugs, undoGroup } from "../board-bridge"
 import { cellCenter, cellKey, parseCellKey } from "../grid"
 import { fog, logEvent } from "../services"
 import { useStore } from "../store"
@@ -124,32 +124,35 @@ function applyGenerated(s: GenUi, g: GeneratedMap) {
         for (const e of fresh) out[e] = true
         return out
     }
-    changeMap(
-        {
-            cells: Object.fromEntries(area.map((c) => [cellKey(c), g.cells[cellKey(c)]])),
-            rivers: paths(m.rivers, g.rivers),
-            roads: paths(m.roads, g.roads),
-        },
-        "Generate overland map"
-    )
-    if (s.replace) {
-        const old = humbugsStore
-            .get()
-            .filter((h) => hexExt(h)?.generated && areaKeys.has(cellKey(humbugCell(h))))
-            .map((h) => h.id)
-        if (old.length) removeHumbugs(old)
-    }
-    if (g.markers.length)
-        addHumbugs(
-            g.markers.map((mk) =>
-                markerHumbug(mk.cell, { marker: mk.kind, label: mk.label, number: hexNumber(mk.cell), generated: true })
-            )
-        )
     let fogNote = ""
-    if (s.fog) {
-        fog.hide(area)
-        if (!fog.enabled()) fogNote = " Fog isn't available on this board, so nothing was hidden."
-    }
+    // Terrain, old/new markers and fog: all one undo step
+    undoGroup("Generate overland map", () => {
+        changeMap(
+            {
+                cells: Object.fromEntries(area.map((c) => [cellKey(c), g.cells[cellKey(c)]])),
+                rivers: paths(m.rivers, g.rivers),
+                roads: paths(m.roads, g.roads),
+            },
+            "Generate overland map"
+        )
+        if (s.replace) {
+            const old = humbugsStore
+                .get()
+                .filter((h) => hexExt(h)?.generated && areaKeys.has(cellKey(humbugCell(h))))
+                .map((h) => h.id)
+            if (old.length) removeHumbugs(old)
+        }
+        if (g.markers.length)
+            addHumbugs(
+                g.markers.map((mk) =>
+                    markerHumbug(mk.cell, { marker: mk.kind, label: mk.label, number: hexNumber(mk.cell), generated: true })
+                )
+            )
+        if (s.fog) {
+            fog.hide(area)
+            if (!fog.enabled()) fogNote = " Fog isn't available on this board, so nothing was hidden."
+        }
+    })
     // The map's climate drives the weather table from now on
     travelStore.set((t) => ({ ...t, climate: s.climate }))
 
