@@ -12,10 +12,10 @@
     /* Absolute within the board, like the humbug context menu, so the
        container-relative click position lines up with the cursor */
     position: absolute;
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: var(--jv-panel-bg);
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-shadow);
     z-index: 3001;
     min-width: 180px;
     overflow: hidden;
@@ -24,11 +24,11 @@
 
 .context-menu-header {
     padding: 8px 12px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
+    background: var(--jv-panel-bg-alt);
+    border-bottom: 1px solid var(--jv-line);
     font-size: 12px;
     font-weight: 600;
-    color: #666;
+    color: var(--jv-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -48,17 +48,17 @@
     text-align: left;
     cursor: var(--cursor-pointer, pointer);
     font-size: 14px;
-    color: #333;
+    color: var(--jv-panel-fg);
     transition: background-color 0.15s ease;
     pointer-events: all;
 }
 
 .context-menu-option:hover {
-    background-color: #f1f3f4;
+    background-color: var(--jv-hover-bg);
 }
 
 .context-menu-option:active {
-    background-color: #e8eaed;
+    background-color: var(--jv-hover-bg);
 }
 
 .option-icon {
@@ -67,7 +67,7 @@
     justify-content: center;
     width: 24px;
     height: 24px;
-    color: #444;
+    color: var(--jv-panel-fg);
 }
 
 .option-label {
@@ -77,7 +77,7 @@
 
 .context-menu-separator {
     height: 1px;
-    background-color: #e0e0e0;
+    background-color: var(--jv-line);
     margin: 4px 0;
 }
 
@@ -88,6 +88,6 @@
 .toggle-indicator {
     font-size: 11px;
     font-weight: bold;
-    color: #666;
+    color: var(--jv-muted);
     margin-left: auto;
 }

@@ -10,14 +10,15 @@
 }
 
 .app.apron-visible {
-    --apron-height: 60px;
+    --apron-height: calc(60px * var(--ui-scale, 1));
 }
 
 .main-content {
     flex: 1;
-    margin-top: 60px; /* Account for TopBar height */
+    /* Account for the TopBar (it grows with the UI scale) */
+    margin-top: calc(60px * var(--ui-scale, 1));
     margin-bottom: var(--apron-height); /* Account for Apron height */
     width: 100%;
-    height: calc(100vh - 60px - var(--apron-height));
+    height: calc(100vh - 60px * var(--ui-scale, 1) - var(--apron-height));
     overflow: hidden;
 }

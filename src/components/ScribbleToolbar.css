@@ -8,10 +8,10 @@
     align-items: center;
     gap: 10px;
     padding: 6px 8px 6px 12px;
-    background: #fffdf7;
-    border: 1px solid #e0d6c2;
-    border-radius: 12px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    background: var(--jv-panel-bg-alt);
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-shadow);
     animation: scribble-toolbar-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -22,7 +22,7 @@
     max-width: 160px;
     font-size: 13px;
     font-weight: 600;
-    color: #2c2437;
+    color: var(--jv-panel-fg);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -33,7 +33,7 @@
     align-items: center;
     gap: 3px;
     padding-left: 10px;
-    border-left: 1px solid #ebe3d3;
+    border-left: 1px solid var(--jv-line);
 }
 
 .scribble-toolbar-group button {
@@ -45,52 +45,52 @@
     padding: 0;
     background: none;
     border: 2px solid transparent;
-    border-radius: 7px;
-    color: #333;
+    border-radius: var(--jv-radius);
+    color: var(--jv-panel-fg);
     cursor: var(--cursor-pointer, pointer);
 }
 
 .scribble-toolbar-group button:hover {
-    background: #f1ebde;
+    background: var(--jv-hover-bg);
 }
 
 .scribble-toolbar-group button.active {
-    border-color: #6c2fcf;
-    background: #f4ecff;
+    border-color: var(--jv-accent);
+    background: var(--jv-accent-soft);
 }
 
 .scribble-toolbar-group .scribble-swatch {
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    border: 2px solid rgba(0, 0, 0, 0.15);
+    border: 2px solid var(--jv-line);
 }
 
 .scribble-toolbar-group .scribble-swatch.active {
-    border-color: #fff;
-    box-shadow: 0 0 0 2px #6c2fcf;
+    border-color: var(--jv-panel-bg);
+    box-shadow: 0 0 0 2px var(--jv-accent);
 }
 
 .scribble-size-dot {
     display: block;
     border-radius: 50%;
-    background: #2b2b30;
+    background: var(--jv-panel-fg);
 }
 
 .scribble-toolbar-done {
     margin-left: 4px;
     padding: 6px 14px;
-    background: #6c2fcf;
-    color: #fff;
+    background: var(--jv-accent);
+    color: var(--jv-accent-fg);
     border: none;
-    border-radius: 8px;
+    border-radius: var(--jv-radius);
     font-size: 13px;
     font-weight: 600;
     cursor: var(--cursor-pointer, pointer);
 }
 
 .scribble-toolbar-done:hover {
-    background: #5a24b3;
+    background: var(--jv-accent-strong);
 }
 
 @keyframes scribble-toolbar-in {

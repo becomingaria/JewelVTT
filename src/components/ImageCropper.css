@@ -4,7 +4,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
+    background: var(--jv-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -13,13 +13,13 @@
 }
 
 .image-cropper-modal {
-    background: white;
-    border-radius: 8px;
+    background: var(--jv-panel-bg);
+    border-radius: var(--jv-radius);
     max-width: 90vw;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--jv-shadow);
     pointer-events: auto;
     position: relative;
     z-index: 1000000;
@@ -30,7 +30,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--jv-line);
 }
 
 .image-cropper-header h3 {
@@ -50,13 +50,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
-    color: #666;
+    border-radius: var(--jv-radius);
+    color: var(--jv-muted);
 }
 
 .close-button:hover {
-    background: #f0f0f0;
-    color: #333;
+    background: var(--jv-panel-bg-alt);
+    color: var(--jv-panel-fg);
 }
 
 .image-cropper-content {
@@ -68,8 +68,8 @@
 }
 
 .canvas-container {
-    border: 2px dashed #ddd;
-    border-radius: 8px;
+    border: 2px dashed var(--jv-line);
+    border-radius: var(--jv-radius);
     padding: 10px;
     display: flex;
     align-items: center;
@@ -79,7 +79,7 @@
 .canvas-container canvas {
     max-width: 100%;
     max-height: 400px;
-    border-radius: 4px;
+    border-radius: var(--jv-radius);
     cursor: var(--cursor-pointer, pointer);
     user-select: none;
 }
@@ -90,7 +90,7 @@
 
 .crop-info {
     text-align: center;
-    color: #666;
+    color: var(--jv-muted);
 }
 
 .crop-info p {
@@ -102,39 +102,39 @@
     display: flex;
     gap: 12px;
     padding: 16px 20px;
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid var(--jv-line);
     justify-content: flex-end;
 }
 
 .cancel-button {
     padding: 8px 16px;
-    border: 1px solid #ddd;
-    background: white;
-    border-radius: 4px;
+    border: 1px solid var(--jv-line);
+    background: var(--jv-panel-bg);
+    border-radius: var(--jv-radius);
     cursor: var(--cursor-pointer, pointer);
     font-size: 14px;
 }
 
 .cancel-button:hover {
-    background: #f8f8f8;
+    background: var(--jv-panel-bg-alt);
 }
 
 .crop-button {
     padding: 8px 16px;
     border: none;
-    background: #007acc;
-    color: white;
-    border-radius: 4px;
+    background: var(--jv-accent);
+    color: var(--jv-accent-fg);
+    border-radius: var(--jv-radius);
     cursor: var(--cursor-pointer, pointer);
     font-size: 14px;
 }
 
 .crop-button:hover {
-    background: #005fa3;
+    background: var(--jv-accent-strong);
 }
 
 .crop-button:disabled {
-    background: #ccc;
+    background: var(--jv-hover-bg);
     cursor: not-allowed;
 }
 
@@ -148,16 +148,16 @@
     min-width: 360px;
     min-height: 200px;
     padding: 24px;
-    color: #666;
+    color: var(--jv-muted);
     font-size: 14px;
     text-align: center;
 }
 
 .image-cropper-error {
-    color: #7e4a0c;
-    background: #fdf6ec;
-    border: 1px solid #f0d9b5;
-    border-radius: 8px;
+    color: var(--jv-warning);
+    background: var(--jv-panel-bg-alt);
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     max-width: 460px;
     line-height: 1.5;
 }

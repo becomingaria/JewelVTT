@@ -5,7 +5,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(20, 12, 34, 0.45);
+    background: var(--jv-overlay);
     pointer-events: auto;
     animation: board-file-fade 0.15s ease;
 }
@@ -15,10 +15,10 @@
     max-height: min(560px, calc(100vh - 48px));
     display: flex;
     flex-direction: column;
-    background: #fffdf7;
-    border-radius: 12px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--jv-panel-bg-alt);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-shadow);
+    font-family: var(--jv-font-body);
     animation: board-file-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     overflow: hidden;
 }
@@ -34,7 +34,7 @@
     flex: 1;
     margin: 0;
     font-size: 17px;
-    color: #2c2437;
+    color: var(--jv-panel-fg);
 }
 
 .board-file-close {
@@ -45,13 +45,13 @@
     height: 30px;
     background: none;
     border: none;
-    border-radius: 6px;
-    color: #666;
+    border-radius: var(--jv-radius);
+    color: var(--jv-muted);
     cursor: var(--cursor-pointer, pointer);
 }
 
 .board-file-close:hover {
-    background: #f1ebde;
+    background: var(--jv-hover-bg);
 }
 
 .board-file-folder {
@@ -60,7 +60,7 @@
     gap: 6px;
     margin: 0 18px 8px;
     font-size: 12px;
-    color: #7f7465;
+    color: var(--jv-muted);
 }
 
 .board-file-body {
@@ -74,36 +74,36 @@
 .board-file-body label[for] {
     font-size: 13px;
     font-weight: 600;
-    color: #555;
+    color: var(--jv-muted);
 }
 
 .board-file-body input:not([type="checkbox"]) {
     padding: 9px 12px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     font-size: 15px;
 }
 
 .board-file-body input:not([type="checkbox"]):focus {
     outline: none;
-    border-color: #6c2fcf;
-    box-shadow: 0 0 0 3px rgba(108, 47, 207, 0.15);
+    border-color: var(--jv-accent);
+    box-shadow: 0 0 0 3px var(--jv-accent-soft);
 }
 
 .board-file-warning {
     margin: 0;
     padding: 8px 10px;
-    background: #fdf2e9;
-    border-left: 3px solid #e67e22;
-    border-radius: 4px;
+    background: var(--jv-panel-bg-alt);
+    border-left: 3px solid var(--jv-warning);
+    border-radius: var(--jv-radius);
     font-size: 13px;
-    color: #7e4a0c;
+    color: var(--jv-warning);
 }
 
 .board-file-empty {
     margin: 8px 0;
     font-size: 14px;
-    color: #666;
+    color: var(--jv-muted);
 }
 
 .board-file-list {
@@ -112,12 +112,12 @@
     padding: 0;
     overflow-y: auto;
     max-height: 320px;
-    border: 1px solid #ebe3d3;
-    border-radius: 8px;
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
 }
 
 .board-file-list li + li {
-    border-top: 1px solid #f1ebde;
+    border-top: 1px solid var(--jv-line);
 }
 
 .board-file-row {
@@ -130,16 +130,16 @@
     border: none;
     text-align: left;
     font-size: 14px;
-    color: #2c2437;
+    color: var(--jv-panel-fg);
     cursor: var(--cursor-pointer, pointer);
 }
 
 .board-file-row:hover {
-    background: #f6f0ff;
+    background: var(--jv-accent-soft);
 }
 
 .board-file-row.is-open {
-    color: #999;
+    color: var(--jv-muted);
     cursor: default;
 }
 
@@ -155,7 +155,7 @@
 .board-file-meta {
     flex-shrink: 0;
     font-size: 12px;
-    color: #9a8f7c;
+    color: var(--jv-muted);
 }
 
 .board-file-actions {
@@ -167,10 +167,10 @@
 
 .board-file-actions button {
     padding: 8px 16px;
-    background: #6c2fcf;
-    color: #fff;
+    background: var(--jv-accent);
+    color: var(--jv-accent-fg);
     border: none;
-    border-radius: 8px;
+    border-radius: var(--jv-radius);
     font-size: 14px;
     font-weight: 600;
     cursor: var(--cursor-pointer, pointer);
@@ -182,12 +182,12 @@
 }
 
 .board-file-actions button.secondary {
-    background: #f1ebde;
-    color: #3d3550;
+    background: var(--jv-hover-bg);
+    color: var(--jv-panel-fg);
 }
 
 .board-file-actions button.danger {
-    background: #c0392b;
+    background: var(--jv-danger);
 }
 
 @keyframes board-file-fade {

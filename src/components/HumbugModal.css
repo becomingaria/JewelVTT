@@ -4,7 +4,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: var(--jv-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -13,9 +13,9 @@
 }
 
 .humbug-modal {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    background: var(--jv-panel-bg);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-shadow);
     width: 90%;
     max-width: 500px;
     max-height: 80vh;
@@ -30,15 +30,15 @@
     justify-content: space-between;
     align-items: center;
     padding: 20px 24px;
-    border-bottom: 1px solid #e0e0e0;
-    background-color: #f8f9fa;
+    border-bottom: 1px solid var(--jv-line);
+    background-color: var(--jv-panel-bg-alt);
 }
 
 .humbug-modal-header h3 {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-    color: #333;
+    color: var(--jv-panel-fg);
 }
 
 .close-button {
@@ -46,20 +46,20 @@
     border: none;
     font-size: 24px;
     cursor: var(--cursor-pointer, pointer);
-    color: #666;
+    color: var(--jv-muted);
     padding: 0;
     width: 30px;
     height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
+    border-radius: var(--jv-radius);
     transition: all 0.2s ease;
 }
 
 .close-button:hover {
-    background-color: #e9ecef;
-    color: #333;
+    background-color: var(--jv-hover-bg);
+    color: var(--jv-panel-fg);
 }
 
 .humbug-modal-body {
@@ -80,8 +80,8 @@
     margin: 0 0 16px 0;
     font-size: 16px;
     font-weight: 600;
-    color: #333;
-    border-bottom: 1px solid #e0e0e0;
+    color: var(--jv-panel-fg);
+    border-bottom: 1px solid var(--jv-line);
     padding-bottom: 8px;
 }
 
@@ -93,7 +93,7 @@
     display: block;
     margin-bottom: 6px;
     font-weight: 500;
-    color: #555;
+    color: var(--jv-muted);
     font-size: 14px;
 }
 
@@ -109,8 +109,8 @@ input[type="number"],
 select {
     width: 100%;
     padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     font-size: 14px;
     transition: border-color 0.2s ease;
 }
@@ -120,8 +120,8 @@ select {
 input[type="number"]:focus,
 select:focus {
     outline: none;
-    border-color: #3498db;
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    border-color: var(--jv-accent);
+    box-shadow: 0 0 0 3px var(--jv-accent-soft);
 }
 
 .text-input {
@@ -139,8 +139,8 @@ select:focus {
 input[type="color"] {
     width: 40px;
     height: 40px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     cursor: var(--cursor-pointer, pointer);
     padding: 0;
 }
@@ -148,10 +148,10 @@ input[type="color"] {
 .color-value {
     font-family: monospace;
     font-size: 14px;
-    color: #666;
-    background-color: #f8f9fa;
+    color: var(--jv-muted);
+    background-color: var(--jv-panel-bg-alt);
     padding: 4px 8px;
-    border-radius: 4px;
+    border-radius: var(--jv-radius);
 }
 
 .file-input {
@@ -160,23 +160,23 @@ input[type="color"] {
 
 .file-button {
     padding: 8px 16px;
-    background-color: #f8f9fa;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    background-color: var(--jv-panel-bg-alt);
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     cursor: var(--cursor-pointer, pointer);
     font-size: 14px;
     transition: all 0.2s ease;
 }
 
 .file-button:hover {
-    background-color: #e9ecef;
-    border-color: #ccc;
+    background-color: var(--jv-hover-bg);
+    border-color: var(--jv-line);
 }
 
 .form-separator {
     text-align: center;
     margin: 16px 0;
-    color: #999;
+    color: var(--jv-muted);
     font-size: 14px;
     position: relative;
 }
@@ -188,20 +188,20 @@ input[type="color"] {
     left: 0;
     right: 0;
     height: 1px;
-    background-color: #e0e0e0;
+    background-color: var(--jv-line);
     z-index: -1;
 }
 
 .form-separator {
-    background-color: white;
+    background-color: var(--jv-panel-bg);
     padding: 0 12px;
     display: inline-block;
 }
 
 .image-preview {
     margin-top: 12px;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     overflow: hidden;
     max-height: 200px;
 }
@@ -222,14 +222,14 @@ input[type="color"] {
     justify-content: flex-end;
     gap: 12px;
     padding: 20px 24px;
-    border-top: 1px solid #e0e0e0;
-    background-color: #f8f9fa;
+    border-top: 1px solid var(--jv-line);
+    background-color: var(--jv-panel-bg-alt);
 }
 
 .cancel-button,
 .create-button {
     padding: 10px 20px;
-    border-radius: 6px;
+    border-radius: var(--jv-radius);
     font-size: 14px;
     font-weight: 500;
     cursor: var(--cursor-pointer, pointer);
@@ -238,26 +238,26 @@ input[type="color"] {
 }
 
 .cancel-button {
-    background-color: #e9ecef;
-    color: #666;
+    background-color: var(--jv-hover-bg);
+    color: var(--jv-muted);
 }
 
 .cancel-button:hover {
-    background-color: #dee2e6;
-    color: #333;
+    background-color: var(--jv-hover-bg);
+    color: var(--jv-panel-fg);
 }
 
 .create-button {
-    background-color: #3498db;
-    color: white;
+    background-color: var(--jv-accent);
+    color: var(--jv-accent-fg);
 }
 
 .create-button:hover:not(:disabled) {
-    background-color: #2980b9;
+    background-color: var(--jv-accent-strong);
 }
 
 .create-button:disabled {
-    background-color: #bdc3c7;
+    background-color: var(--jv-bevel-dark);
     cursor: not-allowed;
 }
 
@@ -274,10 +274,10 @@ input[type="color"] {
 
 .crop-button {
     padding: 8px 12px;
-    border: 1px solid #007acc;
-    background: #007acc;
-    color: white;
-    border-radius: 4px;
+    border: 1px solid var(--jv-accent);
+    background: var(--jv-accent);
+    color: var(--jv-accent-fg);
+    border-radius: var(--jv-radius);
     cursor: var(--cursor-pointer, pointer);
     font-size: 12px;
     white-space: nowrap;
@@ -285,13 +285,13 @@ input[type="color"] {
 }
 
 .crop-button:hover {
-    background: #005fa3;
-    border-color: #005fa3;
+    background: var(--jv-accent-strong);
+    border-color: var(--jv-accent-strong);
 }
 
 .crop-button:disabled {
-    background: #ccc;
-    border-color: #ccc;
+    background: var(--jv-hover-bg);
+    border-color: var(--jv-line);
     cursor: not-allowed;
 }
 
@@ -328,8 +328,8 @@ input[type="color"] {
     display: inline-flex;
     margin-bottom: 16px;
     padding: 3px;
-    background: #e9ecef;
-    border-radius: 8px;
+    background: var(--jv-hover-bg);
+    border-radius: var(--jv-radius);
 }
 
 .doc-source-toggle button {
@@ -339,28 +339,28 @@ input[type="color"] {
     padding: 6px 14px;
     background: none;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--jv-radius);
     font-size: 14px;
     font-weight: 500;
-    color: #555;
+    color: var(--jv-muted);
     cursor: var(--cursor-pointer, pointer);
 }
 
 .doc-source-toggle button.active {
-    background: #fff;
-    color: #333;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    background: var(--jv-panel-bg);
+    color: var(--jv-panel-fg);
+    box-shadow: var(--jv-shadow);
 }
 
 .form-hint {
     margin-top: 6px;
     font-size: 12px;
-    color: #666;
+    color: var(--jv-muted);
     align-self: center;
 }
 
 .form-hint-error {
-    color: #c0392b;
+    color: var(--jv-danger);
 }
 
 .humbug-modal textarea.text-input {
