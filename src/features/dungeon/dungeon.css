@@ -1,0 +1,384 @@
+/* Dungeon feature: floor canvas, input overlay and panels. Colours come
+   from the theme tokens (--jv-*) with fallbacks. */
+
+/* ---------------------------------------------------------- board layers */
+.dgn-floor {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.dgn-input {
+    position: absolute;
+    inset: 0;
+    cursor: crosshair;
+    touch-action: none;
+    outline: none;
+}
+
+.dgn-input:focus-visible {
+    box-shadow: inset 0 0 0 3px var(--jv-focus, #f5b700);
+}
+
+.dgn-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.dgn-cell-add {
+    fill: var(--jv-accent, #6c2fcf);
+    fill-opacity: 0.22;
+    stroke: var(--jv-accent, #6c2fcf);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+    vector-effect: non-scaling-stroke;
+}
+
+/* Erasing uses a striped fill, not only a different colour */
+.dgn-cell-erase {
+    fill: url(#dgn-erase-hatch);
+    stroke: var(--jv-danger, #b3302a);
+    stroke-width: 1.5;
+    stroke-dasharray: 2 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.dgn-cursor {
+    fill: none;
+    stroke: var(--jv-focus, #f5b700);
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+}
+
+.dgn-drag-label {
+    position: absolute;
+    padding: 3px 8px;
+    font: 600 13px/1.3 var(--jv-font-body, system-ui, sans-serif);
+    color: var(--jv-panel-fg, #1b1b24);
+    background: var(--jv-panel-bg, #fff);
+    border: 2px solid var(--jv-panel-border, #2c2c3a);
+    box-shadow: 2px 2px 0 var(--jv-shadow, rgba(0, 0, 0, 0.25));
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.dgn-drag-label--corner {
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+}
+
+.dgn-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- panels */
+.dgn-panel {
+    position: fixed;
+    z-index: 950;
+    color: var(--jv-panel-fg, #1b1b24);
+    background: var(--jv-panel-bg, #fff);
+    border: 2px solid var(--jv-panel-border, #2c2c3a);
+    border-radius: 4px;
+    box-shadow: 3px 3px 0 var(--jv-shadow, rgba(0, 0, 0, 0.25));
+    font: 14px/1.4 var(--jv-font-body, system-ui, sans-serif);
+    zoom: var(--ui-scale, 1);
+}
+
+.dgn-panel button {
+    min-height: 32px;
+    min-width: 32px;
+    padding: 4px 10px;
+    font: inherit;
+    color: var(--jv-panel-fg, #1b1b24);
+    background: var(--jv-panel-bg, #fff);
+    border: 2px solid var(--jv-panel-border, #2c2c3a);
+    border-radius: 3px;
+    box-shadow: inset -2px -2px 0 var(--jv-bevel-dark, rgba(0, 0, 0, 0.18)),
+        inset 2px 2px 0 var(--jv-bevel-light, rgba(255, 255, 255, 0.7));
+    cursor: pointer;
+}
+
+.dgn-panel button:hover {
+    background: var(--jv-muted, #ecebf5);
+}
+
+.dgn-panel button[aria-pressed="true"],
+.dgn-panel .dgn-primary {
+    color: var(--jv-accent-fg, #fff);
+    background: var(--jv-accent, #6c2fcf);
+}
+
+/* Pressed also gets a shape cue (inset bevel + underline), not only colour */
+.dgn-panel button[aria-pressed="true"] {
+    box-shadow: inset 2px 2px 0 var(--jv-bevel-dark, rgba(0, 0, 0, 0.3));
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.dgn-panel :focus-visible {
+    outline: 3px solid var(--jv-focus, #f5b700);
+    outline-offset: 2px;
+}
+
+.dgn-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.dgn-panel h2 {
+    margin: 0;
+    font: 700 16px/1.2 var(--jv-font-display, inherit);
+    letter-spacing: 0.02em;
+}
+
+.dgn-panel h3 {
+    margin: 0 0 2px;
+    font: 700 14px/1.2 var(--jv-font-display, inherit);
+}
+
+html[data-readable-font] .dgn-panel h2,
+html[data-readable-font] .dgn-panel h3 {
+    font-family: system-ui, sans-serif;
+    letter-spacing: 0;
+}
+
+.dgn-icon-btn {
+    display: inline-grid;
+    place-items: center;
+    padding: 0 !important;
+    font-size: 20px !important;
+    line-height: 1 !important;
+}
+
+.dgn-hint {
+    margin: 4px 0;
+    color: var(--jv-panel-fg, #1b1b24);
+    opacity: 0.85;
+}
+
+.dgn-hint--small {
+    font-size: 12.5px;
+}
+
+.dgn-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.dgn-seg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.dgn-glyph {
+    display: inline-block;
+    margin-right: 4px;
+    font-family: var(--jv-font-mono, ui-monospace, monospace);
+}
+
+/* Floor tool strip (top centre, under the top bar) */
+.dgn-strip {
+    top: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100vw - 160px);
+    padding: 6px 10px;
+}
+
+.dgn-strip-title {
+    font: 700 14px/1 var(--jv-font-display, inherit);
+}
+
+.dgn-strip .dgn-hint {
+    margin: 0;
+    font-size: 12.5px;
+}
+
+/* Stamp palette, docked next to the tool dock */
+.dgn-palette {
+    left: 72px;
+    top: 72px;
+    width: 272px;
+    max-height: calc(100vh - 88px - var(--apron-height, 0px));
+    overflow-y: auto;
+    padding: 8px 10px;
+}
+
+.dgn-stamp-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.dgn-panel .dgn-stamp {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 2px;
+    font-size: 11.5px;
+    line-height: 1.15;
+    text-align: center;
+}
+
+.dgn-panel .dgn-stamp[aria-pressed="true"] {
+    background: var(--jv-accent, #6c2fcf);
+    color: var(--jv-accent-fg, #fff);
+}
+
+.dgn-stamp img {
+    width: 32px;
+    height: 32px;
+    image-rendering: pixelated;
+    background: var(--jv-map-floor, #fdfcf7);
+    border: 1px solid var(--jv-map-grid, rgba(64, 126, 200, 0.5));
+}
+
+/* Generator / starters: docked to the right edge */
+.dgn-side {
+    right: 12px;
+    top: 72px;
+    width: 340px;
+    max-height: calc(100vh - 88px - var(--apron-height, 0px));
+    overflow-y: auto;
+    padding: 10px 12px;
+}
+
+.dgn-field {
+    margin: 0 0 10px;
+    padding: 0;
+    border: 0;
+}
+
+.dgn-field > label,
+.dgn-field > legend {
+    display: block;
+    margin-bottom: 4px;
+    padding: 0;
+    font-weight: 600;
+}
+
+.dgn-field input[type="text"] {
+    flex: 1;
+    min-height: 32px;
+    padding: 4px 8px;
+    font: 15px var(--jv-font-mono, ui-monospace, monospace);
+    color: var(--jv-panel-fg, #1b1b24);
+    background: var(--jv-panel-bg, #fff);
+    border: 2px solid var(--jv-panel-border, #2c2c3a);
+    border-radius: 3px;
+}
+
+.dgn-field input[type="range"] {
+    width: 100%;
+    min-height: 32px;
+    accent-color: var(--jv-accent, #6c2fcf);
+}
+
+.dgn-checks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 8px;
+}
+
+.dgn-checks legend {
+    grid-column: 1 / -1;
+}
+
+.dgn-checks label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    cursor: pointer;
+}
+
+.dgn-checks input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--jv-accent, #6c2fcf);
+}
+
+.dgn-minimap {
+    display: block;
+    margin: 0 auto;
+    background: var(--jv-map-paper, #f4f2ea);
+    border: 2px solid var(--jv-panel-border, #2c2c3a);
+    image-rendering: pixelated;
+}
+
+.dgn-summary {
+    margin: 6px 0 10px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.dgn-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.dgn-starters {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dgn-starter {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-top: 2px dotted var(--jv-panel-border, #9a9aa8);
+}
+
+.dgn-starter .dgn-minimap {
+    flex: none;
+    margin: 0;
+}
+
+.dgn-starter-text p {
+    margin: 0 0 4px;
+}
+
+html[data-high-contrast] .dgn-panel {
+    border-width: 3px;
+}
+
+html[data-high-contrast] .dgn-hint {
+    opacity: 1;
+}
+
+/* Small screens: panels take the bottom of the screen instead */
+@media (max-width: 720px) {
+    .dgn-side,
+    .dgn-palette {
+        left: 8px;
+        right: 8px;
+        top: auto;
+        bottom: 8px;
+        width: auto;
+        max-height: 55vh;
+    }
+}
