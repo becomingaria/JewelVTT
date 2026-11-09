@@ -94,6 +94,13 @@ export interface FeatureModule {
     BoardOverlay?: React.ComponentType<BoardOverlayProps>
     /** Stacking among overlays (higher = on top). Light 20, fog 30, measure 50 */
     overlayZ?: number
+    /**
+     * Mounted inside the board container BELOW the humbugs (floors, terrain,
+     * slide frames). Draw only; put pointer handling in your BoardOverlay.
+     */
+    BoardUnderlay?: React.ComponentType<BoardOverlayProps>
+    /** Stacking among underlays: hex terrain 10, slide frames 15, dungeon floor 20 */
+    underlayZ?: number
     /** Drawn on every humbug (return null when it doesn't apply) */
     HumbugBadge?: React.ComponentType<TokenBadgeProps>
     tools?: ToolDef[]

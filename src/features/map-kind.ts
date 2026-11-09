@@ -58,5 +58,16 @@ export const BASE_MAP_KIND_DEFAULTS: Record<MapKind, MapKindDefaults> = {
     slides: { gridShape: "square", boardStyle: "blank", showGrid: false },
 }
 
+/**
+ * Map scale: what one grid cell means. Dungeons use the classic 10 ft
+ * square; freeform boards 5 ft; hex crawls 6 miles per hex.
+ */
+export const MAP_SCALE: Record<MapKind, { perCell: number; unit: "ft" | "mi" }> = {
+    freeform: { perCell: 5, unit: "ft" },
+    dungeon: { perCell: 10, unit: "ft" },
+    hexcrawl: { perCell: 6, unit: "mi" },
+    slides: { perCell: 5, unit: "ft" },
+}
+
 export const mapKindStore = createStore<MapKind>("freeform")
 export const useMapKind = () => useStore(mapKindStore)

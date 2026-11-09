@@ -32,7 +32,7 @@ import type {
     ScribbleStroke,
 } from "../types/scribble.types"
 import { Icon } from "./Icon"
-import { BoardOverlays } from "../features/host/BoardOverlays"
+import { BoardOverlays, BoardUnderlays } from "../features/host/BoardOverlays"
 import { cameraStore, type BoardCamera } from "../features/board-bridge"
 import "./InfiniteWhiteboard.css"
 
@@ -1023,6 +1023,9 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
                 onMouseLeave={handleMouseUp}
                 onContextMenu={handleContextMenu}
             />
+
+            {/* Feature underlays: dungeon floors, hex terrain, slide frames */}
+            <BoardUnderlays camera={camera} />
 
             {/* Humbug Manager for interactive elements */}
             <HumbugManager

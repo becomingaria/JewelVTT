@@ -17,6 +17,20 @@ export const BoardOverlays: React.FC<{ camera: BoardCamera }> = ({ camera }) => 
     </>
 )
 
+const UNDERLAYS = FEATURES.filter((f) => f.BoardUnderlay).sort(
+    (a, b) => (a.underlayZ ?? 0) - (b.underlayZ ?? 0)
+)
+
+/** Every feature's BoardUnderlay (below the humbugs), stacked by underlayZ */
+export const BoardUnderlays: React.FC<{ camera: BoardCamera }> = ({ camera }) => (
+    <>
+        {UNDERLAYS.map((f) => {
+            const Underlay = f.BoardUnderlay!
+            return <Underlay key={f.id} camera={camera} />
+        })}
+    </>
+)
+
 const BADGES = FEATURES.filter((f) => f.HumbugBadge)
 
 /** Every feature's HumbugBadge for one humbug (HP bars, conditions, ...) */

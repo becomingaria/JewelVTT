@@ -16,7 +16,8 @@ files in your folder, not editing core files.**
 |---|---|
 | `AppLayer` | Mounted once at the app root: panels, HUD, dialogs, background logic, `useBoardSlice` registration |
 | `BoardOverlay` | Mounted inside the board container above the humbugs; gets `camera` |
-| `overlayZ` | Stacking among overlays: light 20, fog 30, dungeon builder 40, measure/templates 50, slides frames 15, hex terrain 10 |
+| `BoardUnderlay` | Same, but below the humbugs (floors, terrain, frames). Draw only, pointer-events: none |
+| `overlayZ` / `underlayZ` | Overlays: light 20, fog 30, dungeon tool input 40, measure/templates 50, slides tool input 45, hex tool input 35. Underlays: hex terrain 10, slide frames 15, dungeon floor 20 |
 | `HumbugBadge` | Drawn on every humbug (return `null` when not relevant): HP bars, conditions, light icon |
 | `tools` | Buttons in the left tool dock. `kind: "mode"` = exclusive board tool (read `useActiveTool()`), `kind: "action"` = runs `onTrigger` |
 | `commands` | Shown in the command palette; may have hotkeys |
@@ -37,6 +38,19 @@ files in your folder, not editing core files.**
 - `useBoardSlice(key, value, apply)` (from `utils/board-store`): saves your
   state with the board (files and autosave). Prefix keys with your feature
   id, e.g. `"fog-light:fog"`. Call it inside your `AppLayer`.
+- `grid.ts`: **the** cell scheme for square and hex grids: `cellAt`,
+  `cellCenter`, `cellPolygon`, `cellDistance`, `cellNeighbors`, `cellsWithin`,
+  `cellsInRect`, `cellKey`/`parseCellKey`. Use it for anything per-cell (fog,
+  floors, terrain, templates) so features line up.
+- `services.ts`: cross-feature facades.
+  - `logEvent()` / `useLog()`: the session log (the dice feature owns the
+    panel and saving).
+  - `rollDice(expr, { label })`: the dice feature registers the real engine
+    (tray, sound, log); there's a basic fallback.
+  - `fog.reveal(cells)` / `fog.hide` / `fog.isRevealed`: the fog-light
+    feature registers it; it works on square and hex grids.
+- `map-kind.ts`: `MAP_SCALE[kind]`: 10 ft per square on dungeon maps, 5 ft
+  on freeform boards, 6 miles per hex on hex crawls.
 - `map-kind.ts`: `useMapKind()`: `"freeform" | "dungeon" | "hexcrawl" | "slides"`.
   Use `mapKinds` on tools to show them only where they make sense.
 - `view-state.ts`: layers (`layerOf`, `useLayerState`), `useTableMode()`,
