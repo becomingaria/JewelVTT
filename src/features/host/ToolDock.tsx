@@ -17,6 +17,9 @@ const GROUPS: { id: ToolGroup; label: string }[] = [
 const NEVER = createStore(false)
 const usePressed = (s: Store<boolean> | undefined) =>
     useSyncExternalStore((s ?? NEVER).subscribe, (s ?? NEVER).get)
+const NO_LABEL = createStore("")
+const useLiveLabel = (s: Store<string> | undefined) =>
+    useSyncExternalStore((s ?? NO_LABEL).subscribe, (s ?? NO_LABEL).get)
 
 const DockButton: React.FC<{ tool: ToolDef; active: boolean; hints: boolean }> = ({
     tool,
@@ -24,15 +27,16 @@ const DockButton: React.FC<{ tool: ToolDef; active: boolean; hints: boolean }> =
     hints,
 }) => {
     const pressed = usePressed(tool.pressed)
+    const label = useLiveLabel(tool.labelStore) || tool.label
     const on = tool.kind === "mode" ? active : pressed
     const key = tool.hotkey ? formatHotkeySpec(tool.hotkey) : null
-    const tip = `${tool.label}${key && hints ? ` (${key})` : ""}${tool.hint ? ` — ${tool.hint}` : ""}`
+    const tip = `${label}${key && hints ? ` (${key})` : ""}${tool.hint ? ` — ${tool.hint}` : ""}`
     return (
         <button
             type='button'
             className={`tool-dock-btn ${on ? "on" : ""}`}
             aria-pressed={tool.kind === "mode" || tool.pressed ? on : undefined}
-            aria-label={tool.label}
+            aria-label={label}
             aria-keyshortcuts={key ?? undefined}
             title={tip}
             onClick={() => (tool.kind === "mode" ? toggleActiveTool(tool.id) : tool.onTrigger?.())}

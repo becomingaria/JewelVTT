@@ -122,6 +122,41 @@ export function pushUndo(entry: { label: string; undo: () => void; redo: () => v
     undoManager?.addAction(action as Action)
 }
 
+/**
+ * Run several edits as ONE undo step, e.g. a dungeon turn that burns
+ * torches (updateHumbugs) and advances the counter (pushUndo), or a hex move
+ * plus fog.reveal(). Every undoable change made synchronously inside `fn` is
+ * collected and recorded as a single step.
+ */
+export function undoGroup(label: string, fn: () => void) {
+    const m = undoManager
+    if (!m) return fn()
+    const collected: Action[] = []
+    const original = m.addAction.bind(m)
+    m.addAction = (a: Action) => {
+        collected.push(a)
+    }
+    try {
+        fn()
+    } finally {
+        m.addAction = original
+    }
+    if (!collected.length) return
+    if (collected.length === 1) return original(collected[0])
+    // Humbug/connector actions are applied by HumbugManager via these events
+    const run = (a: Action, dir: "undo" | "redo") => {
+        if (a.type === "CUSTOM") return dir === "undo" ? a.undo() : a.redo()
+        window.dispatchEvent(
+            new CustomEvent(dir === "undo" ? "performUndo" : "performRedo", { detail: a })
+        )
+    }
+    pushUndo({
+        label,
+        undo: () => [...collected].reverse().forEach((a) => run(a, "undo")),
+        redo: () => collected.forEach((a) => run(a, "redo")),
+    })
+}
+
 // ------------------------------------------------------------ geometry
 /** Centre of the visible board area in world units */
 export function viewCentreWorld(): Point {

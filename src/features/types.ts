@@ -26,6 +26,8 @@ export type ToolGroup = "build" | "play" | "view"
 export interface ToolDef {
     id: string
     label: string
+    /** Live label for tools whose meaning changes (e.g. "Scene: Dark") */
+    labelStore?: Store<string>
     /** Built-in icon name, or your own 24×24 SVG element */
     icon: IconName | React.ReactElement
     /** One-line hint shown in the tooltip */

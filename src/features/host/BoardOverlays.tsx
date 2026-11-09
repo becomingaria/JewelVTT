@@ -7,12 +7,28 @@ const OVERLAYS = FEATURES.filter((f) => f.BoardOverlay).sort(
     (a, b) => (a.overlayZ ?? 0) - (b.overlayZ ?? 0)
 )
 
+/*
+ * Each overlay gets its own positioned slot above humbugs (0), connectors
+ * (1) and scribbles (2). Slots share z-index 3 and are in overlayZ order,
+ * so a feature's own z-index can't lift it over another feature's overlay.
+ */
+const SLOT: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    zIndex: 3,
+    pointerEvents: "none",
+}
+
 /** Every feature's BoardOverlay, stacked by overlayZ, inside the board */
 export const BoardOverlays: React.FC<{ camera: BoardCamera }> = ({ camera }) => (
     <>
         {OVERLAYS.map((f) => {
             const Overlay = f.BoardOverlay!
-            return <Overlay key={f.id} camera={camera} />
+            return (
+                <div key={f.id} className={`board-overlay-slot slot-${f.id}`} style={SLOT}>
+                    <Overlay camera={camera} />
+                </div>
+            )
         })}
     </>
 )

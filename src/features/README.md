@@ -33,6 +33,8 @@ files in your folder, not editing core files.**
   drags, call `updateHumbugs(..., { undoable: false })` repeatedly, then once
   with `undoable: true` on release. `humbugBase(position)` makes the common
   fields. `GRID_SIZE` = 32 world units per square.
+- `undoGroup(label, () => { ... })`: everything undoable done inside becomes
+  ONE undo step (humbug edits, `pushUndo`, `fog.reveal`...).
 - `pushUndo({ label, undo, redo })`: undo for your own state (fog cells,
   initiative order...). Apply the change first, then push.
 - `useBoardSlice(key, value, apply)` (from `utils/board-store`): saves your

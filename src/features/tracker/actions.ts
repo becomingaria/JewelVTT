@@ -1,5 +1,5 @@
 import type { Humbug, TokenHumbug } from "../../types/humbug.types"
-import { humbugsStore, pushUndo, selectionStore, updateHumbugs } from "../board-bridge"
+import { humbugsStore, pushUndo, selectionStore, undoGroup, updateHumbugs } from "../board-bridge"
 import { logEvent, rollDice } from "../services"
 import { playSfx } from "../sound"
 import { isHumbugHidden } from "../view-state"
@@ -268,7 +268,12 @@ const lightOwner = (h: Humbug) => {
     return "A torch"
 }
 
+/** Burning torches and the turn counter undo together as one step */
 export function advanceDungeonTurn() {
+    undoGroup("Dungeon turn", advanceDungeonTurnSteps)
+}
+
+function advanceDungeonTurnSteps() {
     const prev = dungeonStore.get()
     const turn = prev.turn + 1
 
