@@ -11,6 +11,7 @@ export type BoardStyleId =
     | "grass"
     | "stone"
     | "blank"
+    | "graph-paper"
 
 export interface BoardStyle {
     id: BoardStyleId
@@ -272,6 +273,33 @@ function stone(size: number) {
     })
 }
 
+/**
+ * Graph paper: off-white stock with a faint grain and fibres, printed with
+ * light-blue rules on every grid square and a slightly stronger rule every
+ * four. The tile spans 8 squares at 1 texel per world unit; each rule is
+ * two texels straddling the true grid line, so it sits under the board's
+ * own crisp grid lines.
+ */
+function graphPaper(size: number) {
+    const tone = fbm(4, 4, 131)
+    const fibre = fbm(16, 2, 137)
+    const rand = mulberry32(139)
+    const paper = hex("#f7f5ee")
+    const shade = hex("#e9e5d8")
+    const rule = hex("#5d95d6")
+    const cell = size / 8
+    const onRule = (p: number, every: number) => p % every === 0 || p % every === every - 1
+    return paint(size, (u, v, x, y) => {
+        let c = mix(paper, shade, 0.22 * band(tone(u, v) * 1.4 - 0.2, 4))
+        if (fibre(u, v) > 0.78) c = mix(c, shade, 0.3)
+        const grain = (rand() - 0.5) * 6
+        c = [c[0] + grain, c[1] + grain, c[2] + grain]
+        if (onRule(x, cell * 4) || onRule(y, cell * 4)) return mix(c, rule, 0.32)
+        if (onRule(x, cell) || onRule(y, cell)) return mix(c, rule, 0.15)
+        return c
+    })
+}
+
 export const BOARD_STYLES: BoardStyle[] = [
     {
         id: "parchment",
@@ -325,6 +353,17 @@ export const BOARD_STYLES: BoardStyle[] = [
         grid: "#e0e0e0",
         gridFar: "#f0f0f0",
         base: "#ffffff",
+    },
+    {
+        id: "graph-paper",
+        label: "Graph paper",
+        grid: "rgba(64, 126, 200, 0.42)",
+        gridFar: "rgba(64, 126, 200, 0.2)",
+        base: "#f5f3ec",
+        generate: graphPaper,
+        // 8 grid squares per tile, 1 texel per world unit (rules line up)
+        tilePx: 256,
+        tileWorld: 256,
     },
 ]
 
