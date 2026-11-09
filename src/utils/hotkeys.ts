@@ -133,7 +133,7 @@ export function useHotkeys(handlers: HotkeyHandlers) {
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.repeat || isTyping(e.target)) return
+            if (e.repeat || e.defaultPrevented || isTyping(e.target)) return
             // Leave keys alone while a dialog/drawer is open
             if (
                 document.querySelector(
