@@ -1,0 +1,967 @@
+/*
+ * Dice feature: dice tray, random tables, session log, quick bubble and
+ * dice on the board. Colours come from the theme's --jv-* tokens, with
+ * fallbacks until the theme lands.
+ */
+
+.jv-sr {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ------------------------------------------------------------ panels */
+.jv-dpanel,
+.jv-dpanel *,
+.jv-dpanel *::before,
+.jv-dpanel *::after,
+.jv-bubble,
+.jv-bubble * {
+    box-sizing: border-box;
+}
+
+.jv-dpanel {
+    position: fixed;
+    z-index: 950;
+    max-width: calc(100vw - 80px);
+    --jv-dp-top: 72px;
+    --jv-dp-avail: calc(100vh - var(--jv-dp-top) - 16px - var(--apron-height, 0px));
+}
+
+.jv-dpanel--tray {
+    /* clear the dock, which grows with the interface scale */
+    left: calc(72px * var(--ui-scale, 1));
+    top: var(--jv-dp-top);
+}
+
+.jv-dpanel--tables {
+    right: 8px;
+    top: var(--jv-dp-top);
+}
+
+.jv-dpanel--log {
+    right: 8px;
+    bottom: calc(var(--apron-height, 0px) + 8px);
+    --jv-dp-avail: 46vh;
+}
+
+/* Tables and log share the right edge: leave room for the log */
+body:has(.jv-dpanel--log:not(.jv-dpanel--moved)) .jv-dpanel--tables:not(.jv-dpanel--moved) {
+    --jv-dp-avail: calc(100vh - var(--jv-dp-top) - 46vh - 32px - var(--apron-height, 0px));
+}
+
+.jv-dpanel--moved {
+    --jv-dp-avail: calc(100vh - 24px);
+}
+
+.jv-dpanel-inner {
+    zoom: var(--ui-scale, 1);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(var(--jv-dp-avail) / var(--ui-scale, 1));
+    min-height: 0;
+    background: var(--jv-panel-bg, #fbf8ef);
+    color: var(--jv-panel-fg, #1f1d2b);
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+    border-radius: 3px;
+    box-shadow:
+        inset 2px 2px 0 var(--jv-bevel-light, #ffffff),
+        inset -2px -2px 0 var(--jv-bevel-dark, #c9c3b0),
+        4px 4px 0 var(--jv-shadow, rgba(0, 0, 0, 0.3));
+    font-family: var(--jv-font-body, system-ui, -apple-system, "Segoe UI", sans-serif);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.jv-dpanel--tray .jv-dpanel-inner {
+    width: 300px;
+}
+
+.jv-dpanel--tables .jv-dpanel-inner {
+    width: 340px;
+}
+
+.jv-dpanel--log .jv-dpanel-inner {
+    width: 360px;
+}
+
+.jv-dpanel-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 4px 4px 8px;
+    background: var(--jv-accent, #4b2a8c);
+    color: var(--jv-accent-fg, #ffffff);
+    border-bottom: 2px solid var(--jv-panel-border, #1f1d2b);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.jv-dpanel-head:active {
+    cursor: grabbing;
+}
+
+.jv-dpanel-icon {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    display: inline-flex;
+}
+
+.jv-dpanel-title {
+    flex: 1;
+    margin: 0;
+    font-family: var(--jv-font-display, var(--jv-font-body, system-ui, sans-serif));
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+html[data-readable-font] .jv-dpanel-title {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.jv-dpanel-head .jv-btn--icon {
+    color: inherit;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+}
+
+.jv-dpanel-head .jv-btn--icon:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.jv-dpanel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    overflow: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.jv-dpanel-body[hidden] {
+    display: none;
+}
+
+/* ----------------------------------------------------------- controls */
+.jv-btn {
+    min-height: 32px;
+    min-width: 32px;
+    padding: 4px 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--jv-panel-fg, #1f1d2b);
+    background: var(--jv-panel-bg, #fbf8ef);
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+    border-radius: 3px;
+    box-shadow:
+        inset 1px 1px 0 var(--jv-bevel-light, #ffffff),
+        inset -2px -2px 0 var(--jv-bevel-dark, #c9c3b0);
+    cursor: pointer;
+}
+
+.jv-btn:hover:not(:disabled) {
+    background: var(--jv-hover-bg, #efe8d6);
+}
+
+.jv-btn:active:not(:disabled) {
+    box-shadow: inset 2px 2px 0 var(--jv-bevel-dark, #c9c3b0);
+}
+
+.jv-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.jv-btn--primary {
+    background: var(--jv-accent, #4b2a8c);
+    color: var(--jv-accent-fg, #ffffff);
+    box-shadow:
+        inset 1px 1px 0 rgba(255, 255, 255, 0.35),
+        inset -2px -2px 0 rgba(0, 0, 0, 0.3);
+}
+
+.jv-btn--primary:hover:not(:disabled) {
+    background: var(--jv-accent, #4b2a8c);
+    filter: brightness(1.12);
+}
+
+.jv-btn--danger {
+    background: var(--jv-danger, #a3231a);
+    color: #ffffff;
+}
+
+.jv-btn--danger:hover:not(:disabled) {
+    background: var(--jv-danger, #a3231a);
+    filter: brightness(1.1);
+}
+
+.jv-btn--icon {
+    padding: 0;
+    width: 32px;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.jv-btn--small {
+    font-weight: 500;
+    padding: 2px 8px;
+}
+
+.jv-btn--link {
+    align-self: flex-start;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    text-decoration: underline;
+}
+
+.jv-dpanel :focus-visible,
+.jv-bubble :focus-visible {
+    outline: 3px solid var(--jv-focus, #f5b700);
+    outline-offset: 1px;
+}
+
+html[data-high-contrast] .jv-dpanel :focus-visible,
+html[data-high-contrast] .jv-bubble :focus-visible {
+    outline-width: 4px;
+    outline-color: var(--jv-focus, #000000);
+    box-shadow: 0 0 0 6px var(--jv-focus-halo, #ffffff);
+}
+
+.jv-input {
+    min-height: 32px;
+    min-width: 0;
+    flex: 1;
+    padding: 4px 8px;
+    font: inherit;
+    color: var(--jv-input-fg, var(--jv-panel-fg, #1f1d2b));
+    background: var(--jv-input-bg, #ffffff);
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+    border-radius: 2px;
+    box-shadow: inset 2px 2px 0 var(--jv-bevel-dark, #c9c3b0);
+}
+
+.jv-input::placeholder {
+    color: var(--jv-muted, #5d5a6a);
+    opacity: 1;
+}
+
+.jv-input[aria-invalid="true"] {
+    border-style: dashed;
+    border-color: var(--jv-danger, #a3231a);
+}
+
+.jv-textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.45;
+}
+
+.jv-input--short {
+    flex: 0 0 64px;
+    width: 64px;
+}
+
+.jv-mono {
+    font-family: var(--jv-font-mono, ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace);
+}
+
+.jv-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.jv-row--wrap {
+    flex-wrap: wrap;
+}
+
+.jv-grow {
+    flex: 1;
+}
+
+.jv-hint {
+    margin: 0;
+    color: var(--jv-muted, #5d5a6a);
+    font-size: 12.5px;
+}
+
+.jv-subhead {
+    margin: 0 0 4px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--jv-muted, #5d5a6a);
+}
+
+.jv-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.jv-field--dice {
+    flex: 0 0 110px;
+}
+
+.jv-field > .jv-input {
+    flex: none;
+    width: 100%;
+}
+
+.jv-field > .jv-input.jv-input--short {
+    width: 64px;
+}
+
+.jv-field--inline {
+    flex-direction: row;
+    align-items: center;
+    flex: none;
+    gap: 6px;
+}
+
+/* --------------------------------------------------------------- tray */
+.jv-quick {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+}
+
+.jv-quick-btn {
+    flex-direction: column;
+    gap: 1px;
+    padding: 4px 2px;
+    min-height: 48px;
+    font-size: 12.5px;
+}
+
+.jv-toggle {
+    justify-content: flex-start;
+    font-weight: 600;
+}
+
+.jv-check {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    border: 2px solid currentColor;
+    background: var(--jv-input-bg, #ffffff);
+    color: var(--jv-panel-fg, #1f1d2b);
+    font-size: 13px;
+    line-height: 1;
+}
+
+.jv-toggle[aria-pressed="true"] {
+    background: var(--jv-selected-bg, #e5dcf5);
+}
+
+.jv-result-area {
+    min-height: 92px;
+    padding: 8px;
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+    background: var(--jv-well-bg, #f1ead8);
+    box-shadow: inset 2px 2px 0 var(--jv-bevel-dark, #c9c3b0);
+}
+
+.jv-result p {
+    margin: 0;
+}
+
+.jv-result-label {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.jv-result-total {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.jv-result-text {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 2px 0 6px !important;
+}
+
+.jv-result-breakdown {
+    margin-top: 4px !important;
+    font-size: 12.5px;
+    color: var(--jv-muted, #5d5a6a);
+    overflow-wrap: anywhere;
+}
+
+.jv-result-error {
+    color: var(--jv-danger, #a3231a);
+    font-weight: 600;
+}
+
+.jv-result--crit {
+    border-left: 6px double var(--jv-success, #1d6b34);
+    padding-left: 6px;
+}
+
+.jv-result--fumble {
+    border-left: 6px dotted var(--jv-danger, #a3231a);
+    padding-left: 6px;
+}
+
+.jv-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px 1px 4px;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    border: 2px solid currentColor;
+    border-radius: 2px;
+    background: var(--jv-panel-bg, #fbf8ef);
+    vertical-align: middle;
+}
+
+.jv-flag-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+}
+
+.jv-flag--crit {
+    color: var(--jv-success, #1d6b34);
+}
+
+.jv-flag--fumble {
+    color: var(--jv-danger, #a3231a);
+    border-style: dashed;
+}
+
+.jv-faces {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+    align-items: center;
+}
+
+.jv-faces-more {
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.jv-history ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.jv-history-btn {
+    width: 100%;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 6px;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.jv-history-btn:hover {
+    border-color: var(--jv-panel-border, #1f1d2b);
+    background: var(--jv-hover-bg, #efe8d6);
+}
+
+.jv-history-what {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--jv-muted, #5d5a6a);
+}
+
+.jv-history-total {
+    font-weight: 700;
+    max-width: 55%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jv-history .jv-flag {
+    font-size: 11px;
+    padding: 0 4px 0 2px;
+}
+
+.jv-history .jv-flag-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* --------------------------------------------------------- pixel dice */
+.jv-die {
+    display: block;
+    flex: none;
+    overflow: visible;
+}
+
+.jv-die-body {
+    fill: var(--jv-die-bg, var(--jv-accent, #4b2a8c));
+}
+
+.jv-die-light {
+    fill: rgba(255, 255, 255, 0.32);
+}
+
+.jv-die-shade {
+    fill: rgba(0, 0, 0, 0.28);
+}
+
+.jv-die-outline {
+    fill: var(--jv-die-edge, var(--jv-panel-border, #1f1d2b));
+}
+
+.jv-die-ink {
+    fill: var(--jv-die-fg, var(--jv-accent-fg, #ffffff));
+}
+
+.jv-die-strike {
+    fill: var(--jv-danger, #a3231a);
+}
+
+.jv-die--dropped .jv-die-body,
+.jv-die--dropped .jv-die-light,
+.jv-die--dropped .jv-die-ink {
+    opacity: 0.45;
+}
+
+.jv-die--crit .jv-die-badge {
+    fill: var(--jv-success, #1d6b34);
+}
+
+.jv-die--fumble .jv-die-badge {
+    fill: var(--jv-danger, #a3231a);
+}
+
+/* ------------------------------------------------------------- bubble */
+.jv-bubble-host {
+    position: fixed;
+    left: 72px;
+    bottom: calc(var(--apron-height, 0px) + 20px);
+    z-index: 960;
+    zoom: var(--ui-scale, 1);
+}
+
+.jv-bubble {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(380px, calc(100vw - 96px));
+    padding: 8px 40px 8px 10px;
+    background: var(--jv-panel-bg, #fbf8ef);
+    color: var(--jv-panel-fg, #1f1d2b);
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+    border-radius: 3px;
+    box-shadow:
+        inset 2px 2px 0 var(--jv-bevel-light, #ffffff),
+        inset -2px -2px 0 var(--jv-bevel-dark, #c9c3b0),
+        4px 4px 0 var(--jv-shadow, rgba(0, 0, 0, 0.3));
+    font-family: var(--jv-font-body, system-ui, -apple-system, "Segoe UI", sans-serif);
+    font-size: 14px;
+    animation: jv-bubble-in 0.18s ease-out;
+}
+
+/* Tail pointing at the dock */
+.jv-bubble::before {
+    content: "";
+    position: absolute;
+    left: -10px;
+    bottom: 12px;
+    border: 8px solid transparent;
+    border-right-color: var(--jv-panel-border, #1f1d2b);
+    border-left: 0;
+}
+
+.jv-bubble--crit {
+    border-style: double;
+    border-width: 4px;
+}
+
+.jv-bubble--fumble {
+    border-style: dashed;
+}
+
+.jv-bubble .jv-faces {
+    margin: 0;
+}
+
+.jv-bubble-text {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    overflow-wrap: anywhere;
+}
+
+.jv-bubble-what {
+    color: var(--jv-muted, #5d5a6a);
+    font-weight: 600;
+}
+
+.jv-bubble-total {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.jv-bubble-close {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+}
+
+@keyframes jv-bubble-in {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+}
+
+/* ------------------------------------------------------ board dice */
+.jv-board-dice {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 6;
+}
+
+.jv-board-group--fade {
+    animation: jv-dice-fade 0.8s ease-in var(--jv-fade-delay, 5200ms) forwards;
+}
+
+.jv-board-die {
+    position: absolute;
+    filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, 0.35));
+}
+
+.jv-board-die--tumble {
+    animation: jv-die-tumble 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.jv-board-die--flag {
+    outline: 3px dashed var(--jv-panel-border, #1f1d2b);
+    outline-offset: 3px;
+}
+
+.jv-board-banner {
+    position: absolute;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 320px;
+    padding: 3px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: var(--jv-panel-bg, #fbf8ef);
+    color: var(--jv-panel-fg, #1f1d2b);
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+    box-shadow: 3px 3px 0 var(--jv-shadow, rgba(0, 0, 0, 0.3));
+    font-family: var(--jv-font-body, system-ui, -apple-system, "Segoe UI", sans-serif);
+    font-size: calc(14px * var(--ui-scale, 1));
+}
+
+.jv-board-total {
+    font-size: calc(20px * var(--ui-scale, 1));
+    font-variant-numeric: tabular-nums;
+}
+
+@keyframes jv-die-tumble {
+    0% {
+        opacity: 0;
+        transform: translate(var(--jv-from-x), var(--jv-from-y)) rotate(var(--jv-spin));
+    }
+    15% {
+        opacity: 1;
+    }
+    70% {
+        transform: translate(0, 0) rotate(-10deg);
+    }
+    85% {
+        transform: translate(0, -4px) rotate(4deg);
+    }
+    100% {
+        transform: none;
+    }
+}
+
+@keyframes jv-dice-fade {
+    to {
+        opacity: 0;
+    }
+}
+
+html[data-reduced-motion] .jv-board-die--tumble,
+html[data-reduced-motion] .jv-board-group--fade,
+html[data-reduced-motion] .jv-bubble {
+    animation: none;
+}
+
+/* ------------------------------------------------------------- tables */
+.jv-table-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.jv-table-item {
+    padding: 6px 8px;
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+    background: var(--jv-well-bg, #f1ead8);
+}
+
+.jv-table-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.jv-table-name {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-wrap: anywhere;
+}
+
+.jv-table-last {
+    margin: 6px 0 0;
+    padding: 4px 6px;
+    font-weight: 600;
+    border-left: 4px solid var(--jv-accent, #4b2a8c);
+    background: var(--jv-panel-bg, #fbf8ef);
+}
+
+.jv-table-actions {
+    margin-top: 6px;
+}
+
+.jv-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.jv-part {
+    margin: 0;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+}
+
+.jv-part legend {
+    padding: 0 4px;
+    font-weight: 700;
+}
+
+.jv-checks:empty {
+    display: none;
+}
+
+.jv-check-msg {
+    margin: 0;
+    font-size: 12.5px;
+}
+
+.jv-check-msg--error {
+    color: var(--jv-danger, #a3231a);
+}
+
+.jv-preview {
+    margin: 0;
+    padding: 6px 8px;
+    border: 2px dashed var(--jv-panel-border, #1f1d2b);
+}
+
+/* ---------------------------------------------------------------- log */
+.jv-dpanel--log .jv-dpanel-body {
+    overflow: hidden;
+}
+
+.jv-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.jv-chip {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--jv-panel-fg, #1f1d2b);
+    background: var(--jv-panel-bg, #fbf8ef);
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+    border-radius: 16px;
+    cursor: pointer;
+}
+
+.jv-chip[aria-pressed="true"] {
+    background: var(--jv-accent, #4b2a8c);
+    color: var(--jv-accent-fg, #ffffff);
+}
+
+/* Pressed is also shown by a tick, not only colour */
+.jv-chip[aria-pressed="true"]::before {
+    content: "✓";
+    font-weight: 800;
+}
+
+.jv-chip-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    flex: none;
+}
+
+.jv-log-list {
+    flex: 1 1 auto;
+    min-height: 120px;
+    overflow: auto;
+    padding: 4px 6px;
+    border: 2px solid var(--jv-panel-border, #1f1d2b);
+    background: var(--jv-well-bg, #f1ead8);
+    box-shadow: inset 2px 2px 0 var(--jv-bevel-dark, #c9c3b0);
+}
+
+.jv-log-session + .jv-log-session {
+    margin-top: 10px;
+}
+
+.jv-log-session ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.jv-log-entry {
+    display: grid;
+    grid-template-columns: auto 18px 1fr;
+    gap: 6px;
+    align-items: start;
+    padding: 3px 0;
+    border-bottom: 1px dotted var(--jv-bevel-dark, #c9c3b0);
+}
+
+.jv-log-entry time {
+    font-size: 12px;
+    color: var(--jv-muted, #5d5a6a);
+    font-variant-numeric: tabular-nums;
+    padding-top: 1px;
+}
+
+.jv-log-kind {
+    padding-top: 1px;
+    color: var(--jv-muted, #5d5a6a);
+}
+
+.jv-log-text {
+    overflow-wrap: anywhere;
+}
+
+.jv-log-entry--note .jv-log-text {
+    font-style: italic;
+}
+
+.jv-log-detail {
+    display: block;
+    font-size: 12px;
+    color: var(--jv-muted, #5d5a6a);
+}
+
+.jv-confirm {
+    padding: 8px;
+    border: 2px dashed var(--jv-danger, #a3231a);
+}
+
+.jv-confirm p {
+    margin: 0 0 6px;
+    font-weight: 600;
+}
+
+/* --------------------------------------------------------------- help */
+.jv-help-code {
+    padding: 0 4px;
+    font-family: var(--jv-font-mono, ui-monospace, Menlo, Consolas, monospace);
+    background: rgba(0, 0, 0, 0.07);
+    border-radius: 2px;
+}
+
+/* ----------------------------------------------------- high contrast */
+html[data-high-contrast] .jv-dpanel-inner,
+html[data-high-contrast] .jv-bubble,
+html[data-high-contrast] .jv-board-banner {
+    border-width: 3px;
+    box-shadow: none;
+}
+
+html[data-high-contrast] .jv-result-area,
+html[data-high-contrast] .jv-log-list,
+html[data-high-contrast] .jv-table-item {
+    background: var(--jv-panel-bg, #ffffff);
+    box-shadow: none;
+}
