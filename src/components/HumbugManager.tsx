@@ -9,7 +9,8 @@ import type { Action } from "../types/action.types"
 import { ContextMenu } from "./ContextMenu"
 import { HumbugRenderer } from "./HumbugRenderer"
 import { HumbugModal } from "./HumbugModal"
-import { HumbugContextMenu } from "./HumbugContextMenu"
+// Workflow (#27): radial ring or the classic HumbugContextMenu list
+import { HumbugActionMenu } from "../features/workflow/HumbugActionMenu"
 import { DragTailRenderer } from "./DragTailRenderer"
 import {
     generateId,
@@ -59,6 +60,20 @@ import {
     useLayerState,
     useTableMode,
 } from "../features/view-state"
+
+// Workflow (#22/#23): what the marquee, select-all, copy and arrow keys may
+// pick up: not locked itself, and not on a hidden or locked layer
+const isPickable = (h: Humbug) =>
+    !h.locked && !isHumbugHidden(h) && !isHumbugLayerLocked(h)
+
+/** Ids of h's whole group that can be picked up (just [id] if ungrouped) */
+const groupMemberIds = (humbugs: readonly Humbug[], id: string): string[] => {
+    const groupId = humbugs.find((h) => h.id === id)?.groupId
+    if (!groupId) return [id]
+    return humbugs
+        .filter((h) => h.groupId === groupId && (h.id === id || isPickable(h)))
+        .map((h) => h.id)
+}
 
 interface HumbugManagerProps {
     scale: number
@@ -552,12 +567,17 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             draggedHumbugRef.current = id
             setDragOffset(offset)
 
-            // Dragging any member of the area selection drags the whole group
-            groupDragRef.current =
+            // Dragging any member of the area selection drags the whole group;
+            // so does dragging a member of a groupId group (workflow #23)
+            const dragIds =
                 multiSelectedIds.length > 1 && multiSelectedIds.includes(id)
+                    ? multiSelectedIds
+                    : groupMemberIds(state.humbugs, id)
+            groupDragRef.current =
+                dragIds.length > 1
                     ? new Map(
                           state.humbugs
-                              .filter((h) => multiSelectedIds.includes(h.id))
+                              .filter((h) => dragIds.includes(h.id))
                               .map((h) => [h.id, { ...h.position }])
                       )
                     : null
@@ -633,9 +653,13 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         [state.humbugs, state.selectedHumbugId, multiSelectedIds]
     )
 
-    // Select Humbug (clicking outside the area selection ends it)
+    // Select Humbug (clicking outside the area selection ends it).
+    // Workflow (#23): clicking a member of a group selects the whole group.
     const selectHumbug = useCallback((id: string) => {
-        setMultiSelectedIds((prev) => (prev.includes(id) ? prev : []))
+        const group = groupMemberIds(latestHumbugsRef.current, id)
+        setMultiSelectedIds((prev) =>
+            prev.includes(id) ? prev : group.length > 1 ? group : []
+        )
         setSelectedConnectorId(null)
         setState((prev) => ({
             ...prev,
@@ -956,7 +980,8 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
             if (!dx && !dy) return
             const { humbugs, single, multi, gridShape } = nudgeRef.current
             const ids = new Set(multi.length ? multi : single ? [single] : [])
-            const moving = humbugs.filter((h) => ids.has(h.id) && !h.locked)
+            // Workflow (#22): skip hidden and layer-locked humbugs too
+            const moving = humbugs.filter((h) => ids.has(h.id) && isPickable(h))
             if (!moving.length) return
             // Squares: one square in each held direction. Hexes: to the
             // neighbouring hex (rows are offset, so up/down lean sideways).
@@ -1136,20 +1161,23 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         }
         const onArea = (e: Event) => {
             const r = (e as CustomEvent<AreaSelectDetail>).detail
-            const hits = state.humbugs
+            // Workflow (#22/#23): skip hidden/layer-locked humbugs, and a hit
+            // on any group member picks up its whole group
+            const hitIds = state.humbugs
                 .filter((h) => {
-                    if (h.locked) return false
+                    if (!isPickable(h)) return false
                     const b = boxOf(h)
                     return b.x1 < r.x2 && b.x2 > r.x1 && b.y1 < r.y2 && b.y2 > r.y1
                 })
                 .map((h) => h.id)
+            const hits = [...new Set(hitIds.flatMap((id) => groupMemberIds(state.humbugs, id)))]
             setMultiSelectedIds((prev) =>
                 r.additive ? [...new Set([...prev, ...hits])] : hits
             )
             setState((prev) => ({ ...prev, selectedHumbugId: null }))
         }
         const onSelectAll = () => {
-            setMultiSelectedIds(state.humbugs.filter((h) => !h.locked).map((h) => h.id))
+            setMultiSelectedIds(state.humbugs.filter(isPickable).map((h) => h.id))
             setState((prev) => ({ ...prev, selectedHumbugId: null }))
         }
         const onKey = (e: KeyboardEvent) => {
@@ -1872,11 +1900,13 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
 
     // Copy/Cut/Paste functions
     const copySelectedHumbugs = useCallback(() => {
-        const selectedHumbugs = multiSelectedIds.length
-            ? state.humbugs.filter((h) => multiSelectedIds.includes(h.id))
-            : state.selectedHumbugId
-            ? state.humbugs.filter((h) => h.id === state.selectedHumbugId)
-            : []
+        const selectedHumbugs = (
+            multiSelectedIds.length
+                ? state.humbugs.filter((h) => multiSelectedIds.includes(h.id))
+                : state.selectedHumbugId
+                ? state.humbugs.filter((h) => h.id === state.selectedHumbugId)
+                : []
+        ).filter((h) => !isHumbugHidden(h) && !isHumbugLayerLocked(h)) // workflow #22
 
         console.log("Copy attempt:", {
             selectedHumbugId: state.selectedHumbugId,
@@ -1897,11 +1927,13 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     }, [state.selectedHumbugId, state.humbugs, clipboardManager, multiSelectedIds])
 
     const cutSelectedHumbugs = useCallback(() => {
-        const selectedHumbugs = multiSelectedIds.length
-            ? state.humbugs.filter((h) => multiSelectedIds.includes(h.id))
-            : state.selectedHumbugId
-            ? state.humbugs.filter((h) => h.id === state.selectedHumbugId)
-            : []
+        const selectedHumbugs = (
+            multiSelectedIds.length
+                ? state.humbugs.filter((h) => multiSelectedIds.includes(h.id))
+                : state.selectedHumbugId
+                ? state.humbugs.filter((h) => h.id === state.selectedHumbugId)
+                : []
+        ).filter((h) => !isHumbugHidden(h) && !isHumbugLayerLocked(h)) // workflow #22
 
         if (selectedHumbugs.length > 0) {
             clipboardManager.cut(selectedHumbugs)
@@ -2217,12 +2249,12 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 />
             )}
 
-            {/* Humbug Context Menu */}
+            {/* Humbug Context Menu (workflow #27: radial ring or list) */}
             {state.humbugContextMenu.isOpen &&
                 state.humbugContextMenu.humbugId && (
-                    <HumbugContextMenu
+                    <HumbugActionMenu
+                        key={`${state.humbugContextMenu.humbugId}@${state.humbugContextMenu.position.x},${state.humbugContextMenu.position.y}`}
                         position={state.humbugContextMenu.position}
-                        isOpen={state.humbugContextMenu.isOpen}
                         humbug={
                             state.humbugs.find(
                                 (h) => h.id === state.humbugContextMenu.humbugId

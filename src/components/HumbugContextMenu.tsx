@@ -17,6 +17,8 @@ interface HumbugContextMenuProps {
     onAction: (action: string, humbugId: string) => void
     /** The token's image is already in "My Party" */
     inParty?: boolean
+    /** Focus the first option on open (keyboard users arriving from the radial menu's "More…") */
+    autoFocus?: boolean
 }
 
 export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
@@ -26,6 +28,7 @@ export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
     onClose,
     onAction,
     inParty = false,
+    autoFocus = false,
 }) => {
     if (!isOpen || !humbug) return null
 
@@ -78,9 +81,10 @@ export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
                     <span>Humbug Options</span>
                 </div>
                 <div className='humbug-context-menu-options'>
-                    {options.map((option) => (
+                    {options.map((option, i) => (
                         <button
                             key={option.action}
+                            autoFocus={autoFocus && i === 0}
                             className={`humbug-context-menu-option ${
                                 option.action === "delete" ? "danger" : ""
                             }`}

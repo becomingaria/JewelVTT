@@ -238,6 +238,18 @@ function App() {
     })
 
 
+    // Workflow feature: "Change map type" can apply that kind's grid/style
+    useEffect(() => {
+        const onApply = (e: Event) => {
+            const d = mapKindDefaults((e as CustomEvent<MapKind>).detail)
+            setGridShape(d.gridShape)
+            setBoardStyle(d.boardStyle)
+            setShowGridLines(d.showGrid)
+        }
+        window.addEventListener("jewel:applyMapDefaults", onApply)
+        return () => window.removeEventListener("jewel:applyMapDefaults", onApply)
+    }, [])
+
     // A loaded board starts a fresh undo history
     useEffect(() => {
         const handleLoaded = () => undoRedoManager.clear()

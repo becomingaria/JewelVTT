@@ -1,0 +1,529 @@
+/*
+ * Workflow feature: Layers panel, align bar, command palette, radial menu.
+ * Bevelled early-90s windows; colours from --jv-* tokens with fallbacks.
+ */
+
+.wf-window {
+    --wf-bg: var(--jv-panel-bg, #fbfaf6);
+    --wf-fg: var(--jv-panel-fg, #1f1d2b);
+    --wf-border: var(--jv-panel-border, #2c2c3a);
+    --wf-muted: var(--jv-muted, #55526a);
+    --wf-accent: var(--jv-accent, #6c2fcf);
+    --wf-accent-fg: var(--jv-accent-fg, #ffffff);
+    --wf-light: var(--jv-bevel-light, #ffffff);
+    --wf-dark: var(--jv-bevel-dark, #8d8aa0);
+    --wf-shadow: var(--jv-shadow, rgba(0, 0, 0, 0.28));
+    --wf-danger: var(--jv-danger, #b3261e);
+    --wf-focus: var(--jv-focus, #f5b700);
+    background: var(--wf-bg);
+    color: var(--wf-fg);
+    border: 2px solid var(--wf-border);
+    box-shadow:
+        inset 2px 2px 0 var(--wf-light),
+        inset -2px -2px 0 var(--wf-dark),
+        4px 4px 0 var(--wf-shadow);
+    font-family: var(--jv-font-body, system-ui, -apple-system, "Segoe UI", sans-serif);
+    font-size: 14px;
+    line-height: 1.35;
+    zoom: var(--ui-scale, 1);
+}
+
+html[data-high-contrast] .wf-window {
+    border-width: 3px;
+    box-shadow: 4px 4px 0 var(--wf-shadow);
+}
+
+.wf-title {
+    margin: 0;
+    font-family: var(--jv-font-display, ui-monospace, "Courier New", monospace);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+html[data-readable-font] .wf-title {
+    font-family: var(--jv-font-body, system-ui, sans-serif);
+    letter-spacing: 0;
+    text-transform: none;
+    font-size: 15px;
+}
+
+.wf-btn {
+    min-width: 32px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 2px solid var(--wf-border);
+    border-radius: 2px;
+    background: var(--wf-bg);
+    color: var(--wf-fg);
+    font: inherit;
+    font-size: 13px;
+    box-shadow:
+        inset 1px 1px 0 var(--wf-light),
+        inset -1px -1px 0 var(--wf-dark);
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.wf-btn:hover {
+    background: color-mix(in srgb, var(--wf-accent) 12%, var(--wf-bg));
+}
+
+.wf-btn[aria-pressed="true"],
+.wf-btn.wf-on {
+    background: var(--wf-accent);
+    color: var(--wf-accent-fg);
+    box-shadow:
+        inset 1px 1px 0 var(--wf-dark),
+        inset -1px -1px 0 var(--wf-light);
+}
+
+.wf-icon-btn {
+    padding: 0;
+    width: 32px;
+    height: 32px;
+}
+
+.wf-window :focus-visible,
+.wf-radial :focus-visible {
+    outline: 3px solid var(--wf-focus);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--wf-border);
+}
+
+.wf-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- layers */
+
+.wf-layers {
+    position: fixed;
+    top: 72px;
+    z-index: 905;
+    width: 280px;
+    max-height: calc(100vh - 96px - var(--apron-height, 0px));
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.wf-layers--left {
+    left: 70px;
+}
+
+.wf-layers--right {
+    right: 8px;
+}
+
+.wf-layers-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 6px 6px 10px;
+    background: var(--wf-accent);
+    color: var(--wf-accent-fg);
+    border-bottom: 2px solid var(--wf-border);
+}
+
+.wf-layers-head .wf-btn {
+    background: var(--wf-bg);
+    color: var(--wf-fg);
+}
+
+.wf-section {
+    padding: 8px 10px;
+}
+
+.wf-section + .wf-section {
+    border-top: 2px dotted var(--wf-dark);
+}
+
+.wf-label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.wf-select {
+    width: 100%;
+    min-height: 32px;
+    border: 2px solid var(--wf-border);
+    border-radius: 2px;
+    background: var(--wf-light);
+    color: var(--wf-fg);
+    font: inherit;
+    padding: 2px 6px;
+}
+
+.wf-offer {
+    margin-top: 8px;
+    padding: 6px 8px;
+    border: 2px dashed var(--wf-border);
+    background: color-mix(in srgb, var(--wf-accent) 8%, var(--wf-bg));
+}
+
+.wf-offer p {
+    margin: 0 0 6px;
+}
+
+.wf-row-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.wf-layer-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.wf-layer-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 4px 4px 6px;
+    border: 2px solid transparent;
+}
+
+.wf-layer-row:hover {
+    border-color: var(--wf-dark);
+}
+
+.wf-layer-name {
+    font-weight: 600;
+}
+
+.wf-layer-meta {
+    display: block;
+    color: var(--wf-muted);
+    font-size: 12px;
+}
+
+.wf-layer-row--hidden .wf-layer-name {
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+}
+
+.wf-count {
+    display: inline-block;
+    min-width: 22px;
+    margin-left: 6px;
+    padding: 0 4px;
+    border: 1px solid var(--wf-border);
+    font-family: var(--jv-font-mono, ui-monospace, monospace);
+    font-size: 12px;
+    text-align: center;
+}
+
+.wf-foot-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Table Mode: tuck away until the pointer or focus arrives */
+html[data-table-mode] .wf-layers {
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+html[data-table-mode] .wf-layers:hover,
+html[data-table-mode] .wf-layers:focus-within {
+    opacity: 1;
+}
+
+html[data-reduced-motion] .wf-layers {
+    transition: none;
+}
+
+/* ---------------------------------------------------------- align bar */
+
+.wf-align {
+    position: fixed;
+    z-index: 950;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+}
+
+.wf-align-sep {
+    width: 2px;
+    align-self: stretch;
+    margin: 2px 4px;
+    background: var(--wf-dark);
+}
+
+.wf-align .wf-btn {
+    border-color: transparent;
+    box-shadow: none;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+}
+
+.wf-align .wf-btn:hover {
+    border-color: var(--wf-border);
+}
+
+/* ------------------------------------------------------- palette */
+
+.wf-palette-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background: rgba(20, 16, 32, 0.35);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 12vh 16px 16px;
+}
+
+.wf-palette {
+    width: min(600px, 100%);
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.wf-palette-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--wf-accent);
+    color: var(--wf-accent-fg);
+    border-bottom: 2px solid var(--wf-border);
+}
+
+.wf-palette-head .wf-title {
+    flex: 1;
+}
+
+.wf-palette-key {
+    font-family: var(--jv-font-mono, ui-monospace, monospace);
+    font-size: 12px;
+}
+
+.wf-palette-input {
+    margin: 8px;
+    min-height: 40px;
+    padding: 6px 10px;
+    border: 2px solid var(--wf-border);
+    border-radius: 2px;
+    background: var(--wf-light);
+    color: var(--wf-fg);
+    font: inherit;
+    font-size: 16px;
+    box-shadow:
+        inset 2px 2px 0 var(--wf-dark),
+        inset -1px -1px 0 var(--wf-light);
+}
+
+.wf-palette-input:focus-visible {
+    outline: 3px solid var(--wf-focus);
+    outline-offset: 1px;
+}
+
+.wf-palette-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 8px 8px;
+    overflow-y: auto;
+}
+
+.wf-palette-opt {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+    padding: 4px 8px;
+    border: 2px solid transparent;
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.wf-palette-opt[aria-selected="true"] {
+    background: var(--wf-accent);
+    color: var(--wf-accent-fg);
+    border-color: var(--wf-border);
+}
+
+/* Active option is also marked by a pointer glyph, not only colour */
+.wf-palette-opt[aria-selected="true"] .wf-opt-label::before {
+    content: "▸ ";
+}
+
+.wf-opt-label mark {
+    background: transparent;
+    color: inherit;
+    font-weight: 800;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.wf-opt-tag {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.85;
+}
+
+.wf-opt-key {
+    min-width: 2em;
+    padding: 1px 6px;
+    border: 1px solid currentColor;
+    font-family: var(--jv-font-mono, ui-monospace, monospace);
+    font-size: 12px;
+    text-align: center;
+}
+
+.wf-palette-empty {
+    padding: 12px 16px 16px;
+    color: var(--wf-muted);
+}
+
+/* --------------------------------------------------------- radial menu */
+
+.wf-radial-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 899;
+    background: transparent;
+    pointer-events: auto;
+}
+
+.wf-radial {
+    --wf-bg: var(--jv-panel-bg, #fbfaf6);
+    --wf-fg: var(--jv-panel-fg, #1f1d2b);
+    --wf-border: var(--jv-panel-border, #2c2c3a);
+    --wf-accent: var(--jv-accent, #6c2fcf);
+    --wf-accent-fg: var(--jv-accent-fg, #ffffff);
+    --wf-light: var(--jv-bevel-light, #ffffff);
+    --wf-dark: var(--jv-bevel-dark, #8d8aa0);
+    --wf-danger: var(--jv-danger, #b3261e);
+    --wf-focus: var(--jv-focus, #f5b700);
+    position: absolute;
+    z-index: 900;
+    width: 0;
+    height: 0;
+    pointer-events: auto;
+    zoom: var(--ui-scale, 1);
+    font-family: var(--jv-font-body, system-ui, sans-serif);
+}
+
+/* Dithered ring behind the buttons */
+.wf-radial-ring {
+    position: absolute;
+    left: calc(var(--wf-r) * -1 - 30px);
+    top: calc(var(--wf-r) * -1 - 30px);
+    width: calc(var(--wf-r) * 2 + 60px);
+    height: calc(var(--wf-r) * 2 + 60px);
+    border-radius: 50%;
+    border: 2px solid var(--wf-border);
+    background:
+        repeating-conic-gradient(
+            color-mix(in srgb, var(--wf-bg) 70%, transparent) 0 25%,
+            color-mix(in srgb, var(--wf-dark) 35%, transparent) 0 50%
+        )
+        0 0 / 4px 4px;
+    pointer-events: none;
+}
+
+.wf-radial-hub {
+    position: absolute;
+    left: -46px;
+    top: -22px;
+    width: 92px;
+    min-height: 44px;
+    display: grid;
+    place-items: center;
+    padding: 2px 4px;
+    background: var(--wf-bg);
+    color: var(--wf-fg);
+    border: 2px solid var(--wf-border);
+    box-shadow:
+        inset 1px 1px 0 var(--wf-light),
+        inset -1px -1px 0 var(--wf-dark);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    pointer-events: none;
+    overflow-wrap: anywhere;
+}
+
+.wf-radial-item {
+    position: absolute;
+    left: -24px;
+    top: -24px;
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 2px solid var(--wf-border);
+    border-radius: 4px;
+    background: var(--wf-bg);
+    color: var(--wf-fg);
+    box-shadow:
+        inset 2px 2px 0 var(--wf-light),
+        inset -2px -2px 0 var(--wf-dark),
+        2px 2px 0 rgba(0, 0, 0, 0.3);
+    transform: translate(var(--dx), var(--dy));
+    cursor: var(--cursor-pointer, pointer);
+    animation: wf-radial-in 140ms ease-out both;
+    animation-delay: calc(var(--i) * 12ms);
+}
+
+.wf-radial-item:hover,
+.wf-radial-item:focus-visible {
+    background: var(--wf-accent);
+    color: var(--wf-accent-fg);
+}
+
+.wf-radial-item.wf-danger {
+    color: var(--wf-danger);
+    border-style: double;
+    border-width: 4px;
+}
+
+.wf-radial-item.wf-danger:hover,
+.wf-radial-item.wf-danger:focus-visible {
+    background: var(--wf-danger);
+    color: #fff;
+}
+
+.wf-radial :focus-visible {
+    z-index: 1;
+}
+
+@keyframes wf-radial-in {
+    from {
+        transform: translate(0, 0) scale(0.4);
+        opacity: 0;
+    }
+}
+
+.wf-radial--still .wf-radial-item,
+html[data-reduced-motion] .wf-radial-item {
+    animation: none;
+}
