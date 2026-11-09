@@ -26,6 +26,8 @@ function softSnap(deg: number): { deg: number; snapped: boolean } {
     return { deg, snapped: false }
 }
 import { DocumentCard } from "./DocumentCard"
+import { flowShapeOf } from "../features/table-slides/shapes"
+import { FlowShapeText } from "../features/table-slides/FlowShape"
 import "./HumbugRenderer.css"
 
 interface HumbugRendererProps {
@@ -374,7 +376,10 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
 
     const renderHumbugContent = () => {
         switch (humbug.type) {
-            case "text":
+            case "text": {
+                // Flowchart shape (table-slides feature)
+                const shape = flowShapeOf(humbug)
+                if (shape) return <FlowShapeText humbug={humbug} shape={shape} scale={scale} />
                 return (
                     <div
                         className='humbug-text-content'
@@ -391,6 +396,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
                         {humbug.content || "Double-click to edit"}
                     </div>
                 )
+            }
 
             case "image":
                 return (
