@@ -1,0 +1,156 @@
+/* Scene title card: an illuminated chapter heading that fades in and out. */
+
+.jv-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.jv-title-card-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 5400;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 16vh;
+    pointer-events: none;
+}
+
+.jv-title-card {
+    --tc-gold: var(--jv-focus);
+    --tc-ink: var(--jv-panel-border);
+    --tc-field: var(--jv-accent);
+    --tc-leaf: var(--jv-success);
+
+    zoom: var(--ui-scale, 1);
+    max-width: min(760px, calc((100vw - 48px) / var(--ui-scale, 1)));
+    padding: 18px 28px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: var(--jv-dither), var(--jv-panel-bg);
+    color: var(--jv-panel-fg);
+    border: var(--jv-border-w) solid var(--jv-panel-border);
+    border-radius: var(--jv-radius);
+    /* double rule: bevel, then a gold inner line, then the pixel shadow */
+    box-shadow:
+        var(--jv-bevel-out),
+        inset 0 0 0 5px var(--jv-panel-bg),
+        inset 0 0 0 7px var(--tc-gold),
+        4px 4px 0 var(--jv-shadow-color);
+    pointer-events: auto;
+    cursor: var(--cursor-pointer, pointer);
+    animation: jv-title-card 2.5s linear both;
+}
+
+/* The drop cap sits right against the rest of the title */
+.jv-tc-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 0;
+}
+
+.jv-tc-initial {
+    position: relative;
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    display: grid;
+    place-items: center;
+}
+
+.jv-tc-initial-art {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.jv-tc-initial-letter {
+    position: relative;
+    font-family: var(--jv-font-display);
+    font-size: 52px;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--jv-accent-fg);
+    text-shadow: 2px 2px 0 var(--tc-ink);
+}
+
+.jv-tc-sub {
+    font-family: var(--jv-font-label);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--jv-muted);
+}
+
+.jv-tc-title {
+    font-family: var(--jv-font-display);
+    font-size: 44px;
+    font-weight: 600;
+    line-height: 1;
+    padding-bottom: 4px;
+    color: var(--jv-panel-fg);
+    overflow-wrap: anywhere;
+}
+
+.jv-tc-divider {
+    width: 244px;
+    height: 20px;
+}
+
+.jv-tc-sub::before,
+.jv-tc-sub::after {
+    content: " ~ ";
+}
+
+.jv-title-card .tc-gold {
+    fill: var(--tc-gold);
+}
+
+.jv-title-card .tc-ink {
+    fill: var(--tc-ink);
+}
+
+.jv-title-card .tc-field {
+    fill: var(--tc-field);
+}
+
+.jv-title-card .tc-leaf {
+    fill: var(--tc-leaf);
+}
+
+/* 0.4 s in, held, 0.4 s out */
+@keyframes jv-title-card {
+    0% {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    16% {
+        opacity: 1;
+        transform: none;
+    }
+    84% {
+        opacity: 1;
+        transform: none;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* Reduced motion: it simply appears and disappears */
+html[data-reduced-motion] .jv-title-card {
+    animation: none !important;
+}
+
+html[data-high-contrast] .jv-title-card {
+    background: var(--jv-panel-bg);
+}

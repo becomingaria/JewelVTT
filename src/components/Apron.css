@@ -3,9 +3,9 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: #ffffff;
-    border-top: 1px solid #e0e0e0;
-    box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.1);
+    background-color: var(--jv-panel-bg);
+    border-top: 1px solid var(--jv-line);
+    box-shadow: 0 -2px 0 var(--jv-bevel-dark);
     z-index: 1000;
     transition: transform 0.3s ease;
 }
@@ -30,10 +30,10 @@
 .current-color {
     width: 40px;
     height: 40px;
-    border: 2px solid #333;
-    border-radius: 8px;
+    border: 2px solid var(--jv-panel-border);
+    border-radius: var(--jv-radius);
     cursor: var(--cursor-pointer, pointer);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--jv-shadow);
     transition: transform 0.2s ease;
 }
 
@@ -45,11 +45,11 @@
     position: absolute;
     bottom: 100%;
     left: 0;
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    background: var(--jv-panel-bg);
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     padding: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--jv-shadow);
     z-index: 1001;
     margin-bottom: 8px;
 }
@@ -58,7 +58,7 @@
     width: 60px;
     height: 40px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--jv-radius);
     cursor: var(--cursor-pointer, pointer);
     margin-bottom: 8px;
 }
@@ -72,8 +72,8 @@
 .preset-color {
     width: 24px;
     height: 24px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     cursor: var(--cursor-pointer, pointer);
     transition: transform 0.2s ease;
 }
@@ -89,12 +89,12 @@
 }
 
 .tool-button {
-    background: #f8f9fa;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
+    background: var(--jv-panel-bg-alt);
+    border: 2px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     width: 48px;
     height: 48px;
-    color: #333;
+    color: var(--jv-panel-fg);
     cursor: var(--cursor-pointer, pointer);
     display: flex;
     align-items: center;
@@ -103,25 +103,25 @@
 }
 
 .tool-button:hover {
-    background: #e9ecef;
-    border-color: #3498db;
+    background: var(--jv-hover-bg);
+    border-color: var(--jv-accent);
 }
 
 .tool-button.active {
-    background: #3498db;
-    border-color: #2980b9;
-    color: white;
+    background: var(--jv-accent);
+    border-color: var(--jv-accent-strong);
+    color: var(--jv-accent-fg);
 }
 
 
 .apron-placeholder {
-    color: #666;
+    color: var(--jv-muted);
     font-size: 14px;
     font-style: italic;
     padding: 8px 16px;
-    background-color: #f8f9fa;
-    border-radius: 6px;
-    border: 1px dashed #ddd;
+    background-color: var(--jv-panel-bg-alt);
+    border-radius: var(--jv-radius);
+    border: 1px dashed var(--jv-line);
 }
 
 /* Responsive design */
@@ -138,7 +138,7 @@
 
 /* Keep tool icons dark-outlined so they read on coloured buttons */
 .tool-button .jicon {
-    color: #2c3e50;
+    color: var(--jv-panel-fg);
 }
 
 /* Transparent paint: checkerboard swatches */
@@ -160,22 +160,22 @@
     width: 100%;
     margin-bottom: 8px;
     padding: 6px 8px;
-    background: #f8f9fa;
-    border: 2px solid #e0e0e0;
-    border-radius: 6px;
+    background: var(--jv-panel-bg-alt);
+    border: 2px solid var(--jv-line);
+    border-radius: var(--jv-radius);
     font-size: 13px;
     font-weight: 500;
-    color: #333;
+    color: var(--jv-panel-fg);
     cursor: var(--cursor-pointer, pointer);
 }
 
 .transparent-option.active {
-    border-color: #3498db;
+    border-color: var(--jv-accent);
 }
 
 .transparent-swatch {
     width: 20px;
     height: 20px;
-    border: 1px solid #999;
-    border-radius: 4px;
+    border: 1px solid var(--jv-muted);
+    border-radius: var(--jv-radius);
 }

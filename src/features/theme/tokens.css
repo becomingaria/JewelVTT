@@ -1,0 +1,289 @@
+/*
+ * Jewel VTT theme tokens (theme feature).
+ *
+ * Every colour in the interface chrome comes from a --jv-* token. Themes are
+ * picked with html[data-theme="..."] (mirrored from prefs.theme); the
+ * accessibility flags (data-high-contrast, data-readable-font, ...) layer on
+ * top of any theme.
+ *
+ * Text pairs are checked at >= 4.5:1 in every theme:
+ *   panel-fg / muted / accent-text / danger  on  panel-bg, panel-bg-alt, field-bg
+ *   panel-fg on hover-bg and accent-soft
+ *   accent-fg on accent and accent-strong, danger-fg on danger,
+ *   success-fg on success, titlebar-fg on titlebar-solid, inverse-fg on inverse-bg
+ */
+
+:root {
+    /* ---- shape */
+    --jv-radius: 2px;
+    --jv-border-w: 2px;
+    --jv-focus-width: 3px;
+    --jv-focus-gap: 2px;
+
+    /* ---- type */
+    --jv-font-display: "Pixelify Sans", "Silkscreen", ui-monospace, "Courier New", monospace;
+    --jv-font-label: "Silkscreen", "Pixelify Sans", ui-monospace, monospace;
+    --jv-font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+        Arial, sans-serif;
+    --jv-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+    /* ---- default: 90s desktop-RPG windows (warm grey, purple, gold) */
+    --jv-panel-bg: #d8d2c5;
+    --jv-panel-bg-alt: #e9e4d9;
+    --jv-field-bg: #f8f5ee;
+    --jv-field-fg: #1c1622;
+    --jv-hover-bg: #c8bfae;
+    --jv-panel-fg: #1c1622;
+    --jv-muted: #4a4152;
+    --jv-line: #9a907f;
+    --jv-panel-border: #2a2133;
+    --jv-bevel-light: #f7f3ea;
+    --jv-bevel-dark: #857b6b;
+
+    --jv-accent: #6c2fcf;
+    --jv-accent-strong: #4b1f99;
+    --jv-accent-fg: #ffffff;
+    --jv-accent-text: #5221a8;
+    --jv-accent-soft: #ddd0f2;
+
+    --jv-danger: #a3221a;
+    --jv-danger-strong: #821a13;
+    --jv-danger-fg: #ffffff;
+    --jv-success: #1d6b38;
+    --jv-success-fg: #ffffff;
+    --jv-warning: #8a5300;
+
+    --jv-titlebar-solid: #4b1f99;
+    --jv-titlebar-bg: linear-gradient(90deg, #3b1d6e, #6c2fcf);
+    --jv-titlebar-fg: #ffffff;
+    --jv-inverse-bg: #241c2e;
+    --jv-inverse-fg: #f6f1e6;
+
+    --jv-focus: #f5b700;
+    --jv-focus-edge: #1c1622;
+    --jv-overlay: rgba(24, 16, 34, 0.55);
+    --jv-shadow-color: rgba(28, 22, 34, 0.5);
+    --jv-dither-ink: rgba(255, 255, 255, 0.14);
+
+    /* Derived: built from the tokens above (re-derived per theme below) */
+    --jv-shadow: 3px 3px 0 var(--jv-shadow-color);
+    --jv-bevel-out: inset 2px 2px 0 var(--jv-bevel-light), inset -2px -2px 0 var(--jv-bevel-dark);
+    --jv-bevel-in: inset 2px 2px 0 var(--jv-bevel-dark), inset -2px -2px 0 var(--jv-bevel-light);
+    /* 2px checkerboard dither, laid over title bars and accents */
+    --jv-dither: conic-gradient(
+            var(--jv-dither-ink) 25%,
+            transparent 0 50%,
+            var(--jv-dither-ink) 0 75%,
+            transparent 0
+        )
+        0 0 / 4px 4px;
+
+    color-scheme: light;
+    accent-color: var(--jv-accent);
+}
+
+/* ---------------------------------------------------------- 16 colours */
+html[data-theme="ega"] {
+    --jv-panel-bg: #ffffff;
+    --jv-panel-bg-alt: #55ffff;
+    --jv-field-bg: #ffffff;
+    --jv-field-fg: #000000;
+    --jv-hover-bg: #ffff55;
+    --jv-panel-fg: #000000;
+    --jv-muted: #0000aa;
+    --jv-line: #555555;
+    --jv-panel-border: #000000;
+    --jv-bevel-light: #aaaaaa;
+    --jv-bevel-dark: #555555;
+
+    --jv-accent: #0000aa;
+    --jv-accent-strong: #5555ff;
+    --jv-accent-fg: #ffffff;
+    --jv-accent-text: #0000aa;
+    --jv-accent-soft: #55ffff;
+
+    --jv-danger: #aa0000;
+    --jv-danger-strong: #000000;
+    --jv-danger-fg: #ffffff;
+    --jv-success: #00aa00;
+    --jv-success-fg: #000000;
+    --jv-warning: #aa5500;
+
+    --jv-titlebar-solid: #0000aa;
+    --jv-titlebar-bg: #0000aa;
+    --jv-titlebar-fg: #ffff55;
+    --jv-inverse-bg: #000000;
+    --jv-inverse-fg: #55ffff;
+
+    --jv-focus: #ff55ff;
+    --jv-focus-edge: #000000;
+    --jv-overlay: rgba(0, 0, 0, 0.6);
+    --jv-shadow-color: #000000;
+    --jv-dither-ink: rgba(85, 255, 255, 0.35);
+}
+
+/* ------------------------------------------------- amber monochrome */
+html[data-theme="amber"] {
+    --jv-panel-bg: #1a1206;
+    --jv-panel-bg-alt: #110b03;
+    --jv-field-bg: #0a0602;
+    --jv-field-fg: #ffb641;
+    --jv-hover-bg: #33240a;
+    --jv-panel-fg: #ffb641;
+    --jv-muted: #d29436;
+    --jv-line: #6b4a12;
+    --jv-panel-border: #c98a22;
+    --jv-bevel-light: #5c400f;
+    --jv-bevel-dark: #000000;
+
+    --jv-accent: #ffb641;
+    --jv-accent-strong: #ffd27a;
+    --jv-accent-fg: #140d03;
+    --jv-accent-text: #ffd27a;
+    --jv-accent-soft: #3d2a08;
+
+    --jv-danger: #ff7b52;
+    --jv-danger-strong: #ff9a7a;
+    --jv-danger-fg: #140d03;
+    --jv-success: #c7d65a;
+    --jv-success-fg: #140d03;
+    --jv-warning: #ffd27a;
+
+    --jv-titlebar-solid: #ffb641;
+    --jv-titlebar-bg: #ffb641;
+    --jv-titlebar-fg: #1a1206;
+    --jv-inverse-bg: #ffb641;
+    --jv-inverse-fg: #140d03;
+
+    --jv-focus: #fff1cf;
+    --jv-focus-edge: #000000;
+    --jv-overlay: rgba(0, 0, 0, 0.7);
+    --jv-shadow-color: rgba(0, 0, 0, 0.8);
+    --jv-dither-ink: rgba(26, 18, 6, 0.22);
+
+    color-scheme: dark;
+}
+
+/* ------------------------------------------------------ parchment & ink */
+html[data-theme="parchment"] {
+    --jv-panel-bg: #ecdcb9;
+    --jv-panel-bg-alt: #f5ead0;
+    --jv-field-bg: #fbf5e6;
+    --jv-field-fg: #2a1a0b;
+    --jv-hover-bg: #dfc99a;
+    --jv-panel-fg: #2a1a0b;
+    --jv-muted: #5b4325;
+    --jv-line: #a88a58;
+    --jv-panel-border: #3a2610;
+    --jv-bevel-light: #fff7e2;
+    --jv-bevel-dark: #9a7b47;
+
+    --jv-accent: #7b2d12;
+    --jv-accent-strong: #5a1f0b;
+    --jv-accent-fg: #fff6e0;
+    --jv-accent-text: #7b2d12;
+    --jv-accent-soft: #e6cfa5;
+
+    --jv-danger: #8e1b1b;
+    --jv-danger-strong: #6b1212;
+    --jv-danger-fg: #fff6e0;
+    --jv-success: #2f5d1f;
+    --jv-success-fg: #fff6e0;
+    --jv-warning: #7a4a00;
+
+    --jv-titlebar-solid: #3a2610;
+    --jv-titlebar-bg: linear-gradient(90deg, #2a1a0b, #5a3a18);
+    --jv-titlebar-fg: #f6e6be;
+    --jv-inverse-bg: #3a2610;
+    --jv-inverse-fg: #f6e6be;
+
+    --jv-focus: #e0a400;
+    --jv-focus-edge: #2a1a0b;
+    --jv-overlay: rgba(42, 26, 11, 0.5);
+    --jv-shadow-color: rgba(58, 38, 16, 0.45);
+    --jv-dither-ink: rgba(246, 230, 190, 0.14);
+}
+
+/* ------------------------------------------------------------ calm night */
+html[data-theme="night"] {
+    --jv-panel-bg: #1f2333;
+    --jv-panel-bg-alt: #181b28;
+    --jv-field-bg: #12141e;
+    --jv-field-fg: #e7e9f2;
+    --jv-hover-bg: #2d3348;
+    --jv-panel-fg: #e7e9f2;
+    --jv-muted: #a7aec5;
+    --jv-line: #424a66;
+    --jv-panel-border: #6b7496;
+    --jv-bevel-light: #3a4260;
+    --jv-bevel-dark: #0a0c13;
+
+    --jv-accent: #7454dc;
+    --jv-accent-strong: #5f41c4;
+    --jv-accent-fg: #ffffff;
+    --jv-accent-text: #bba9ff;
+    --jv-accent-soft: #352f5e;
+
+    --jv-danger: #ff8a8a;
+    --jv-danger-strong: #ffa8a8;
+    --jv-danger-fg: #1a0b0b;
+    --jv-success: #7fd69a;
+    --jv-success-fg: #0b1a10;
+    --jv-warning: #f2c46d;
+
+    --jv-titlebar-solid: #2b2552;
+    --jv-titlebar-bg: linear-gradient(90deg, #221d42, #3a2f6e);
+    --jv-titlebar-fg: #ece6ff;
+    --jv-inverse-bg: #e7e9f2;
+    --jv-inverse-fg: #12141e;
+
+    --jv-focus: #f5c542;
+    --jv-focus-edge: #07080d;
+    --jv-overlay: rgba(5, 6, 12, 0.6);
+    --jv-shadow-color: rgba(0, 0, 0, 0.6);
+    --jv-dither-ink: rgba(255, 255, 255, 0.07);
+
+    color-scheme: dark;
+}
+
+/* Derived tokens must be re-declared where their inputs change, because a
+   custom property's var() references resolve on the element declaring it. */
+html[data-theme],
+html[data-high-contrast] {
+    --jv-shadow: 3px 3px 0 var(--jv-shadow-color);
+    --jv-bevel-out: inset 2px 2px 0 var(--jv-bevel-light), inset -2px -2px 0 var(--jv-bevel-dark);
+    --jv-bevel-in: inset 2px 2px 0 var(--jv-bevel-dark), inset -2px -2px 0 var(--jv-bevel-light);
+    --jv-dither: conic-gradient(
+            var(--jv-dither-ink) 25%,
+            transparent 0 50%,
+            var(--jv-dither-ink) 0 75%,
+            transparent 0
+        )
+        0 0 / 4px 4px;
+}
+
+/* -------------------------------------------- high contrast (any theme) */
+html[data-high-contrast] {
+    --jv-border-w: 3px;
+    --jv-focus-width: 4px;
+    --jv-focus-gap: 3px;
+    --jv-muted: var(--jv-panel-fg);
+    --jv-line: var(--jv-panel-fg);
+    --jv-panel-border: var(--jv-panel-fg);
+    --jv-panel-bg-alt: var(--jv-panel-bg);
+    --jv-field-bg: var(--jv-panel-bg);
+    --jv-field-fg: var(--jv-panel-fg);
+    --jv-accent-text: var(--jv-panel-fg);
+    --jv-titlebar-bg: var(--jv-titlebar-solid);
+    --jv-dither-ink: transparent;
+    --jv-overlay: rgba(0, 0, 0, 0.75);
+    --jv-shadow-color: var(--jv-panel-fg);
+}
+
+/* ------------------------------------------- readable font (any theme) */
+html[data-readable-font] {
+    --jv-font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --jv-font-label: var(--jv-font-display);
+    --jv-font-body: var(--jv-font-display);
+    --jv-font-mono: var(--jv-font-display);
+}

@@ -433,3 +433,10 @@
         transition: none !important;
     }
 }
+
+/* The Settings "Reduce motion" choice (mirrored onto <html>) */
+html[data-reduced-motion] .jicon,
+html[data-reduced-motion] .jicon * {
+    animation: none !important;
+    transition: none !important;
+}

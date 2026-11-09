@@ -4,13 +4,13 @@
     left: 0;
     right: 0;
     height: 60px;
-    background-color: #ffffff;
-    border-bottom: 1px solid #e0e0e0;
+    background-color: var(--jv-panel-bg);
+    border-bottom: 1px solid var(--jv-line);
     display: flex;
     align-items: center;
     padding: 0 16px;
     z-index: 1000;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--jv-shadow);
 }
 
 .top-bar-left {
@@ -29,19 +29,19 @@
     padding: 0;
     background: none;
     border: 1px solid transparent;
-    border-radius: 8px;
-    color: #333;
+    border-radius: var(--jv-radius);
+    color: var(--jv-panel-fg);
     cursor: var(--cursor-pointer, pointer);
     transition: all 0.2s ease;
 }
 
 .top-bar-icon-button:hover {
-    background-color: #f8f9fa;
-    border-color: #e0e0e0;
+    background-color: var(--jv-panel-bg-alt);
+    border-color: var(--jv-line);
 }
 
 .top-bar-icon-button:active {
-    background-color: #e9ecef;
+    background-color: var(--jv-hover-bg);
 }
 
 /* Spot tabs */
@@ -61,17 +61,17 @@
     align-items: center;
     flex-shrink: 0;
     height: 34px;
-    background-color: #f8f9fa;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    color: #333;
+    background-color: var(--jv-panel-bg-alt);
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
+    color: var(--jv-panel-fg);
     animation: spot-tab-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     transition: all 0.2s ease;
 }
 
 .spot-tab:hover {
-    background-color: #e9ecef;
-    border-color: #ccc;
+    background-color: var(--jv-hover-bg);
+    border-color: var(--jv-line);
 }
 
 .spot-tab-main {
@@ -106,7 +106,7 @@
     background: none;
     border: none;
     border-radius: 50%;
-    color: #999;
+    color: var(--jv-muted);
     cursor: var(--cursor-pointer, pointer);
     opacity: 0;
     transition: all 0.15s ease;
@@ -118,16 +118,16 @@
 }
 
 .spot-tab-delete:hover {
-    background-color: #dee2e6;
-    color: #e74c3c;
+    background-color: var(--jv-hover-bg);
+    color: var(--jv-danger);
 }
 
 .spot-tab-editing {
     gap: 6px;
     padding: 0 6px 0 10px;
-    background-color: #ffffff;
-    border-color: #3498db;
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    background-color: var(--jv-panel-bg);
+    border-color: var(--jv-accent);
+    box-shadow: 0 0 0 3px var(--jv-accent-soft);
 }
 
 .spot-tab-input {
@@ -138,7 +138,7 @@
     background: none;
     font-size: 14px;
     font-weight: 500;
-    color: #333;
+    color: var(--jv-panel-fg);
 }
 
 @keyframes spot-tab-in {
@@ -182,12 +182,12 @@
 .hamburger-line {
     width: 100%;
     height: 2px;
-    background-color: #333;
+    background-color: var(--jv-panel-fg);
     transition: all 0.2s ease;
 }
 
 .hamburger-menu:hover .hamburger-line {
-    background-color: #666;
+    background-color: var(--jv-muted);
 }
 
 .logo-container {
@@ -216,10 +216,10 @@
     position: absolute;
     top: 100%;
     left: 0;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    background: var(--jv-panel-bg);
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-shadow);
     z-index: 1000;
     min-width: 200px;
     overflow: hidden;
@@ -238,12 +238,12 @@
     justify-content: space-between;
     gap: 12px;
     font-size: 14px;
-    color: #333;
+    color: var(--jv-panel-fg);
     transition: background-color 0.15s ease;
 }
 
 .dropdown-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--jv-panel-bg-alt);
 }
 
 .dropdown-icon {
@@ -256,13 +256,13 @@
 .dropdown-status {
     font-size: 11px;
     font-weight: bold;
-    color: #666;
+    color: var(--jv-muted);
     margin-left: auto;
 }
 
 .dropdown-separator {
     height: 1px;
-    background-color: #e0e0e0;
+    background-color: var(--jv-line);
     margin: 4px 0;
 }
 
@@ -270,22 +270,22 @@
 .scribble-tabs {
     margin-left: 12px;
     padding-left: 12px;
-    border-left: 1px solid #e0e0e0;
+    border-left: 1px solid var(--jv-line);
 }
 
 .scribble-tab {
-    background-color: #fdf6ec;
-    border-color: #ead9bd;
+    background-color: var(--jv-panel-bg-alt);
+    border-color: var(--jv-line);
 }
 
 .scribble-tab.drawing {
-    background-color: #f4ecff;
-    border-color: #6c2fcf;
-    box-shadow: 0 0 0 3px rgba(108, 47, 207, 0.15);
+    background-color: var(--jv-accent-soft);
+    border-color: var(--jv-accent);
+    box-shadow: 0 0 0 3px var(--jv-accent-soft);
 }
 
 .scribble-tab.hidden-layer .spot-tab-name {
-    color: #999;
+    color: var(--jv-muted);
     text-decoration: line-through;
 }
 
@@ -299,12 +299,12 @@
     background: none;
     border: none;
     border-radius: 50%;
-    color: #666;
+    color: var(--jv-muted);
     cursor: var(--cursor-pointer, pointer);
 }
 
 .scribble-tab-eye:hover {
-    background-color: #dee2e6;
+    background-color: var(--jv-hover-bg);
 }
 
 /* 2D / 2.5D camera switch */
@@ -314,8 +314,8 @@
     flex-shrink: 0;
     margin-left: auto;
     padding: 3px;
-    background: #e9ecef;
-    border-radius: 9px;
+    background: var(--jv-hover-bg);
+    border-radius: var(--jv-radius);
 }
 
 .view-toggle button {
@@ -327,13 +327,13 @@
     border: none;
     font-size: 13px;
     font-weight: 700;
-    color: #666;
+    color: var(--jv-muted);
     cursor: var(--cursor-pointer, pointer);
     transition: color 0.2s ease;
 }
 
 .view-toggle button[aria-checked="true"] {
-    color: #fff;
+    color: var(--jv-accent-fg);
 }
 
 .view-toggle-thumb {
@@ -342,9 +342,9 @@
     left: 3px;
     width: 52px;
     bottom: 3px;
-    border-radius: 7px;
-    background: linear-gradient(135deg, #3b1d6e, #6c2fcf);
-    box-shadow: 0 2px 6px rgba(108, 47, 207, 0.35);
+    border-radius: var(--jv-radius);
+    background: linear-gradient(135deg, var(--jv-accent-strong), var(--jv-accent));
+    box-shadow: 0 2px 6px var(--jv-accent-soft);
     transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -360,14 +360,14 @@
 
 /* Prepared scene tabs */
 .scene-tab {
-    background-color: #f4f1fb;
-    border-color: #ddd3f3;
+    background-color: var(--jv-panel-bg-alt);
+    border-color: var(--jv-line);
 }
 
 .scene-tab.active {
-    background-color: #fff;
-    border-color: #6c2fcf;
-    box-shadow: 0 0 0 3px rgba(108, 47, 207, 0.12);
+    background-color: var(--jv-panel-bg);
+    border-color: var(--jv-accent);
+    box-shadow: 0 0 0 3px var(--jv-accent-soft);
 }
 
 .scene-tab .unsaved-name {
@@ -379,16 +379,16 @@
     height: 7px;
     margin-left: 2px;
     border-radius: 50%;
-    background: #e67e22;
+    background: var(--jv-warning);
 }
 
 .scene-discard {
     margin-right: 5px;
     padding: 3px 8px;
-    background: #c0392b;
-    color: #fff;
+    background: var(--jv-danger);
+    color: var(--jv-accent-fg);
     border: none;
-    border-radius: 10px;
+    border-radius: var(--jv-radius);
     font-size: 11px;
     font-weight: 700;
     cursor: var(--cursor-pointer, pointer);
@@ -399,11 +399,11 @@
 .scene-tabs + .spot-tabs {
     margin-left: 12px;
     padding-left: 12px;
-    border-left: 1px solid #e0e0e0;
+    border-left: 1px solid var(--jv-line);
 }
 
 .scribble-tab-export.open {
-    background-color: #dee2e6;
+    background-color: var(--jv-hover-bg);
 }
 
 /* Export menu for a scribble layer */
@@ -412,11 +412,11 @@
     z-index: 1200;
     width: 200px;
     padding: 6px;
-    background: #fffdf7;
-    border: 1px solid #e0d6c2;
-    border-radius: 10px;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--jv-panel-bg-alt);
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-shadow);
+    font-family: var(--jv-font-body);
     animation: spot-tab-in 0.2s ease;
 }
 
@@ -426,7 +426,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #8a7f6a;
+    color: var(--jv-muted);
 }
 
 .layer-export-menu button {
@@ -437,22 +437,22 @@
     padding: 7px 8px;
     background: none;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--jv-radius);
     text-align: left;
     cursor: var(--cursor-pointer, pointer);
 }
 
 .layer-export-menu button:hover {
-    background: #f4ecff;
+    background: var(--jv-accent-soft);
 }
 
 .layer-export-menu button span {
     font-size: 13px;
     font-weight: 600;
-    color: #2c2437;
+    color: var(--jv-panel-fg);
 }
 
 .layer-export-menu button small {
     font-size: 11px;
-    color: #8a7f6a;
+    color: var(--jv-muted);
 }

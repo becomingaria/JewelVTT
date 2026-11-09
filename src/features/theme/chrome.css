@@ -1,0 +1,497 @@
+/*
+ * The window system: bevels, title bars, pixel shadows and fonts for the
+ * app chrome, built only from the --jv-* tokens. Component files keep their
+ * layout; this file gives every surface the same old-school frame.
+ *
+ * Selectors are prefixed with `html` so they win over a component's base
+ * rule regardless of stylesheet order, while the component's :hover / .on /
+ * .active states (two classes) still win over them.
+ */
+
+/* ------------------------------------------------------------- base */
+html body {
+    font-family: var(--jv-font-body);
+    color: var(--jv-panel-fg);
+}
+
+html :is(button, input, select, textarea) {
+    font-family: inherit;
+}
+
+/* Chrome scrollbars follow the theme */
+html :is(.sidebar-content, .how-to-nav, .how-to-body, .humbug-modal-body, .token-library-content,
+        .board-file-list, .tool-dock, .jv-settings-body) {
+    scrollbar-color: var(--jv-bevel-dark) var(--jv-panel-bg-alt);
+}
+
+/* ------------------------------------------------------ focus ring */
+/* A gold ring with a dark inner edge reads on light and dark surfaces. */
+:focus-visible {
+    outline: var(--jv-focus-width) solid var(--jv-focus) !important;
+    outline-offset: var(--jv-focus-gap) !important;
+    box-shadow: 0 0 0 var(--jv-focus-gap) var(--jv-focus-edge);
+}
+
+/* ------------------------------------------------- display font */
+html :is(.sidebar-header h3, .modal-header h3, .humbug-modal-header h3, .how-to-header h2,
+        .how-to-body h3, .image-cropper-header h3, .token-library-header h3, .board-file-dialog h3,
+        .jv-display) {
+    font-family: var(--jv-font-display);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+html :is(.sidebar-section h4, .context-menu-header, .layer-export-title, .how-to-keys-group h4,
+        .jv-label-font) {
+    font-family: var(--jv-font-label);
+    font-weight: 400;
+    letter-spacing: 0.04em;
+}
+
+/* --------------------------------------------------- window frames */
+html :is(.sidebar, .confirmation-modal, .humbug-modal, .how-to-dialog, .image-cropper-modal,
+        .board-file-dialog, .token-library-drawer, .context-menu, .humbug-context-menu,
+        .dropdown-menu, .layer-export-menu, .scribble-toolbar, .tool-dock, .color-picker-dropdown,
+        .jv-window) {
+    background-color: var(--jv-panel-bg);
+    color: var(--jv-panel-fg);
+    border: var(--jv-border-w) solid var(--jv-panel-border);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-bevel-out), var(--jv-shadow);
+}
+
+/* Edge-docked bars keep only their inner edge */
+html .top-bar {
+    background-color: var(--jv-panel-bg);
+    border: 0;
+    border-bottom: var(--jv-border-w) solid var(--jv-panel-border);
+    box-shadow: inset 0 2px 0 var(--jv-bevel-light), inset 0 -2px 0 var(--jv-bevel-dark);
+    color: var(--jv-panel-fg);
+}
+
+html .apron {
+    background-color: var(--jv-panel-bg);
+    border: 0;
+    border-top: var(--jv-border-w) solid var(--jv-panel-border);
+    box-shadow: inset 0 2px 0 var(--jv-bevel-light), inset 0 -2px 0 var(--jv-bevel-dark);
+}
+
+html .sidebar {
+    border-width: 0 var(--jv-border-w) 0 0;
+    border-radius: 0;
+}
+
+html .token-library-drawer {
+    border-width: 0 0 0 var(--jv-border-w);
+    border-radius: 0;
+}
+
+/* Inner panes sit in a lighter well */
+html :is(.how-to-body, .board-file-body) {
+    background-color: var(--jv-panel-bg-alt);
+}
+
+/* ------------------------------------------------------ title bars */
+html :is(.sidebar-header, .modal-header, .humbug-modal-header, .how-to-header,
+        .image-cropper-header, .token-library-header, .board-file-dialog header, .jv-titlebar) {
+    background: var(--jv-dither), var(--jv-titlebar-bg);
+    color: var(--jv-titlebar-fg);
+    border-bottom: var(--jv-border-w) solid var(--jv-panel-border);
+}
+
+html :is(.sidebar-header, .modal-header, .humbug-modal-header, .how-to-header,
+        .image-cropper-header, .token-library-header, .board-file-dialog header, .jv-titlebar)
+    :is(h2, h3) {
+    color: inherit;
+}
+
+html .board-file-dialog header {
+    padding-bottom: 14px;
+    margin-bottom: 8px;
+}
+
+/* Title-bar close buttons: small bevelled squares */
+html :is(.sidebar-header, .humbug-modal-header, .image-cropper-header, .token-library-header,
+        .board-file-dialog header, .how-to-header, .jv-titlebar)
+    :is(.close-button, .how-to-close, .token-library-close, .board-file-close, .jv-close) {
+    width: 32px;
+    height: 32px;
+    background: var(--jv-panel-bg);
+    color: var(--jv-panel-fg);
+    border: var(--jv-border-w) solid var(--jv-panel-border);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-bevel-out);
+}
+
+html :is(.sidebar-header, .humbug-modal-header, .image-cropper-header, .token-library-header,
+        .board-file-dialog header, .how-to-header, .jv-titlebar)
+    :is(.close-button, .how-to-close, .token-library-close, .board-file-close, .jv-close):hover {
+    background: var(--jv-hover-bg);
+    color: var(--jv-panel-fg);
+}
+
+html :is(.sidebar-header, .humbug-modal-header, .image-cropper-header, .token-library-header,
+        .board-file-dialog header, .how-to-header, .jv-titlebar)
+    :is(.close-button, .how-to-close, .token-library-close, .board-file-close, .jv-close):active {
+    box-shadow: var(--jv-bevel-in);
+}
+
+/* Small menu headers: a thin title strip */
+html :is(.context-menu-header, .humbug-context-menu-header) {
+    background: var(--jv-dither), var(--jv-titlebar-bg);
+    color: var(--jv-titlebar-fg);
+    border-bottom: var(--jv-border-w) solid var(--jv-panel-border);
+}
+
+/* --------------------------------------------------------- buttons */
+html :is(.sidebar-button, .sidebar-gear, .modal-button, .tool-button, .cancel-button,
+        .create-button, .crop-button, .file-button, .board-file-actions button,
+        .local-folder-actions button, .texture-scale-preset, .token-library-retry,
+        .scribble-toolbar-done, .party-upload, .jv-button) {
+    border: var(--jv-border-w) solid var(--jv-panel-border);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-bevel-out);
+    transform: none;
+}
+
+html :is(.sidebar-button, .sidebar-gear, .modal-button, .tool-button, .cancel-button,
+        .create-button, .crop-button, .file-button, .board-file-actions button,
+        .local-folder-actions button, .texture-scale-preset, .token-library-retry,
+        .scribble-toolbar-done, .party-upload, .jv-button):is(:active, .active, .on, .open) {
+    box-shadow: var(--jv-bevel-in);
+}
+
+/* Buttons nudge down a pixel when pressed, like a real bevel */
+html :is(.sidebar-button, .modal-button, .tool-button, .cancel-button, .create-button,
+        .crop-button, .board-file-actions button, .jv-button):active:not(:disabled) {
+    translate: 1px 1px;
+}
+
+html :is(.sidebar-button:hover, .modal-button:hover) {
+    transform: none;
+}
+
+/* Primary actions use the accent */
+html :is(.create-button, .crop-button, .scribble-toolbar-done, .board-file-actions button,
+        .jv-button-primary) {
+    background-color: var(--jv-accent);
+    color: var(--jv-accent-fg);
+}
+
+html :is(.create-button, .crop-button, .scribble-toolbar-done, .board-file-actions button,
+        .jv-button-primary):hover:not(:disabled) {
+    background-color: var(--jv-accent-strong);
+    color: var(--jv-accent-fg);
+}
+
+html .board-file-actions button.secondary {
+    background-color: var(--jv-panel-bg);
+    color: var(--jv-panel-fg);
+}
+
+html :is(.board-file-actions button.danger, .modal-button-confirm, .sidebar-button-danger) {
+    background-color: var(--jv-danger) !important;
+    color: var(--jv-danger-fg) !important;
+}
+
+html :is(.board-file-actions button.danger, .modal-button-confirm, .sidebar-button-danger):hover {
+    background-color: var(--jv-danger-strong) !important;
+}
+
+html .sidebar-button-danger .button-icon {
+    color: var(--jv-danger-fg);
+}
+
+html :is(.sidebar-button, .tool-button, .cancel-button, .sidebar-gear, .file-button,
+        .modal-button-cancel, .local-folder-actions button) {
+    background-color: var(--jv-panel-bg);
+    color: var(--jv-panel-fg);
+}
+
+html :is(.sidebar-button, .tool-button, .cancel-button, .sidebar-gear, .file-button,
+        .modal-button-cancel, .local-folder-actions button):hover {
+    background-color: var(--jv-hover-bg);
+}
+
+html .tool-button.active,
+html .tool-button.active .jicon {
+    background-color: var(--jv-accent);
+    color: var(--jv-accent-fg);
+}
+
+/* The how-to entry in the menu gets a gentle accent */
+html .sidebar-how-to {
+    background: var(--jv-accent-soft);
+    color: var(--jv-panel-fg);
+}
+
+/* ---------------------------------------------------- text fields */
+html :is(.text-input, .url-input, .token-library-search, .board-file-body input:not([type="checkbox"]),
+        .humbug-modal input[type="number"], .humbug-modal select, .humbug-modal textarea,
+        .jv-field) {
+    background-color: var(--jv-field-bg);
+    color: var(--jv-field-fg);
+    border: var(--jv-border-w) solid var(--jv-panel-border);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-bevel-in);
+}
+
+html ::placeholder {
+    color: var(--jv-muted);
+    opacity: 1;
+}
+
+/* ------------------------------------------------- top bar pieces */
+html :is(.spot-tab, .scene-tab, .scribble-tab) {
+    background-color: var(--jv-panel-bg-alt);
+    color: var(--jv-panel-fg);
+    border: var(--jv-border-w) solid var(--jv-line);
+    border-radius: var(--jv-radius);
+}
+
+html .scene-tab.active {
+    background-color: var(--jv-field-bg);
+    border-color: var(--jv-panel-border);
+    box-shadow: inset 0 -3px 0 var(--jv-accent);
+}
+
+html .scribble-tab.drawing {
+    border-color: var(--jv-accent);
+    box-shadow: inset 0 -3px 0 var(--jv-accent);
+}
+
+html .view-toggle {
+    background: var(--jv-panel-bg-alt);
+    border: var(--jv-border-w) solid var(--jv-panel-border);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-bevel-in);
+}
+
+html .view-toggle button {
+    color: var(--jv-panel-fg);
+}
+
+html .view-toggle button[aria-checked="true"] {
+    color: var(--jv-accent-fg);
+}
+
+html .view-toggle-thumb {
+    background: var(--jv-dither), var(--jv-accent);
+    border-radius: var(--jv-radius);
+    box-shadow: none;
+}
+
+html .hamburger-line {
+    background-color: var(--jv-panel-fg);
+}
+
+/* Unsaved scene: a dot plus a shape so colour isn't the only signal */
+html .scene-dirty {
+    border-radius: 0;
+    transform: rotate(45deg);
+}
+
+/* ----------------------------------------------------- tool dock */
+html .tool-dock-group + .tool-dock-group {
+    border-top: 2px dotted var(--jv-line);
+}
+
+html .tool-dock-btn {
+    color: var(--jv-panel-fg);
+    border-radius: var(--jv-radius);
+}
+
+html .tool-dock-btn.on {
+    background: var(--jv-dither), var(--jv-accent);
+    border-color: var(--jv-panel-border);
+    color: var(--jv-accent-fg);
+    box-shadow: var(--jv-bevel-in);
+}
+
+html .tool-dock-key {
+    font-family: var(--jv-font-mono);
+}
+
+/* ---------------------------------------------------- toggles */
+html .toggle-switch {
+    border-radius: 0;
+    background-color: var(--jv-bevel-dark);
+    border: 2px solid var(--jv-panel-border);
+    box-shadow: var(--jv-bevel-in);
+}
+
+html .toggle-switch::after {
+    top: 0;
+    left: 0;
+    border-radius: 0;
+    background: var(--jv-panel-bg);
+    box-shadow: var(--jv-bevel-out);
+}
+
+html .toggle-switch.on {
+    background-color: var(--jv-success);
+}
+
+/* --------------------------------------------------------- toasts */
+html .toast {
+    background-color: var(--jv-inverse-bg);
+    color: var(--jv-inverse-fg);
+    border: var(--jv-border-w) solid var(--jv-panel-border);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-shadow);
+}
+
+html .toast-error {
+    background-color: var(--jv-danger);
+    color: var(--jv-danger-fg);
+}
+
+/* --------------------------------------------------- how-to dialog */
+html .how-to-nav {
+    background-color: var(--jv-panel-bg);
+    border-right: var(--jv-border-w) solid var(--jv-line);
+}
+
+html .how-to-nav-item.active {
+    background-color: var(--jv-field-bg);
+    color: var(--jv-panel-fg);
+    box-shadow: var(--jv-bevel-in);
+}
+
+html .how-to-kbd,
+html .sidebar-kbd {
+    font-family: var(--jv-font-mono);
+    background: var(--jv-field-bg);
+    color: var(--jv-panel-fg);
+    border: 1px solid var(--jv-panel-border);
+    border-bottom-width: 3px;
+    border-radius: var(--jv-radius);
+}
+
+html .how-to-note {
+    background: var(--jv-panel-bg);
+    border-left: 4px solid var(--jv-accent);
+    color: var(--jv-panel-fg);
+}
+
+/* --------------------------------------------- selected tiles/rows */
+html :is(.board-style-option.selected, .option-tile.selected, .new-board-kind.selected) {
+    border-color: var(--jv-accent);
+    box-shadow: 0 0 0 2px var(--jv-accent);
+}
+
+/* ---------------------------------------------------- ui scale */
+/* Panels and chrome grow with --ui-scale. Zoom scales px and vh/vw lengths
+   on the zoomed element, so viewport-sized rules divide by the scale. */
+html :is(.top-bar, .apron, .scribble-toolbar, .toast, .confirmation-modal, .humbug-modal,
+        .how-to-dialog, .board-file-dialog, .token-library-drawer) {
+    zoom: var(--ui-scale, 1);
+}
+
+html .sidebar {
+    zoom: var(--ui-scale, 1);
+    height: calc(100vh / var(--ui-scale, 1));
+}
+
+html .humbug-modal {
+    max-height: calc(80vh / var(--ui-scale, 1));
+}
+
+html .how-to-dialog {
+    width: min(880px, calc((100vw - 32px) / var(--ui-scale, 1)));
+    height: min(640px, calc((100vh - 48px) / var(--ui-scale, 1)));
+}
+
+html .board-file-dialog {
+    width: min(460px, calc((100vw - 32px) / var(--ui-scale, 1)));
+    max-height: min(560px, calc((100vh - 48px) / var(--ui-scale, 1)));
+}
+
+html .token-library-drawer {
+    max-width: calc(100vw / var(--ui-scale, 1));
+}
+
+html .tool-dock {
+    max-height: calc((100vh - var(--apron-height, 0px)) / var(--ui-scale, 1) - 88px);
+}
+
+/* Menus open at the pointer: scale their contents, not their position */
+html :is(.context-menu, .humbug-context-menu, .layer-export-menu) > * {
+    zoom: var(--ui-scale, 1);
+}
+
+html .humbug-context-menu {
+    max-width: calc(250px * var(--ui-scale, 1));
+}
+
+html .layer-export-menu {
+    width: calc(200px * var(--ui-scale, 1));
+}
+
+/* ---------------------------------------------------- high contrast */
+html[data-high-contrast] :is(.sidebar, .confirmation-modal, .humbug-modal, .how-to-dialog,
+        .image-cropper-modal, .board-file-dialog, .token-library-drawer, .context-menu,
+        .humbug-context-menu, .dropdown-menu, .layer-export-menu, .scribble-toolbar, .tool-dock,
+        .toast, .jv-window) {
+    box-shadow: none;
+}
+
+html[data-high-contrast] :is(.sidebar-overlay, .modal-overlay, .humbug-modal-backdrop,
+        .how-to-backdrop, .board-file-backdrop, .token-library-overlay) {
+    backdrop-filter: none;
+}
+
+/* --------------------------------------------- reduced motion */
+html[data-reduced-motion] *,
+html[data-reduced-motion] *::before,
+html[data-reduced-motion] *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+}
+
+/* ------------------------------------------------ readable font */
+html[data-readable-font] body,
+html[data-readable-font] body * {
+    font-family: var(--jv-font-body) !important;
+    letter-spacing: normal;
+}
+
+/* ------------------------------------------------------ CRT */
+/* Static scanlines and a soft vignette over everything. Never animates. */
+html[data-crt] body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    pointer-events: none;
+    background:
+        repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 3px),
+        radial-gradient(ellipse at center, transparent 62%, rgba(0, 0, 0, 0.22) 100%);
+}
+
+html[data-crt][data-high-contrast] body::after {
+    background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px);
+}
+
+/* --------------------------------------------- feature help text */
+html .how-to-body .jv-help-h {
+    margin: 14px 0 4px;
+    font-family: var(--jv-font-label);
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+html .how-to-body .jv-help-list {
+    margin: 0 0 10px;
+    padding-left: 22px;
+}
+
+html .how-to-body .jv-help-list li + li {
+    margin-top: 4px;
+}

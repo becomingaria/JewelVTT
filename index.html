@@ -5,6 +5,28 @@
         <link rel="icon" type="image/svg+xml" href="/jewelvtt.svg" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Jewel VTT</title>
+        <!-- Pixel display fonts (SIL Open Font License), for headings only -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Silkscreen&display=swap"
+        />
+        <script>
+            // Apply the saved theme before the first paint (no flash of the
+            // default theme). The app re-applies every preference on start.
+            try {
+                var p = JSON.parse(localStorage.getItem("jewel:prefs") || "{}")
+                var el = document.documentElement
+                el.setAttribute("data-theme", p.theme || "default")
+                if (p.highContrast) el.setAttribute("data-high-contrast", "")
+                if (p.readableFont) el.setAttribute("data-readable-font", "")
+                if (p.reducedMotion === "on") el.setAttribute("data-reduced-motion", "")
+                if (p.uiScale) el.style.setProperty("--ui-scale", String(p.uiScale))
+            } catch (e) {
+                /* storage unavailable: defaults */
+            }
+        </script>
     </head>
     <body>
         <div id="root"></div>

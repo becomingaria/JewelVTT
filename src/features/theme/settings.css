@@ -1,0 +1,420 @@
+/* Settings dialog (theme feature). Frame and title bar come from chrome.css. */
+
+.jv-settings-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 5700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* light, so theme changes can be judged behind the panel */
+    background: color-mix(in srgb, var(--jv-overlay) 60%, transparent);
+}
+
+.jv-settings {
+    zoom: var(--ui-scale, 1);
+    width: min(640px, calc((100vw - 32px) / var(--ui-scale, 1)));
+    max-height: min(720px, calc((100vh - 32px) / var(--ui-scale, 1)));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--jv-font-body);
+}
+
+.jv-settings-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px 8px 14px;
+}
+
+.jv-settings-titlebar h2 {
+    flex: 1;
+    margin: 0;
+    font-size: 20px;
+}
+
+.jv-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+/* ------------------------------------------------------------- tabs */
+.jv-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 12px 0;
+    border-bottom: var(--jv-border-w) solid var(--jv-panel-border);
+}
+
+.jv-tab {
+    min-height: 36px;
+    padding: 6px 14px;
+    margin-bottom: calc(var(--jv-border-w) * -1);
+    background: var(--jv-panel-bg);
+    color: var(--jv-panel-fg);
+    border: var(--jv-border-w) solid var(--jv-panel-border);
+    border-bottom-color: transparent;
+    border-radius: var(--jv-radius) var(--jv-radius) 0 0;
+    box-shadow: inset 2px 2px 0 var(--jv-bevel-light);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.jv-tab:hover {
+    background: var(--jv-hover-bg);
+}
+
+.jv-tab.active {
+    background: var(--jv-panel-bg-alt);
+    border-bottom-color: var(--jv-panel-bg-alt);
+    box-shadow: inset 0 3px 0 var(--jv-accent);
+}
+
+.jv-settings-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--jv-panel-bg-alt);
+    color: var(--jv-panel-fg);
+}
+
+/* ------------------------------------------------------------- rows */
+.jv-set-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 12px;
+    background: var(--jv-panel-bg);
+    border: 1px solid var(--jv-line);
+    border-radius: var(--jv-radius);
+}
+
+.jv-set-row.is-disabled .jv-set-text {
+    opacity: 0.75;
+}
+
+.jv-set-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.jv-set-text strong {
+    font-size: 15px;
+}
+
+.jv-set-text small,
+.jv-choice small {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--jv-muted);
+}
+
+.jv-set-row--slider {
+    flex-wrap: wrap;
+    row-gap: 6px;
+}
+
+.jv-set-row--slider .jv-set-text {
+    flex-basis: 100%;
+}
+
+.jv-set-row-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.jv-set-row-wrap .jv-set-row {
+    flex: 1;
+}
+
+.jv-set-inline-button {
+    min-width: 88px;
+    min-height: 40px;
+    padding: 0 12px;
+    font-weight: 600;
+}
+
+.jv-button {
+    background: var(--jv-panel-bg);
+    color: var(--jv-panel-fg);
+}
+
+.jv-button:hover {
+    background: var(--jv-hover-bg);
+}
+
+.jv-set-note {
+    margin: 4px 2px 0;
+    font-size: 13px;
+    color: var(--jv-muted);
+}
+
+/* ------------------------------------------- pixel switch (checkbox) */
+.jv-switch {
+    appearance: none;
+    flex-shrink: 0;
+    position: relative;
+    width: 52px;
+    height: 32px;
+    margin: 0;
+    background: var(--jv-field-bg);
+    border: var(--jv-border-w) solid var(--jv-panel-border);
+    border-radius: var(--jv-radius);
+    box-shadow: var(--jv-bevel-in);
+    cursor: var(--cursor-pointer, pointer);
+}
+
+/* The knob, with OFF/ON spelled out so the state isn't colour-only */
+.jv-switch::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 22px;
+    background: var(--jv-panel-bg);
+    border: 1px solid var(--jv-panel-border);
+    box-shadow: var(--jv-bevel-out);
+    transition: transform 0.12s steps(3);
+}
+
+.jv-switch::after {
+    content: "OFF";
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    font: 700 10px/1 var(--jv-font-body);
+    color: var(--jv-panel-fg);
+}
+
+.jv-switch:checked {
+    background: var(--jv-accent);
+}
+
+.jv-switch:checked::before {
+    transform: translateX(22px);
+}
+
+.jv-switch:checked::after {
+    content: "ON";
+    left: 6px;
+    right: auto;
+    color: var(--jv-accent-fg);
+}
+
+.jv-switch:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------ slider */
+.jv-slider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 220px;
+}
+
+.jv-slider input {
+    flex: 1;
+    min-height: 32px;
+    accent-color: var(--jv-accent);
+}
+
+.jv-slider-value {
+    min-width: 48px;
+    padding: 3px 6px;
+    text-align: center;
+    font-family: var(--jv-font-mono);
+    font-size: 13px;
+    background: var(--jv-field-bg);
+    color: var(--jv-field-fg);
+    border: 1px solid var(--jv-panel-border);
+    box-shadow: var(--jv-bevel-in);
+}
+
+/* ------------------------------------------------------ fieldsets */
+.jv-set-group {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.jv-set-legend {
+    padding: 0 2px 6px;
+    font-family: var(--jv-font-label);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--jv-panel-fg);
+}
+
+/* Visually hidden radios: the whole card is the target */
+.jv-theme-card input,
+.jv-choice input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+
+/* --------------------------------------------------- theme previews */
+.jv-theme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 8px;
+}
+
+.jv-theme-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+    background: var(--jv-panel-bg);
+    border: var(--jv-border-w) solid var(--jv-line);
+    border-radius: var(--jv-radius);
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.jv-theme-card:hover {
+    background: var(--jv-hover-bg);
+}
+
+.jv-theme-card.selected {
+    border-color: var(--jv-accent);
+    box-shadow: 0 0 0 2px var(--jv-accent);
+}
+
+/* A tick so the choice isn't shown by colour alone */
+.jv-theme-card.selected::after {
+    content: "✓";
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    padding: 0 4px;
+    font-weight: 700;
+    background: var(--jv-accent);
+    color: var(--jv-accent-fg);
+}
+
+.jv-theme-card:has(input:focus-visible) {
+    outline: var(--jv-focus-width) solid var(--jv-focus);
+    outline-offset: var(--jv-focus-gap);
+    box-shadow: 0 0 0 var(--jv-focus-gap) var(--jv-focus-edge);
+}
+
+.jv-theme-preview {
+    display: flex;
+    flex-direction: column;
+    height: 58px;
+    border: 2px solid;
+    overflow: hidden;
+}
+
+.jv-theme-preview-title {
+    padding: 1px 4px;
+    font: 600 10px/1.4 var(--jv-font-display);
+}
+
+.jv-theme-preview-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 5px 6px;
+}
+
+.jv-theme-preview-body > span {
+    display: block;
+    width: 85%;
+    height: 3px;
+}
+
+.jv-theme-preview-body > .btn {
+    width: 28px;
+    height: 9px;
+    margin-top: auto;
+    align-self: flex-end;
+}
+
+.jv-theme-name {
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* ----------------------------------------------------- motion choice */
+.jv-choice-list {
+    display: grid;
+    gap: 6px;
+}
+
+.jv-choice {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px 9px 38px;
+    background: var(--jv-panel-bg);
+    border: var(--jv-border-w) solid var(--jv-line);
+    border-radius: var(--jv-radius);
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.jv-choice:hover {
+    background: var(--jv-hover-bg);
+}
+
+.jv-choice span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Pixel radio dot */
+.jv-choice::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    width: 14px;
+    height: 14px;
+    background: var(--jv-field-bg);
+    border: 2px solid var(--jv-panel-border);
+    box-shadow: var(--jv-bevel-in);
+}
+
+.jv-choice.selected {
+    border-color: var(--jv-accent);
+}
+
+.jv-choice.selected::before {
+    background: var(--jv-accent);
+    box-shadow: inset 0 0 0 3px var(--jv-field-bg);
+}
+
+.jv-choice:has(input:focus-visible) {
+    outline: var(--jv-focus-width) solid var(--jv-focus);
+    outline-offset: var(--jv-focus-gap);
+    box-shadow: 0 0 0 var(--jv-focus-gap) var(--jv-focus-edge);
+}
+
+@media (max-width: 520px) {
+    .jv-set-row-wrap {
+        flex-direction: column;
+    }
+}
