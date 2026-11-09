@@ -65,6 +65,14 @@ function matchWord(word: string, text: string, lower: string): FuzzyMatch | null
     // back to a plain left-to-right walk if jumping ahead loses the match
     const indices = subsequence(word, text, lower, true) ?? subsequence(word, text, lower, false)
     if (!indices) return null
+    // Reject scattered letters: every matched letter must start a word or
+    // continue a run ("cmt" -> Change Map Type, "trch" -> Torch), with one
+    // loose letter allowed in longer queries. Stops "fog" matching
+    // "Freef(o)rm ... (g)rid".
+    const loose = indices.filter(
+        (i, k) => !isWordStart(text, i) && !(k > 0 && indices[k - 1] === i - 1)
+    ).length
+    if (loose > (word.length >= 4 ? 1 : 0)) return null
     let score = 0
     for (let k = 0; k < indices.length; k++) {
         const i = indices[k]
