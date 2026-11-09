@@ -26,6 +26,7 @@ import { SCRIBBLE_COLORS } from "./types/scribble.types"
 import { ScribbleToolbar } from "./components/ScribbleToolbar"
 import { exportScribbleLayer } from "./utils/scribble-art"
 import {
+    applyBoardSlices,
     openBoardFromFile,
     useBoardSlice,
 } from "./utils/board-store"
@@ -338,6 +339,16 @@ function App() {
         setIsSidebarOpen(false)
     }
 
+    // Esc closes the menu (dialogs inside it handle their own Esc first)
+    useEffect(() => {
+        if (!isSidebarOpen) return
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && !e.defaultPrevented) setIsSidebarOpen(false)
+        }
+        window.addEventListener("keydown", onKey)
+        return () => window.removeEventListener("keydown", onKey)
+    }, [isSidebarOpen])
+
     const handleToggleGridLines = () => {
         setShowGridLines((prev) => !prev)
     }
@@ -404,8 +415,13 @@ function App() {
     }
 
     const handleNewBoard = (kind: MapKind = "freeform") => {
+        // Get the menu out of the way so the new board is visible
+        setIsSidebarOpen(false)
         // With scenes open, the new board gets its own tab (keeps the others)
         local.startNewSceneIfNeeded()
+        // Reset every saved slice (core and features: floors, terrain, fog,
+        // frames, initiative...) to its empty default
+        applyBoardSlices({})
         // The map kind picks the grid, style and tools the board starts with
         const defaults = mapKindDefaults(kind)
         mapKindStore.set(kind)
