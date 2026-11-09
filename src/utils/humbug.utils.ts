@@ -68,7 +68,16 @@ export function snapForGrid(
     size: { width: number; height: number },
     shape: "square" | "hex"
 ): Point {
-    if (shape !== "hex") return snapToGrid(position, 32)
+    if (shape !== "hex") {
+        // Smaller than a square (Tiny): sit in the middle of a cell
+        if (size.width < 32 && size.height < 32) {
+            const col = Math.floor((position.x + size.width / 2) / 32)
+            const row = Math.floor((position.y + size.height / 2) / 32)
+            return { x: col * 32 + (32 - size.width) / 2, y: row * 32 + (32 - size.height) / 2 }
+        }
+        // Whole-cell sizes (1, 2, 3, 4...) fill whole cells from a grid corner
+        return snapToGrid(position, 32)
+    }
     const c = nearestHexCenter(position.x + size.width / 2, position.y + size.height / 2)
     return { x: c.x - size.width / 2, y: c.y - size.height / 2 }
 }
