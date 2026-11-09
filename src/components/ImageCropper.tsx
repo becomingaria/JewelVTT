@@ -10,6 +10,42 @@ const PIXEL_CURSORS: Record<string, string> = {
 }
 import "./ImageCropper.css"
 
+/** True for images the page can always read back (same site, data:, blob:) */
+const isReadable = (url: string) => {
+    if (url.startsWith("data:") || url.startsWith("blob:")) return true
+    try {
+        return new URL(url, window.location.href).origin === window.location.origin
+    } catch {
+        return false
+    }
+}
+
+/** Does this image load (optionally in CORS mode)? */
+const probe = (src: string, cors: boolean) =>
+    new Promise<boolean>((resolve) => {
+        const img = new Image()
+        if (cors) img.crossOrigin = "anonymous"
+        img.onload = () => resolve(true)
+        img.onerror = () => resolve(false)
+        img.src = src
+    })
+
+/**
+ * Find a way to load `url` that lets us read its pixels back for cropping:
+ * same-site as-is; otherwise CORS mode (works when the host allows it);
+ * otherwise through the dev server's image fetcher. Null if none work.
+ */
+async function resolveCroppableSource(
+    url: string
+): Promise<{ src: string; crossOrigin?: "anonymous" } | null> {
+    if (isReadable(url)) return { src: url }
+    if (await probe(url, true)) return { src: url, crossOrigin: "anonymous" }
+    const absolute = new URL(url, window.location.href).href
+    const proxied = `${import.meta.env.BASE_URL}__image-proxy?url=${encodeURIComponent(absolute)}`
+    if (await probe(proxied, false)) return { src: proxied }
+    return null
+}
+
 interface CropArea {
     x: number
     y: number
@@ -47,6 +83,28 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
         height: 0,
     })
     const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 })
+    // Where the <img> actually loads from (see resolveCroppableSource)
+    const [source, setSource] = useState<{ src: string; crossOrigin?: "anonymous" } | null>(null)
+    const [loadError, setLoadError] = useState<string | null>(null)
+
+    useEffect(() => {
+        let cancelled = false
+        setSource(null)
+        setLoadError(null)
+        setImageLoaded(false)
+        resolveCroppableSource(imageUrl).then((s) => {
+            if (cancelled) return
+            if (s) setSource(s)
+            else
+                setLoadError(
+                    "This website doesn't let other apps edit its images, so it can't be cropped here. " +
+                        "You can still use it as it is, or download it and pick it with Choose File to crop."
+                )
+        })
+        return () => {
+            cancelled = true
+        }
+    }, [imageUrl])
 
     const drawCanvas = useCallback(() => {
         const canvas = canvasRef.current
@@ -360,9 +418,16 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
             sourceHeight
         )
 
-        // Convert to data URL and call onCrop
-        const croppedImageDataUrl = cropCanvas.toDataURL("image/png")
-        onCrop(croppedImageDataUrl)
+        // Convert to data URL and call onCrop. Reading pixels back can still be
+        // refused for some cross-site images; explain instead of failing silently.
+        try {
+            onCrop(cropCanvas.toDataURL("image/png"))
+        } catch {
+            setLoadError(
+                "This image can't be cropped because its website doesn't allow it. " +
+                    "You can still use it as it is, or download it and pick it with Choose File to crop."
+            )
+        }
     }
 
     const handleOverlayClick = (e: React.MouseEvent) => {
@@ -451,13 +516,26 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
 
                 <div className='image-cropper-content'>
                     <div className='canvas-container'>
-                        <img
-                            ref={imageRef}
-                            src={imageUrl}
-                            onLoad={handleImageLoad}
-                            style={{ display: "none" }}
-                            alt='Source'
-                        />
+                        {source && (
+                            <img
+                                ref={imageRef}
+                                src={source.src}
+                                crossOrigin={source.crossOrigin}
+                                onLoad={handleImageLoad}
+                                onError={() => setLoadError("The image couldn't be loaded.")}
+                                style={{ display: "none" }}
+                                alt='Source'
+                            />
+                        )}
+                        {!source && !loadError && (
+                            <div className='image-cropper-status'>Loading image…</div>
+                        )}
+                        {loadError && (
+                            <div className='image-cropper-status image-cropper-error' role='alert'>
+                                <Icon name='image' size={28} />
+                                <p>{loadError}</p>
+                            </div>
+                        )}
                         <canvas
                             ref={canvasRef}
                             onMouseDown={handleMouseDown}
@@ -467,20 +545,26 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
                         />
                     </div>
 
-                    <div className='crop-info'>
-                        <p>Click and drag the crop area to reposition it</p>
-                        <p>
-                            Crop selection: {Math.round(cropArea.width)} ×{" "}
-                            {Math.round(cropArea.height)} pixels
-                        </p>
-                    </div>
+                    {!loadError && (
+                        <div className='crop-info'>
+                            <p>Click and drag the crop area to reposition it</p>
+                            <p>
+                                Crop selection: {Math.round(cropArea.width)} ×{" "}
+                                {Math.round(cropArea.height)} pixels
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 <div className='image-cropper-actions'>
                     <button onClick={onCancel} className='cancel-button'>
-                        Cancel
+                        {loadError ? "Close" : "Cancel"}
                     </button>
-                    <button onClick={handleCrop} className='crop-button'>
+                    <button
+                        onClick={handleCrop}
+                        className='crop-button'
+                        disabled={!imageLoaded || !!loadError}
+                    >
                         Crop Image
                     </button>
                 </div>

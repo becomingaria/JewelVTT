@@ -1,7 +1,14 @@
 import React, { useEffect, useRef, useState } from "react"
 import { Icon } from "./Icon"
 import { TokenLibraryDrawer } from "./TokenLibraryDrawer"
-import { MAX_PARTY, loadParty, saveParty, type PartyMember } from "../utils/party"
+import {
+    MAX_PARTY,
+    loadParty,
+    notifyPartyChanged,
+    onPartyChanged,
+    saveParty,
+    type PartyMember,
+} from "../utils/party"
 import { ADD_PARTY_EVENT } from "../utils/view-events"
 import { showToast } from "../utils/toast"
 import "./PartySection.css"
@@ -9,22 +16,33 @@ import "./PartySection.css"
 const newId = () => `pc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
 
 /** "My Party" in the menu: up to 8 preset tokens dropped onto the board at once */
-export const PartySection: React.FC<{ onAdded: () => void }> = ({ onAdded }) => {
+export const PartySection: React.FC<{ onAdded: () => void; isOpen: boolean }> = ({
+    onAdded,
+    isOpen,
+}) => {
     const [party, setParty] = useState<PartyMember[]>([])
     const [loaded, setLoaded] = useState(false)
     const [picking, setPicking] = useState(false)
     const fileRef = useRef<HTMLInputElement>(null)
 
+    // Load the party: on start, whenever the menu opens, and whenever it
+    // changes elsewhere ("Add to Party", or another open tab)
     useEffect(() => {
-        loadParty().then((p) => {
-            setParty(p)
-            setLoaded(true)
-        })
-    }, [])
+        if (!isOpen && loaded) return
+        const load = () =>
+            loadParty().then((p) => {
+                setParty(p)
+                setLoaded(true)
+            })
+        void load()
+        return onPartyChanged(() => void load())
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen])
 
     const update = (next: PartyMember[]) => {
         setParty(next)
-        if (loaded) void saveParty(next)
+        // Tell the rest of the app (e.g. the token right-click menu)
+        if (loaded) void saveParty(next).then(notifyPartyChanged)
     }
 
     const addMember = (imageUrl: string, name: string) => {

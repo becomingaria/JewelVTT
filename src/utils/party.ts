@@ -40,3 +40,68 @@ export function pipLayout(count: number): [number, number][] {
     ]
     return layouts[Math.max(0, Math.min(MAX_PARTY, count))]
 }
+
+/** Fired after the party changes outside the menu (e.g. "Add to Party") */
+export const PARTY_CHANGED_EVENT = "jewel:partyChanged"
+
+// Other open Jewel VTT tabs hear about changes too (the party is shared
+// browser storage, so a tab that isn't told would show an old party and
+// could overwrite the real one)
+const partyChannel =
+    typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("jewel-vtt-party") : null
+
+/** Tell this tab and every other open tab that the party changed */
+export function notifyPartyChanged() {
+    window.dispatchEvent(new CustomEvent(PARTY_CHANGED_EVENT))
+    partyChannel?.postMessage("changed")
+}
+
+/** Run `listener` whenever the party changes in this or another tab */
+export function onPartyChanged(listener: () => void) {
+    const fromOtherTab = () => listener()
+    window.addEventListener(PARTY_CHANGED_EVENT, listener)
+    partyChannel?.addEventListener("message", fromOtherTab)
+    return () => {
+        window.removeEventListener(PARTY_CHANGED_EVENT, listener)
+        partyChannel?.removeEventListener("message", fromOtherTab)
+    }
+}
+
+/** A readable name for a token image: its file name, or "Party member N" */
+function nameFromImage(imageUrl: string, fallbackIndex: number) {
+    if (!/^(data|blob):/.test(imageUrl)) {
+        try {
+            const file = decodeURIComponent(new URL(imageUrl, window.location.href).pathname.split("/").pop() ?? "")
+            const name = file.replace(/\.[^.]+$/, "").trim()
+            if (name) return name
+        } catch {
+            /* fall through */
+        }
+    }
+    return `Party member ${fallbackIndex}`
+}
+
+/** Add a token image to the party. Duplicates and a full party are refused. */
+export async function addToParty(imageUrl: string): Promise<"added" | "exists" | "full"> {
+    const party = await loadParty()
+    if (party.some((m) => m.imageUrl === imageUrl)) return "exists"
+    if (party.length >= MAX_PARTY) return "full"
+    const member: PartyMember = {
+        id: `pc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        imageUrl,
+        name: nameFromImage(imageUrl, party.length + 1),
+    }
+    await saveParty([...party, member])
+    notifyPartyChanged()
+    return "added"
+}
+
+/** Remove a token image from the party */
+export async function removeFromParty(imageUrl: string): Promise<boolean> {
+    const party = await loadParty()
+    const next = party.filter((m) => m.imageUrl !== imageUrl)
+    if (next.length === party.length) return false
+    await saveParty(next)
+    notifyPartyChanged()
+    return true
+}

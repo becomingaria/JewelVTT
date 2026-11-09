@@ -62,6 +62,8 @@ export async function chooseFolder(): Promise<FileSystemDirectoryHandle | null> 
     try {
         const handle = await picker({ id: "jewel-vtt", mode: "readwrite" })
         await idbSet(STORES.settings, HANDLE_KEY, handle)
+        // Ready-made drop zones for the user's own images
+        await ensureAssetFolders(handle).catch(() => {})
         return handle
     } catch (error) {
         if ((error as DOMException)?.name === "AbortError") return null // cancelled
@@ -124,4 +126,66 @@ export async function writeBoardText(
     const writable = await fileHandle.createWritable()
     await writable.write(text)
     await writable.close()
+}
+
+// ---- Asset subfolders: drop images into <folder>/Tokens and <folder>/Maps
+
+export type AssetKind = "tokens" | "maps"
+export const ASSET_SUBFOLDERS: Record<AssetKind, string> = { tokens: "Tokens", maps: "Maps" }
+const IMAGE_FILE = /\.(png|jpe?g|webp|gif|avif|svg)$/i
+
+/** Make sure the Tokens and Maps subfolders exist */
+export async function ensureAssetFolders(handle: FileSystemDirectoryHandle) {
+    for (const name of Object.values(ASSET_SUBFOLDERS)) {
+        await handle.getDirectoryHandle(name, { create: true })
+    }
+}
+
+export interface FolderImage {
+    name: string
+    file: File
+}
+
+export interface FolderImageTree {
+    name: string
+    path: string[]
+    folders: FolderImageTree[]
+    images: FolderImage[]
+}
+
+/** Images in a folder and its subfolders, sorted by name */
+export async function scanImages(
+    dir: FileSystemDirectoryHandle,
+    path: string[] = []
+): Promise<FolderImageTree> {
+    const folders: FolderImageTree[] = []
+    const images: FolderImage[] = []
+    const entries = (dir as unknown as { values(): AsyncIterable<FileSystemHandle> }).values()
+    for await (const entry of entries) {
+        if (entry.name.startsWith(".")) continue
+        if (entry.kind === "directory") {
+            folders.push(await scanImages(entry as FileSystemDirectoryHandle, [...path, entry.name]))
+        } else if (IMAGE_FILE.test(entry.name)) {
+            images.push({
+                name: entry.name.replace(/\.[^.]+$/, ""),
+                file: await (entry as FileSystemFileHandle).getFile(),
+            })
+        }
+    }
+    const byName = (a: { name: string }, b: { name: string }) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+    return { name: path.at(-1) ?? "", path, folders: folders.sort(byName), images: images.sort(byName) }
+}
+
+/** The local folder's Tokens or Maps subfolder, with permission (needs a click) */
+export async function openAssetFolder(kind: AssetKind): Promise<
+    | { ok: true; root: FileSystemDirectoryHandle; dir: FileSystemDirectoryHandle }
+    | { ok: false; reason: "unsupported" | "no-folder" | "denied" }
+> {
+    if (!isLocalFolderSupported()) return { ok: false, reason: "unsupported" }
+    const root = await getSavedFolder()
+    if (!root) return { ok: false, reason: "no-folder" }
+    if (!(await ensurePermission(root))) return { ok: false, reason: "denied" }
+    const dir = await root.getDirectoryHandle(ASSET_SUBFOLDERS[kind], { create: true })
+    return { ok: true, root, dir }
 }

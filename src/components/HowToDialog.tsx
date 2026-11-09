@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Icon, type IconName } from "./Icon"
-import { HOTKEYS, MOD, formatHotkey, type HotkeyDef } from "../utils/hotkeys"
+import { HOTKEYS, IS_MAC, MOD, formatHotkey, type HotkeyDef } from "../utils/hotkeys"
 import "./HowToDialog.css"
 
 interface HowToDialogProps {
@@ -164,6 +164,11 @@ const SECTIONS: Section[] = [
                     touches is selected with a dashed purple outline. Hold{" "}
                     <Key>Shift</Key> to add to the selection, or press{" "}
                     <Key>{MOD}A</Key> to select everything.
+                </p>
+                <p>
+                    To pick things one at a time, hold <Key>{IS_MAC ? "⌘" : "Ctrl"}</Key> and
+                    click each one. Clicking something that's already selected
+                    takes it back out.
                 </p>
                 <p>
                     Drag any selected object to move the whole group. Use{" "}

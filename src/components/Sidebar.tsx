@@ -256,7 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         <span>
                                             {localFolder.needsPermission
                                                 ? "Will ask for permission when you save or open"
-                                                : "Boards save and open here"}
+                                                : "Boards save here · drop images into its Tokens and Maps folders"}
                                         </span>
                                     </div>
                                 </div>
@@ -287,7 +287,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                     </div>
 
-                    <PartySection onAdded={onClose} />
+                    <PartySection onAdded={onClose} isOpen={isOpen} />
 
                     <div className='sidebar-section'>
                         <h4>Draw</h4>

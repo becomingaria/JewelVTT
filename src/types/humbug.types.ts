@@ -114,6 +114,8 @@ export interface HumbugContextMenuOption {
     label: string
     action:
         | "edit"
+        | "addToParty"
+        | "removeFromParty"
         | "lock"
         | "unlock"
         | "bringToFront"

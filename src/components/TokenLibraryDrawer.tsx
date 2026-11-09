@@ -5,6 +5,13 @@ import type {
     TokenLibraryToken,
 } from "../types/token-library.types"
 import { Icon } from "./Icon"
+import {
+    ASSET_SUBFOLDERS,
+    isLocalFolderSupported,
+    openAssetFolder,
+    scanImages,
+    type FolderImageTree,
+} from "../utils/local-folder"
 import "./TokenLibraryDrawer.css"
 
 export type LibraryKind = "tokens" | "maps"
@@ -45,7 +52,41 @@ interface SearchResult extends TokenLibraryToken {
 
 const MAX_SEARCH_RESULTS = 150
 
-const resolveUrl = (url: string) => `${import.meta.env.BASE_URL}${url}`
+const resolveUrl = (url: string) =>
+    /^(blob|data):/.test(url) ? url : `${import.meta.env.BASE_URL}${url}`
+
+/** Turn a scanned local folder into the drawer's folder-tree shape */
+function folderToLibrary(
+    tree: FolderImageTree,
+    files: Map<string, File>
+): TokenLibraryFolder {
+    const tokens = tree.images.map((img) => {
+        const url = URL.createObjectURL(img.file)
+        files.set(url, img.file)
+        return { name: img.name, url }
+    })
+    const folders = tree.folders.map((f) => folderToLibrary(f, files))
+    return {
+        name: tree.name,
+        path: tree.path,
+        folders,
+        tokens,
+        totalTokens: tokens.length + folders.reduce((n, f) => n + f.totalTokens, 0),
+    }
+}
+
+const readAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(file)
+    })
+
+type FolderState =
+    | { status: "idle" | "loading" }
+    | { status: "ready"; rootName: string }
+    | { status: "unsupported" | "no-folder" | "denied" | "error"; message?: string }
 
 // Cached across drawer openings so the library is only fetched once per session
 const manifestPromises = new Map<string, Promise<TokenLibraryFolder>>()
@@ -114,6 +155,55 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
     const searchInputRef = useRef<HTMLInputElement>(null)
     const contentRef = useRef<HTMLDivElement>(null)
 
+    // "My Folder": images the user dropped into <local folder>/Tokens or /Maps
+    const [source, setSource] = useState<"library" | "folder">("library")
+    const [folderLib, setFolderLib] = useState<TokenLibraryFolder | null>(null)
+    const [folderState, setFolderState] = useState<FolderState>({ status: "idle" })
+    const folderFiles = useRef(new Map<string, File>())
+    const subfolder = ASSET_SUBFOLDERS[kind]
+
+    const releaseFolderUrls = () => {
+        folderFiles.current.forEach((_, url) => URL.revokeObjectURL(url))
+        folderFiles.current = new Map()
+    }
+    useEffect(() => releaseFolderUrls, [])
+
+    /** Scan the subfolder (asks for permission if needed, so call on a click) */
+    const loadFolder = async () => {
+        setFolderState({ status: "loading" })
+        try {
+            const res = await openAssetFolder(kind)
+            if (!res.ok) {
+                setFolderState({ status: res.reason })
+                return
+            }
+            releaseFolderUrls()
+            const files = new Map<string, File>()
+            const lib = folderToLibrary(await scanImages(res.dir, []), files)
+            folderFiles.current = files
+            setFolderLib(lib)
+            setFolderState({ status: "ready", rootName: res.root.name })
+        } catch (e) {
+            setFolderState({ status: "error", message: (e as Error).message })
+        }
+    }
+
+    const switchSource = (next: "library" | "folder") => {
+        setSource(next)
+        setCurrentPath([])
+        setSearch("")
+        if (next === "folder") void loadFolder()
+    }
+
+    /** Library items are links; folder images are embedded in the board */
+    const pick = async (token: TokenLibraryToken) => {
+        const file = folderFiles.current.get(token.url)
+        if (file) onSelect(await readAsDataUrl(file), token.name)
+        else onSelect(resolveUrl(token.url), token.name)
+    }
+
+    const lib = source === "folder" ? folderLib : library
+
     // Load the library the first time the drawer opens
     useEffect(() => {
         if (!isOpen || library) return
@@ -150,10 +240,7 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
         contentRef.current?.scrollTo({ top: 0 })
     }, [currentPath, search])
 
-    const allTokens = useMemo(
-        () => (library ? flattenTokens(library) : []),
-        [library]
-    )
+    const allTokens = useMemo(() => (lib ? flattenTokens(lib) : []), [lib])
 
     const searchResults = useMemo(() => {
         const query = search.trim().toLowerCase()
@@ -167,7 +254,7 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
 
     if (!isOpen) return null
 
-    const currentFolder = library ? findFolder(library, currentPath) : null
+    const currentFolder = lib ? findFolder(lib, currentPath) : null
 
     const renderTokenGrid = (tokens: (TokenLibraryToken | SearchResult)[]) => (
         <div className='token-library-grid'>
@@ -176,7 +263,7 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
                     key={token.url}
                     type='button'
                     className='token-library-token'
-                    onClick={() => onSelect(resolveUrl(token.url), token.name)}
+                    onClick={() => void pick(token)}
                     title={
                         "folderLabel" in token
                             ? `${token.name}\n${token.folderLabel}`
@@ -198,8 +285,61 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
         </div>
     )
 
+    const renderFolderMessage = () => {
+        const where = (
+            <code>
+                {folderState.status === "ready" ? folderState.rootName : "your local folder"}/{subfolder}
+            </code>
+        )
+        switch (folderState.status) {
+            case "loading":
+            case "idle":
+                return <div className='token-library-message'>Reading your folder…</div>
+            case "unsupported":
+                return (
+                    <div className='token-library-message'>
+                        Your own folder needs Chrome, Edge, Brave or Opera.
+                    </div>
+                )
+            case "no-folder":
+                return (
+                    <div className='token-library-message'>
+                        Choose a <strong>Local Folder</strong> in the menu first. Jewel VTT
+                        makes a <code>{subfolder}</code> folder inside it for your images.
+                    </div>
+                )
+            case "denied":
+                return (
+                    <div className='token-library-message'>
+                        Jewel VTT needs permission to read your folder.
+                        <button type='button' className='token-library-retry' onClick={() => void loadFolder()}>
+                            Try again
+                        </button>
+                    </div>
+                )
+            case "error":
+                return (
+                    <div className='token-library-message'>
+                        Couldn't read your folder ({folderState.message}).
+                        <button type='button' className='token-library-retry' onClick={() => void loadFolder()}>
+                            Try again
+                        </button>
+                    </div>
+                )
+            case "ready":
+                return (
+                    <div className='token-library-message'>
+                        Drop images into {where} and press Refresh to see them here.
+                    </div>
+                )
+        }
+    }
+
     const renderBody = () => {
-        if (error) {
+        if (source === "folder" && (folderState.status !== "ready" || !folderLib?.totalTokens)) {
+            return renderFolderMessage()
+        }
+        if (source === "library" && error) {
             return (
                 <div className='token-library-message'>
                     Couldn't load the token library ({error}).
@@ -214,13 +354,13 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
             )
         }
 
-        if (!library || !currentFolder) {
+        if (!lib || !currentFolder) {
             return (
                 <div className='token-library-message'>Loading library…</div>
             )
         }
 
-        if (library.totalTokens === 0) {
+        if (lib.totalTokens === 0) {
             return (
                 <div className='token-library-message'>
                     The library is empty. Add images to{" "}
@@ -328,13 +468,45 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
                 </div>
 
                 <div className='token-library-toolbar'>
+                    {isLocalFolderSupported() && (
+                        <div className='token-library-source' role='tablist' aria-label='Image source'>
+                            <button
+                                type='button'
+                                role='tab'
+                                aria-selected={source === "library"}
+                                className={source === "library" ? "active" : ""}
+                                onClick={() => switchSource("library")}
+                            >
+                                Library
+                            </button>
+                            <button
+                                type='button'
+                                role='tab'
+                                aria-selected={source === "folder"}
+                                className={source === "folder" ? "active" : ""}
+                                onClick={() => switchSource("folder")}
+                            >
+                                <Icon name='open' size={16} /> My Folder
+                            </button>
+                            {source === "folder" && folderState.status === "ready" && (
+                                <button
+                                    type='button'
+                                    className='token-library-refresh'
+                                    onClick={() => void loadFolder()}
+                                    title={`Look for new images in ${subfolder}`}
+                                >
+                                    Refresh
+                                </button>
+                            )}
+                        </div>
+                    )}
                     <input
                         ref={searchInputRef}
                         type='search'
                         className='token-library-search'
                         placeholder={
-                            library
-                                ? `Search ${library.totalTokens} ${info.noun}…`
+                            lib
+                                ? `Search ${lib.totalTokens} ${info.noun}…`
                                 : `Search ${info.noun}…`
                         }
                         value={search}
@@ -351,7 +523,7 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
                                 onClick={() => setCurrentPath([])}
                                 disabled={currentPath.length === 0}
                             >
-                                Library
+                                {source === "folder" ? subfolder : "Library"}
                             </button>
                             {currentPath.map((segment, index) => (
                                 <React.Fragment key={index}>

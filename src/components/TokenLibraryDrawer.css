@@ -304,3 +304,40 @@
 .token-library-maps .token-library-folder-preview {
     border-radius: 6px;
 }
+
+/* Library / My Folder switch */
+.token-library-source {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.token-library-source button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    background: #f1ebde;
+    border: none;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #5c5345;
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.token-library-source button.active {
+    background: #6c2fcf;
+    color: #fff;
+}
+
+.token-library-source .token-library-refresh {
+    margin-left: auto;
+    background: none;
+    color: #6c2fcf;
+    font-weight: 500;
+}
+
+.token-library-source .token-library-refresh:hover {
+    background: #f4ecff;
+}

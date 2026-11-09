@@ -20,7 +20,16 @@ import {
     snapToGrid,
 } from "../utils/humbug.utils"
 import type { GridShape } from "../utils/board-styles"
-import { MAX_PARTY, pipLayout, type PartyMember } from "../utils/party"
+import {
+    MAX_PARTY,
+    addToParty,
+    loadParty,
+    onPartyChanged,
+    pipLayout,
+    removeFromParty,
+    type PartyMember,
+} from "../utils/party"
+import { showToast } from "../utils/toast"
 import { UndoRedoManager } from "../utils/undo-redo.utils"
 import { ClipboardManager } from "../utils/clipboard.utils"
 import {
@@ -464,6 +473,34 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         [showDragTails, state.humbugs, multiSelectedIds]
     )
 
+    // Cmd/Ctrl+click: add a humbug to the group selection, or take it out.
+    // A lone single selection joins the group; a group of one collapses back
+    // to a normal single selection (with its handles).
+    const toggleHumbugSelection = useCallback(
+        (id: string) => {
+            const unlocked = (hid: string) =>
+                state.humbugs.some((h) => h.id === hid && !h.locked)
+            const base = multiSelectedIds.length
+                ? multiSelectedIds
+                : state.selectedHumbugId && unlocked(state.selectedHumbugId)
+                ? [state.selectedHumbugId]
+                : []
+            const next = base.includes(id)
+                ? base.filter((x) => x !== id)
+                : [...base, id]
+
+            setSelectedConnectorId(null)
+            if (next.length > 1) {
+                setMultiSelectedIds(next)
+                setState((prev) => ({ ...prev, selectedHumbugId: null }))
+            } else {
+                setMultiSelectedIds([])
+                setState((prev) => ({ ...prev, selectedHumbugId: next[0] ?? null }))
+            }
+        },
+        [state.humbugs, state.selectedHumbugId, multiSelectedIds]
+    )
+
     // Select Humbug (clicking outside the area selection ends it)
     const selectHumbug = useCallback((id: string) => {
         setMultiSelectedIds((prev) => (prev.includes(id) ? prev : []))
@@ -871,6 +908,14 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
         }
     }, [undoRedoManager])
 
+    // Which token images are in "My Party" (for the right-click menu label)
+    const [partyImages, setPartyImages] = useState<Set<string>>(new Set())
+    useEffect(() => {
+        const load = () => loadParty().then((p) => setPartyImages(new Set(p.map((m) => m.imageUrl))))
+        void load()
+        return onPartyChanged(() => void load())
+    }, [])
+
     // "Add my party": tokens around the middle of the screen, one square apart,
     // laid out like dice pips. They arrive selected so the group can be moved
     // together, and one undo removes them all.
@@ -1180,6 +1225,26 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                 case "edit":
                     editHumbug(humbugId)
                     break
+                case "removeFromParty": {
+                    const token = nudgeRef.current.humbugs.find((h) => h.id === humbugId)
+                    if (token?.type !== "token") break
+                    void removeFromParty(token.imageUrl).then(() => showToast("Removed from your party"))
+                    break
+                }
+                case "addToParty": {
+                    const token = nudgeRef.current.humbugs.find((h) => h.id === humbugId)
+                    if (token?.type !== "token") break
+                    void addToParty(token.imageUrl).then((result) =>
+                        showToast(
+                            result === "added"
+                                ? "Added to your party"
+                                : result === "exists"
+                                ? "This token is already in your party"
+                                : `Your party is full (${MAX_PARTY}). Remove someone in the menu first.`
+                        )
+                    )
+                    break
+                }
                 case "lock":
                 case "unlock":
                     toggleLock(humbugId)
@@ -1931,6 +1996,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                         isDragging && draggedHumbugRef.current === humbug.id
                     }
                     onSelect={selectHumbug}
+                    onToggleSelect={toggleHumbugSelection}
                     onMove={moveHumbug}
                     onRotate={rotateHumbug}
                     onResize={resizeHumbug}
@@ -2027,6 +2093,12 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
                         }
                         onClose={closeHumbugContextMenu}
                         onAction={handleHumbugContextAction}
+                        inParty={(() => {
+                            const h = state.humbugs.find(
+                                (x) => x.id === state.humbugContextMenu.humbugId
+                            )
+                            return h?.type === "token" && partyImages.has(h.imageUrl)
+                        })()}
                     />
                 )}
         </div>

@@ -3,6 +3,7 @@ import type { Humbug, Point } from "../types/humbug.types"
 import { Icon } from "./Icon"
 import { pinSize } from "../utils/humbug.utils"
 import { IDENTITY, type Projection } from "../utils/projection"
+import { IS_MAC } from "../utils/hotkeys"
 import { isStandee, placeHumbug } from "../utils/humbug-geometry"
 
 const normalizeDeg = (d: number) => ((d % 360) + 360) % 360
@@ -33,6 +34,8 @@ interface HumbugRendererProps {
     isMultiSelected?: boolean
     isDragging?: boolean
     onSelect: (id: string) => void
+    /** Cmd/Ctrl+click: add to or remove from the group selection */
+    onToggleSelect?: (id: string) => void
     onMove: (id: string, newPosition: Point) => void
     /** Live update while dragging; pass `commitFrom` on release to record undo */
     onRotate: (id: string, rotation: number, commitFrom?: number) => void
@@ -64,6 +67,7 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
     isMultiSelected = false,
     isDragging = false,
     onSelect,
+    onToggleSelect,
     onRotate,
     onResize,
     onDelete,
@@ -130,6 +134,15 @@ export const HumbugRenderer: React.FC<HumbugRendererProps> = ({
         // Locked humbugs are handled by CSS pointer-events: none
         // This handler should never be called for locked humbugs
         if (humbug.locked) {
+            return
+        }
+
+        // Cmd (Mac) / Ctrl click toggles this humbug in the group selection
+        // without starting a drag
+        if (e.button === 0 && onToggleSelect && (IS_MAC ? e.metaKey : e.ctrlKey)) {
+            e.stopPropagation()
+            e.preventDefault()
+            onToggleSelect(humbug.id)
             return
         }
 

@@ -13,6 +13,8 @@ interface HumbugContextMenuProps {
     humbug: Humbug | null
     onClose: () => void
     onAction: (action: string, humbugId: string) => void
+    /** The token's image is already in "My Party" */
+    inParty?: boolean
 }
 
 export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
@@ -21,12 +23,20 @@ export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
     humbug,
     onClose,
     onAction,
+    inParty = false,
 }) => {
     if (!isOpen || !humbug) return null
 
     const getContextMenuOptions = (): HumbugContextMenuOption[] => {
         const baseOptions: HumbugContextMenuOption[] = [
             { label: "Edit", action: "edit", icon: "edit" },
+            ...(humbug.type === "token"
+                ? [
+                      inParty
+                          ? { label: "Remove from Party", action: "removeFromParty" as const, icon: "token" as const }
+                          : { label: "Add to Party", action: "addToParty" as const, icon: "token" as const },
+                  ]
+                : []),
             {
                 label: humbug.locked ? "Unlock" : "Lock",
                 action: humbug.locked ? "unlock" : "lock",
