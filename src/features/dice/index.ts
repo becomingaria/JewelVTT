@@ -7,7 +7,8 @@ import { clearBoardDice, diceSettings, panelOpen, togglePanel } from "./state"
 import { DiceLayer } from "./DiceLayer"
 import { BoardDiceOverlay } from "./BoardDice"
 import { DiceTrayIcon, LogIcon, TablesIcon } from "./icons"
-import { LogHelp, NotationHelp, SoundHelp, TablesHelp, TrayHelp } from "./help"
+import { AuditIcon } from "./icons-audit"
+import { AuditHelp, LogHelp, NotationHelp, SoundHelp, TablesHelp, TrayHelp } from "./help"
 import { journalHtml } from "./journal"
 import { dateStamp, downloadText } from "./download"
 import "./dice.css"
@@ -55,6 +56,16 @@ export const feature: FeatureModule = {
             kind: "action",
             onTrigger: () => togglePanel("log"),
             pressed: panelOpen.log,
+        },
+        {
+            id: "dice:audit",
+            label: "Roll audit",
+            icon: createElement(AuditIcon),
+            hint: "Every roll at the table: who, dice and totals",
+            group: "play",
+            kind: "action",
+            onTrigger: () => togglePanel("audit"),
+            pressed: panelOpen.audit,
         },
     ],
     commands: [
@@ -107,6 +118,7 @@ export const feature: FeatureModule = {
         { id: "dice-tray", title: "Dice tray", icon: "token", body: createElement(TrayHelp) },
         { id: "dice-tables", title: "Random tables", icon: "library", body: createElement(TablesHelp) },
         { id: "dice-log", title: "Session log & journal", icon: "document", body: createElement(LogHelp) },
+        { id: "dice-audit", title: "Roll audit", icon: "select", body: createElement(AuditHelp) },
         { id: "dice-sound", title: "Sound", icon: "gear", body: createElement(SoundHelp) },
     ],
 }

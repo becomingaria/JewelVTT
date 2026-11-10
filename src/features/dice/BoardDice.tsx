@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useStore } from "../store"
-import { useReducedMotion } from "../prefs"
+import { prefsStore, useReducedMotion } from "../prefs"
 import { GRID_SIZE } from "../board-bridge"
 import type { BoardOverlayProps } from "../types"
 import { PixelDie } from "./PixelDie"
@@ -93,15 +93,48 @@ const DiceGroup: React.FC<{ group: BoardDiceGroup; camera: BoardOverlayProps["ca
     reduced,
 }) => {
     const { spots, rows } = useMemo(() => layout(group), [group])
+    const bannerRef = useRef<HTMLDivElement>(null)
+    const [banner, setBanner] = useState({ w: 160, h: 28 })
+    useLayoutEffect(() => {
+        const el = bannerRef.current
+        if (el && (el.offsetWidth !== banner.w || el.offsetHeight !== banner.h)) {
+            setBanner({ w: el.offsetWidth, h: el.offsetHeight })
+        }
+    }, [banner.w, banner.h])
     const base = camera.worldToScreen(group.origin.x, group.origin.y)
     // Side by side with other rolls on the same spot: centre, right, left, further right...
     const side = [0, 1, -1, 2, -2][group.slot % 5]
-    const anchor = { x: base.x + side * 5.6 * size, y: base.y }
     const rec = group.record
     const hidden = group.dice.length - spots.length
     const d20 = group.dice.filter((d) => d.sides === 20 && !d.dropped)
     const step = size
-    const bannerTop = anchor.y + ((rows - 1) / 2) * 1.25 * step + step * 0.7
+    const bannerOffset = ((rows - 1) / 2) * 1.25 * step + step * 0.7
+
+    // Keep the whole group (dice and banner) inside the visible board,
+    // clear of the tool dock, even if the board is panned while it shows
+    const half = size / 2
+    const xs = spots.map((sp) => sp.x * step)
+    const ys = spots.map((sp) => sp.y * step)
+    const ext = {
+        left: Math.min(Math.min(...xs) - half, -banner.w / 2),
+        right: Math.max(Math.max(...xs) + half, banner.w / 2),
+        top: Math.min(...ys) - half,
+        bottom: bannerOffset + banner.h,
+    }
+    const el = camera.container
+    const pad = 12
+    const fit = (v: number, lo: number, hi: number) => (lo > hi ? (lo + hi) / 2 : clamp(v, lo, hi))
+    const anchor = el
+        ? {
+              x: fit(
+                  base.x + side * 5.6 * size,
+                  pad + 72 * prefsStore.get().uiScale - ext.left,
+                  el.clientWidth - pad - ext.right
+              ),
+              y: fit(base.y, pad - ext.top, el.clientHeight - pad - ext.bottom),
+          }
+        : { x: base.x + side * 5.6 * size, y: base.y }
+    const bannerTop = anchor.y + bannerOffset
     return (
         <div
             className={`jv-board-group ${reduced ? "" : "jv-board-group--fade"}`}
@@ -132,7 +165,7 @@ const DiceGroup: React.FC<{ group: BoardDiceGroup; camera: BoardOverlayProps["ca
                     </div>
                 )
             })}
-            <div className='jv-board-banner' style={{ left: anchor.x, top: bannerTop }}>
+            <div ref={bannerRef} className='jv-board-banner' style={{ left: anchor.x, top: bannerTop }}>
                 {rec.table ? (
                     <>
                         <strong>{rec.table.name}:</strong> {rec.table.text}

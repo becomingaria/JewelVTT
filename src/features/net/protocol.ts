@@ -34,7 +34,8 @@ export type PlayerRequest =
     | { t: "ready" }
     | { t: "add-token"; name: string; image: string }
     | { t: "patch"; id: string; position?: Point; light?: LightSource | null; vision?: number }
-    | { t: "roll"; text: string }
+    /** A roll made on the player's computer, for the log and the GM's audit */
+    | { t: "roll"; text: string; roll?: unknown }
 
 /** Assets (images) travel separately and only once, by id */
 export const ASSET_PREFIX = "jewel-asset:"

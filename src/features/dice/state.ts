@@ -9,7 +9,7 @@ import type { DieRoll } from "./notation"
  */
 
 // ---------------------------------------------------------------- panels
-export type PanelId = "tray" | "tables" | "log"
+export type PanelId = "tray" | "tables" | "log" | "audit"
 
 export interface PanelLayout {
     collapsed: boolean
@@ -35,7 +35,7 @@ function writeJson(key: string, value: unknown) {
 }
 
 const OPEN_KEY = "jewel:dice:open"
-const savedOpen = readJson<Record<PanelId, boolean>>(OPEN_KEY, { tray: false, tables: false, log: false })
+const savedOpen = readJson<Record<PanelId, boolean>>(OPEN_KEY, { tray: false, tables: false, log: false, audit: false })
 
 function openStore(id: PanelId): Store<boolean> {
     const s = createStore<boolean>(!!savedOpen[id])
@@ -51,6 +51,7 @@ export const panelOpen: Record<PanelId, Store<boolean>> = {
     tray: openStore("tray"),
     tables: openStore("tables"),
     log: openStore("log"),
+    audit: openStore("audit"),
 }
 
 export const togglePanel = (id: PanelId) => panelOpen[id].set((v) => !v)
@@ -59,6 +60,7 @@ export const panelLayout: Record<PanelId, Store<PanelLayout>> = {
     tray: createPersistentStore<PanelLayout>("jewel:dice:panel:tray", { collapsed: false, pos: null }),
     tables: createPersistentStore<PanelLayout>("jewel:dice:panel:tables", { collapsed: false, pos: null }),
     log: createPersistentStore<PanelLayout>("jewel:dice:panel:log", { collapsed: false, pos: null }),
+    audit: createPersistentStore<PanelLayout>("jewel:dice:panel:audit", { collapsed: false, pos: null }),
 }
 
 /** Per-viewer dice settings */

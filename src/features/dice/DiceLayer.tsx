@@ -4,6 +4,8 @@ import { useBoardSlice } from "../../utils/board-store"
 import { DiceTray } from "./DiceTray"
 import { TablesPanel } from "./TablesPanel"
 import { LogPanel } from "./LogPanel"
+import { AuditPanel } from "./AuditPanel"
+import { auditStore, sanitizeAudit, useAudit, type AuditEntry } from "./audit"
 import { Announcer, QuickBubble } from "./QuickBubble"
 import { loadTables } from "./tables-store"
 import { KIND_LABEL } from "./journal"
@@ -27,12 +29,15 @@ function sanitizeLog(v: unknown): LogEntry[] {
 export const DiceLayer: React.FC = () => {
     const log = useLog()
     useBoardSlice<LogEntry[]>("dice:log", log, (v) => logStore.set(sanitizeLog(v)))
+    const audit = useAudit()
+    useBoardSlice<readonly AuditEntry[]>("dice:audit", audit, (v) => auditStore.set(sanitizeAudit(v)))
     useEffect(() => loadTables(), [])
     return (
         <>
             <DiceTray />
             <TablesPanel />
             <LogPanel />
+            <AuditPanel />
             <QuickBubble />
             <Announcer />
         </>

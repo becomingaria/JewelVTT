@@ -67,7 +67,7 @@ export const isPlayersView = () => tableModeStore.get() || netRoleStore.get() ==
 
 /** What a connected player may use. Everything else is the GM's. */
 export const PLAYER_ALLOWED = {
-    tools: new Set(["dice:tray", "dice:tables", "dice:log", "measure:ruler", "theme-settings", "net:panel"]),
+    tools: new Set(["dice:tray", "dice:tables", "dice:log", "dice:audit", "measure:ruler", "theme-settings", "net:panel"]),
     commands: new Set([
         "dice:quick-d20",
         "dice:roll-adv",

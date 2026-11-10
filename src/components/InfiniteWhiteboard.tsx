@@ -358,6 +358,11 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
         [viewport, projection]
     )
 
+    // The board element, as state so the camera has it from the first frame
+    // after mount (a ref alone wouldn't re-run the memo below)
+    const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
+    useEffect(() => setContainerEl(containerRef.current), [])
+
     // The camera, shared with feature overlays and the board bridge
     const camera: BoardCamera = useMemo(
         () => ({
@@ -368,13 +373,12 @@ export const InfiniteWhiteboard: React.FC<InfiniteWhiteboardProps> = ({
             projection,
             viewMode,
             gridShape,
-            container: containerRef.current,
+            container: containerEl,
         }),
-        // containerRef is stable; its element exists once mounted
-        [viewport, worldToScreen, containerToWorld, projection, viewMode, gridShape]
+        [viewport, worldToScreen, containerToWorld, projection, viewMode, gridShape, containerEl]
     )
     useEffect(() => {
-        cameraStore.set({ ...camera, container: containerRef.current })
+        cameraStore.set(camera)
     }, [camera])
 
     // Start a paint stroke (batched operation)

@@ -127,6 +127,10 @@ export function buildPlayerBoard(): Record<string, unknown> {
                     : p
                 break
             }
+            case "dice:audit":
+                // The GM's secret rolls stay with the GM
+                out[key] = ((value as { secret?: boolean }[]) ?? []).filter((e) => !e?.secret)
+                break
             case "scribbles":
                 // Only drawings the GM is showing
                 out[key] = ((value as { visible?: boolean }[]) ?? []).filter((l) => l.visible)

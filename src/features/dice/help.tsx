@@ -101,3 +101,23 @@ export const SoundHelp: React.FC = () => (
         <p>Nothing plays until you have clicked or pressed a key on the page.</p>
     </>
 )
+
+export const AuditHelp: React.FC = () => (
+    <>
+        <p>
+            The <strong>Roll audit</strong> (magnifying glass over a die, in the dock) keeps every roll made at
+            this table: who rolled, when, the expression, every die face (dropped dice in brackets) and the total.
+            It's saved with the board, so it goes back across sessions, keeping the newest 10,000 rolls.
+        </p>
+        <p>
+            Filter by person, search (“d20”, “Stealth”, “17”), show only criticals and fumbles, or open{" "}
+            <em>Numbers per person</em> for each roller's d20 average and natural 20s and 1s. <em>Export CSV</em>{" "}
+            downloads the lot as a spreadsheet.
+        </p>
+        <p>
+            In a shared game everyone sees every public roll. The GM's secret rolls (ones not shown at the table)
+            appear only in the GM's audit, marked 🔒. Only the GM can clear the audit, and it can be undone.
+            Players' rolls are made on their own computers; the audit records what each app reported.
+        </p>
+    </>
+)

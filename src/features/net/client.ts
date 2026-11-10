@@ -9,7 +9,7 @@ import {
 import { showToast } from "../../utils/toast"
 import { flyTo } from "../../utils/view-events"
 import { cameraStore, humbugsStore } from "../board-bridge"
-import { logStore } from "../services"
+import { auditStore } from "../dice/audit"
 import { playSfx } from "../sound"
 import { createStore } from "../store"
 import { netRoleStore } from "../view-state"
@@ -143,13 +143,17 @@ export function undoMyMove(): boolean {
 export const canUndoMove = () => myMoves.length > 0
 
 // ------------------------------------------------------- rolls to the GM
-const knownLog = new Set<string>()
-function watchLog() {
-    for (const e of logStore.get()) {
-        if (knownLog.has(e.id)) continue
-        knownLog.add(e.id)
-        // A roll made here: tell the GM, who logs it for everyone
-        if (conn && e.kind === "roll") conn.send({ t: "roll", text: e.text })
+/** Audit entries already known (the GM's, or ones we've sent) */
+const knownRolls = new Set<string>()
+function watchRolls() {
+    for (const e of auditStore.get()) {
+        if (knownRolls.has(e.id)) continue
+        knownRolls.add(e.id)
+        // A roll made here: the GM logs it for everyone and keeps it in the audit
+        if (!conn) continue
+        const what = e.table ?? `${e.label ? e.label + ": " : ""}${e.expression} = ${e.total}`
+        const flag = e.crit ? " (critical!)" : e.fumble ? " (fumble!)" : ""
+        conn.send({ t: "roll", text: what + flag, roll: e })
     }
 }
 
@@ -182,9 +186,9 @@ function applySlices(slices: Record<string, unknown>) {
         const you = clientStore.get()?.you
         expected = new Map(list.filter((h) => ownerOf(h) === you).map((h) => [h.id, h]))
     }
-    // Rolls already in the GM's log are known (not sent back)
-    if (Array.isArray(resolved["dice:log"])) {
-        for (const e of resolved["dice:log"] as { id: string }[]) knownLog.add(e.id)
+    // Rolls already in the GM's audit are known (not sent back)
+    if (Array.isArray(resolved["dice:audit"])) {
+        for (const e of resolved["dice:audit"] as { id: string }[]) knownRolls.add(e.id)
     }
     patchBoardSlices(resolved)
 }
@@ -319,10 +323,10 @@ export async function joinGame(linkText: string, name: string): Promise<string |
     applyBoardSlices({})
     hostSlices = {}
     firstState = true
-    knownLog.clear()
-    logStore.get().forEach((e) => knownLog.add(e.id))
+    knownRolls.clear()
+    auditStore.get().forEach((e) => knownRolls.add(e.id))
     clientStore.set({ status: "connecting", link: formatCode(code), sharing: false, following: false })
-    unsubscribers = [humbugsStore.subscribe(watchMyTokens), logStore.subscribe(watchLog)]
+    unsubscribers = [humbugsStore.subscribe(watchMyTokens), auditStore.subscribe(watchRolls)]
     await connect(code)
     return null
 }

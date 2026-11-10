@@ -3,6 +3,7 @@ import { playSfx } from "../sound"
 import { DiceSyntaxError, describeRoll, rollExpression, type DetailedRoll } from "./notation"
 import { describeTableRoll, rollTable, type RandomTable } from "./tables-core"
 import { presentRecord, recordId, type RollRecord } from "./state"
+import { localRoller, recordAudit } from "./audit"
 
 /*
  * The dice engine behind services.rollDice(). Any feature can call
@@ -63,6 +64,18 @@ export function engine(expression: string, opts: EngineOptions = {}): DiceResult
         return { expression, total: 0, rolls: [] }
     }
     const rec = toRecord(r, opts.label)
+    // Every roll goes in the audit; unshown rolls are the GM's secret ones
+    recordAudit({
+        by: localRoller(),
+        label: rec.label,
+        expression: rec.expression,
+        total: rec.total,
+        dice: rec.dice,
+        breakdown: rec.breakdown,
+        crit: rec.crit,
+        fumble: rec.fumble,
+        secret: show ? undefined : true,
+    })
     if (show) {
         presentRecord(rec, { bubble: opts.bubble })
         playSfx(r.crit ? "dice-crit" : r.fumble ? "dice-fumble" : "dice")
@@ -86,6 +99,14 @@ export function rollTableAndShow(table: RandomTable) {
         table: { id: table.id, name: table.name, text: tr.text },
     }
     presentRecord(rec)
+    recordAudit({
+        by: localRoller(),
+        expression: rec.expression,
+        total: rec.total,
+        dice: rec.dice,
+        breakdown: rec.breakdown,
+        table: `${table.name}: ${tr.text}`,
+    })
     playSfx("dice")
     logEvent({ kind: "table", text: `${table.name}: ${tr.text}`, detail: rec.breakdown })
     return { record: rec, roll: tr }

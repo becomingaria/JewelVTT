@@ -965,3 +965,121 @@ html[data-high-contrast] .jv-table-item {
     background: var(--jv-panel-bg, #ffffff);
     box-shadow: none;
 }
+
+/* ------------------------------------------------------------ roll audit */
+.jv-dpanel--audit {
+    /* right of the dice tray */
+    left: calc((72px + 312px) * var(--ui-scale, 1));
+    top: var(--jv-dp-top);
+}
+
+.jv-dpanel--audit .jv-dpanel-inner {
+    width: 400px;
+}
+
+.jv-audit-filters {
+    align-items: flex-end;
+}
+
+.jv-audit-field {
+    display: grid;
+    gap: 2px;
+    font-size: 12px;
+}
+
+.jv-audit-field select {
+    min-width: 110px;
+}
+
+.jv-audit-stats {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.jv-audit-stats th,
+.jv-audit-stats td {
+    padding: 2px 4px;
+    text-align: right;
+    border-bottom: 1px solid var(--jv-line, #ccc);
+}
+
+.jv-audit-stats th[scope="row"],
+.jv-audit-stats thead th:first-child {
+    text-align: left;
+}
+
+.jv-audit-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    min-height: 120px;
+    flex: 1 1 auto;
+    display: grid;
+    gap: 4px;
+    align-content: start;
+}
+
+.jv-audit-row {
+    display: grid;
+    gap: 2px;
+    padding: 6px 8px;
+    background: var(--jv-panel-bg-alt, #f3f2ee);
+    border: 1px solid var(--jv-line, #ccc);
+    font-size: 13px;
+}
+
+.jv-audit-row.is-secret {
+    border-style: dashed;
+}
+
+.jv-audit-top {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.jv-audit-top time {
+    color: var(--jv-muted, #555);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.jv-audit-who {
+    flex: 1;
+}
+
+.jv-audit-total {
+    font-weight: 700;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+}
+
+.jv-audit-dice {
+    color: var(--jv-muted, #555);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.jv-audit-flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.jv-audit-flag {
+    font-size: 11px;
+    padding: 0 5px;
+    border: 1px solid currentColor;
+}
+
+.jv-audit-filters .jv-grow {
+    flex: 1 1 160px;
+}
+
+.jv-audit-filters .jv-grow .jv-input {
+    width: 100%;
+}

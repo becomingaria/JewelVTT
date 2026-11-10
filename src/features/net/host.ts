@@ -12,6 +12,7 @@ import {
     viewCentreWorld,
 } from "../board-bridge"
 import { logEvent } from "../services"
+import { recordAudit, sanitizeAuditEntry } from "../dice/audit"
 import { playSfx } from "../sound"
 import { createPersistentStore, createStore } from "../store"
 import { netRoleStore } from "../view-state"
@@ -307,6 +308,10 @@ function handleRequest(req: PlayerRequest, peerId: string) {
             if (!text) return
             logEvent({ kind: "roll", text: `${p.name}: ${text}` })
             showToast(`${p.name}: ${text}`)
+            // The audit files it under the player, whatever their app called it
+            const entry = sanitizeAuditEntry(req.roll)
+            // (stamped with the GM's clock; players can't make secret rolls)
+            if (entry) recordAudit({ ...entry, at: undefined, by: p.name, device: p.deviceId, secret: undefined })
             return
         }
     }
