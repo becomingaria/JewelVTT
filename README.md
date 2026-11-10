@@ -76,6 +76,53 @@ src/
 -   `npm run preview` - Preview production build
 -   `npm run lint` - Run ESLint
 
+## Desktop app (Windows, macOS, Linux)
+
+Jewel VTT also runs as a desktop app built with Electron.
+
+-   `npm run electron:dev` opens the desktop app on the dev server.
+-   `npm run electron:start` builds and opens the desktop app.
+-   `npm run dist` builds installers for your own platform into `release/`.
+
+Art libraries live in `Documents/Jewel VTT/Token_Library` and `Maps_Library`
+in the desktop app (the command palette has "Open art library folder").
+
+### Releasing an update
+
+1. Bump `version` in `package.json` and commit.
+2. Tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
+3. GitHub Actions (`.github/workflows/release.yml`) builds all three
+   platforms and publishes one GitHub Release when they're all uploaded.
+
+Installed apps check for a new release when they open:
+
+-   **Windows / Linux (AppImage):** the update downloads in the background
+    and a small notice offers **Restart now** (it also installs next time the
+    app closes).
+-   **macOS:** Jewel VTT is freeware without an Apple Developer certificate,
+    so the Mac app can't install updates itself. The notice links to the new
+    download instead. The first time, open it via System Settings → Privacy &
+    Security → **Open Anyway**.
+
+## Playing together (peer-to-peer)
+
+Open **Multiplayer** in the tool dock.
+
+-   **GM:** "Host this board", then send players the room link
+    (`jewel://join/...`). Knock to join, private labels, device and IP
+    display, kick, ban (device and IP), new room code (keep or drop
+    players), and "Share my view".
+-   **Players:** paste the link and Join. Add a token, move it (and undo),
+    choose light and vision, roll dice, look around, and follow the GM's
+    shared view. A player's own saved board comes back when they leave.
+
+No servers: apps find each other through free public Nostr relays (the room
+secret encrypts that), then connect directly with WebRTC. The GM's app
+filters what players receive, so GM-only objects, unrevealed areas and exact
+monster HP never leave the GM's computer. Each side can see the other's IP
+address, as with any direct connection. Some strict networks block direct
+connections.
+
 ## Technical Details
 
 -   **Grid Size**: 32x32 pixels per square

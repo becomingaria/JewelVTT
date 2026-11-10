@@ -1,7 +1,8 @@
 import React, { useEffect } from "react"
 import { FEATURES, isTypingTarget, matchesHotkey } from "../registry"
 import { applyPrefsToDocument, usePrefs, useReducedMotion } from "../prefs"
-import { activeToolStore, toggleActiveTool, useTableMode } from "../view-state"
+import { activeToolStore, netRoleStore, PLAYER_ALLOWED, tableModeStore, toggleActiveTool, useNetRole } from "../view-state"
+import { useStore } from "../store"
 import { mapKindStore, useMapKind } from "../map-kind"
 import { setAmbient } from "../sound"
 import { cameraStore, pointerWorldStore } from "../board-bridge"
@@ -14,8 +15,20 @@ import { ToolDock } from "./ToolDock"
 export const FeatureHost: React.FC = () => {
     const prefs = usePrefs()
     const reducedMotion = useReducedMotion()
-    const tableMode = useTableMode()
+    // The real Table Mode toggle (players' apps show the players' view but
+    // keep their own interface)
+    const tableMode = useStore(tableModeStore)
+    const role = useNetRole()
     const mapKind = useMapKind()
+
+    useEffect(() => {
+        document.documentElement.setAttribute("data-net-role", role)
+    }, [role])
+
+    // The board's map kind, for CSS and tests
+    useEffect(() => {
+        document.documentElement.setAttribute("data-map-kind", mapKind)
+    }, [mapKind])
 
     // Ambient loop follows the map kind (silent unless sound + ambient are on)
     useEffect(() => {
@@ -54,10 +67,12 @@ export const FeatureHost: React.FC = () => {
                 return
             }
             const kind = mapKindStore.get()
+            const player = netRoleStore.get() === "player"
             for (const f of FEATURES) {
                 for (const t of f.tools ?? []) {
                     if (!t.hotkey || !matchesHotkey(e, t.hotkey)) continue
                     if (t.mapKinds && !t.mapKinds.includes(kind)) continue
+                    if (player && !PLAYER_ALLOWED.tools.has(t.id)) continue
                     e.preventDefault()
                     if (t.kind === "mode") toggleActiveTool(t.id)
                     else t.onTrigger?.()
@@ -66,6 +81,7 @@ export const FeatureHost: React.FC = () => {
                 for (const c of f.commands ?? []) {
                     if (!c.hotkey || !matchesHotkey(e, c.hotkey)) continue
                     if (c.mapKinds && !c.mapKinds.includes(kind)) continue
+                    if (player && !PLAYER_ALLOWED.commands.has(c.id)) continue
                     e.preventDefault()
                     c.run()
                     return

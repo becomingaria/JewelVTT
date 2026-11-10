@@ -137,6 +137,7 @@ function apiChange(cells: Cell[], reveal: boolean) {
 export const fogApi = {
     reveal: (cells: Cell[]) => apiChange(cells, true),
     hide: (cells: Cell[]) => apiChange(cells, false),
+    // Set by FogLightLayer: includes reveal layers and token vision
     isRevealed: (cell: Cell) => {
         const s = fogStore.get()
         return !s.enabled || isRevealedKey(s, cellKey(cell))

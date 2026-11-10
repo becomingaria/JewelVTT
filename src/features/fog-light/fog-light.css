@@ -228,3 +228,37 @@ html[data-high-contrast] .fogl-btn:focus-visible {
     min-width: 7px;
     text-align: center;
 }
+
+/* ------------------------------------------------------- reveal layers */
+.fogl-reveals {
+    display: grid;
+    gap: 4px;
+}
+
+.fogl-reveal-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 4px;
+}
+
+.fogl-reveal-pick {
+    min-width: 32px;
+}
+
+.fogl-reveal-name {
+    width: 100%;
+    min-width: 0;
+    min-height: 32px;
+    border: 1px solid var(--jv-line, #bbb);
+    background: var(--jv-field-bg, #fff);
+    color: inherit;
+    font: inherit;
+    padding: 4px 2px;
+}
+
+.fogl-reveal-name:focus {
+    outline: 2px solid var(--jv-focus, #f5b700);
+    background: var(--jv-field-bg, #fff);
+    color: var(--jv-field-fg, #222);
+}

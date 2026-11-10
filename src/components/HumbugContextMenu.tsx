@@ -7,6 +7,7 @@ import type {
 import { Icon } from "./Icon"
 import { FEATURES } from "../features/registry"
 import { FeatureIcon } from "../features/host/FeatureIcon"
+import { PLAYER_ALLOWED, netRoleStore } from "../features/view-state"
 import "./HumbugContextMenu.css"
 
 interface HumbugContextMenuProps {
@@ -32,7 +33,10 @@ export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
 }) => {
     if (!isOpen || !humbug) return null
 
+    const player = netRoleStore.get() === "player"
     const getContextMenuOptions = (): HumbugContextMenuOption[] => {
+        // A connected player only gets light and vision (feature items below)
+        if (player) return []
         const baseOptions: HumbugContextMenuOption[] = [
             { label: "Edit", action: "edit", icon: "edit" },
             ...(humbug.type === "token"
@@ -98,7 +102,7 @@ export const HumbugContextMenu: React.FC<HumbugContextMenuProps> = ({
                     ))}
                     {/* Entries contributed by features (light, HP, layers...) */}
                     {FEATURES.flatMap((f) => f.humbugMenu ?? [])
-                        .filter((item) => !item.when || item.when(humbug))
+                        .filter((item) => (!item.when || item.when(humbug)) && (!player || PLAYER_ALLOWED.menu(item.id)))
                         .map((item) => (
                             <button
                                 key={item.id}

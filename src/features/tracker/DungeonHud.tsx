@@ -2,7 +2,7 @@ import React, { useId } from "react"
 import { useHumbugs } from "../board-bridge"
 import { useStore } from "../store"
 import { useMapKind } from "../map-kind"
-import { useTableMode } from "../view-state"
+import { useTableMode, useNetRole } from "../view-state"
 import { usePrefs } from "../prefs"
 import { REST_EVERY, elapsedLabel, isCheckTurn, isRestTurn, turnsUntilCheck } from "./logic"
 import { dungeonStore, uiStore } from "./state"
@@ -20,8 +20,10 @@ export const DungeonHud: React.FC = () => {
     const tableMode = useTableMode()
     const { hints } = usePrefs()
     const titleId = useId()
+    const role = useNetRole()
 
-    if (kind !== "dungeon") return null
+    // The dungeon clock is the GM's (players' apps don't get it)
+    if (kind !== "dungeon" || role === "player") return null
 
     const check = d.lastCheck
     const encounterNow = !!check?.encounter && check.turn === d.turn

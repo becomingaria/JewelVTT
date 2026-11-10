@@ -5,6 +5,7 @@ import type { Humbug, Point } from "../../types/humbug.types"
 import { FeatureIcon } from "../host/FeatureIcon"
 import { useReducedMotion } from "../prefs"
 import { FEATURES } from "../registry"
+import { PLAYER_ALLOWED, netRoleStore } from "../view-state"
 import { humbugName } from "./actions"
 import { MoreIcon } from "./icons"
 import { useWorkflowPrefs } from "./state"
@@ -59,7 +60,9 @@ const RadialMenu: React.FC<MenuProps & { humbug: Humbug; onMore: () => void }> =
         onAction(action, humbug.id)
         onClose()
     }
-    const core: RingItem[] = [
+    // A connected player only gets light and vision on their own tokens
+    const player = netRoleStore.get() === "player"
+    const core: RingItem[] = player ? [] : [
         { id: "edit", label: "Edit", icon: "edit", run: act("edit") },
         humbug.locked
             ? { id: "unlock", label: "Unlock", icon: "unlock", run: act("unlock") }
@@ -68,7 +71,7 @@ const RadialMenu: React.FC<MenuProps & { humbug: Humbug; onMore: () => void }> =
         { id: "back", label: "Send to back", icon: "to-back", run: act("sendToBack") },
     ]
     const extra: RingItem[] = FEATURES.flatMap((f) => f.humbugMenu ?? [])
-        .filter((m) => !m.when || m.when(humbug))
+        .filter((m) => (!m.when || m.when(humbug)) && (!player || PLAYER_ALLOWED.menu(m.id)))
         .map((m) => ({
             id: m.id,
             label: m.label,
@@ -80,15 +83,16 @@ const RadialMenu: React.FC<MenuProps & { humbug: Humbug; onMore: () => void }> =
         }))
     const del: RingItem = { id: "delete", label: "Delete", icon: "trash", danger: true, run: act("delete") }
     // Delete always stays on the ring, last; the rest fill in order
-    const room = RING_MAX - 1
+    const tail = player ? [] : [del]
+    const room = RING_MAX - tail.length
     const rest = [...core, ...extra]
     const items: RingItem[] =
         rest.length <= room
-            ? [...rest, del]
+            ? [...rest, ...tail]
             : [
                   ...rest.slice(0, room - 1),
                   { id: "more", label: "More…", icon: <MoreIcon />, run: onMore },
-                  del,
+                  ...tail,
               ]
 
     const radius = items.length <= 6 ? 74 : 86

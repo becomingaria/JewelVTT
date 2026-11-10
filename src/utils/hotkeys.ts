@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { PLAYER_ALLOWED, netRoleStore } from "../features/view-state"
 
 /*
  * Keyboard shortcuts. HOTKEYS is the single source of truth: the handler
@@ -142,8 +143,11 @@ export function useHotkeys(handlers: HotkeyHandlers) {
             ) {
                 return
             }
+            const player = netRoleStore.get() === "player"
             for (const def of HOTKEYS) {
                 if (!matches(def, e)) continue
+                // A connected player's board belongs to the GM
+                if (player && !PLAYER_ALLOWED.hotkeys.has(def.action)) return
                 const handler = latest.current[def.action]
                 if (!handler) return
                 if (handler() !== false) e.preventDefault()

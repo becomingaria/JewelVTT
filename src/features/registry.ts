@@ -12,6 +12,7 @@ import { feature as hexcrawl } from "./hexcrawl"
 import { feature as workflow } from "./workflow"
 import { feature as tableSlides } from "./table-slides"
 import { feature as desktop } from "./desktop"
+import { feature as net } from "./net"
 
 /** Every feature, in dock order. Each lives in its own folder. */
 export const FEATURES: FeatureModule[] = [
@@ -24,6 +25,7 @@ export const FEATURES: FeatureModule[] = [
     tracker,
     workflow,
     tableSlides,
+    net,
     desktop,
 ]
 

@@ -4,7 +4,7 @@ import type { BoardOverlayProps } from "../types"
 import { useStore } from "../store"
 import { useActiveTool, useTableMode } from "../view-state"
 import { useMapKind } from "../map-kind"
-import { cellAt } from "../grid"
+import { cellAt, parseCellKey } from "../grid"
 import { playSfx } from "../sound"
 import { FOG_KINDS, FOG_TOOL_ID } from "./ids"
 import { FogRenderer, type FogLook } from "./render-fog"
@@ -20,11 +20,22 @@ import {
     withCells,
     type FogState,
 } from "./fog-store"
+import { useEffectiveFog } from "./effective-fog"
+import {
+    brushTargetStore,
+    commitReveals,
+    revealLayersStore,
+    withLayerCells,
+    type RevealLayer,
+} from "./reveal-store"
 import "./fog-light.css"
 
 interface Stroke {
     pointerId: number
     before: FogState
+    /** Painting into a reveal layer instead of the board fog */
+    target: string | null
+    beforeLayers: readonly RevealLayer[]
     reveal: boolean
     last: Point
 }
@@ -35,6 +46,10 @@ interface Stroke {
  */
 export const FogOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
     const fog = useStore(fogStore)
+    // What's drawn: painted fog minus visible reveal layers and token vision
+    const shown = useEffectiveFog()
+    const target = useStore(brushTargetStore)
+    const layers = useStore(revealLayersStore)
     const tableMode = useTableMode()
     const kind = useMapKind()
     const active = useActiveTool() === FOG_TOOL_ID && FOG_KINDS.includes(kind)
@@ -50,9 +65,9 @@ export const FogOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
     const stroke = useRef<Stroke | null>(null)
     const look = useRef<{ key: string; look: FogLook } | null>(null)
 
-    const latest = useRef({ camera, fog, tableMode, active, brush, themeTick })
+    const latest = useRef({ camera, fog, shown, target, layers, tableMode, active, brush, themeTick })
     useEffect(() => {
-        latest.current = { camera, fog, tableMode, active, brush, themeTick }
+        latest.current = { camera, fog, shown, target, layers, tableMode, active, brush, themeTick }
     })
 
     const draw = useCallback(() => {
@@ -68,7 +83,28 @@ export const FogOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
         if (L.fog.enabled) {
             const key = `${L.themeTick}|${L.tableMode}`
             if (look.current?.key !== key) look.current = { key, look: fogLook(canvas, L.tableMode) }
-            renderer.draw(ctx, L.camera, L.fog, look.current.look, w, h, dpr)
+            renderer.draw(ctx, L.camera, L.shown, look.current.look, w, h, dpr)
+        }
+
+        // While painting a reveal layer, outline its cells (dashed gold) so
+        // the GM can see a layer that isn't switched on yet
+        const layer = L.active && L.target ? L.layers.find((l) => l.id === L.target) : undefined
+        if (layer?.cells.size) {
+            const shape = fogShape(L.fog)
+            const edges = outlineEdges([...layer.cells].map(parseCellKey), shape)
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+            ctx.beginPath()
+            for (const [a, b] of edges) {
+                const p = L.camera.worldToScreen(a.x, a.y)
+                const q = L.camera.worldToScreen(b.x, b.y)
+                ctx.moveTo(p.x, p.y)
+                ctx.lineTo(q.x, q.y)
+            }
+            ctx.setLineDash([4, 4])
+            ctx.lineWidth = 3
+            ctx.strokeStyle = "#f5c542"
+            ctx.stroke()
+            ctx.setLineDash([])
         }
 
         // Brush outline: solid = reveal, dashed = hide (not colour alone)
@@ -103,7 +139,7 @@ export const FogOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
 
     useEffect(() => {
         schedule()
-    }, [camera, fog, tableMode, active, brush, themeTick, schedule])
+    }, [camera, fog, shown, target, layers, tableMode, active, brush, themeTick, schedule])
 
     useEffect(() => {
         const canvas = canvasRef.current
@@ -128,13 +164,18 @@ export const FogOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
         if (!s) return
         const cur = fogStore.get()
         const cells = brushSweep(from, to, latest.current.brush.size, fogShape(cur))
-        fogStore.set(withCells(cur, cells, s.reveal))
+        if (s.target) revealLayersStore.set(withLayerCells(revealLayersStore.get(), s.target, cells, s.reveal))
+        else fogStore.set(withCells(cur, cells, s.reveal))
     }
 
     const finish = useCallback(() => {
         const s = stroke.current
         if (!s) return
         stroke.current = null
+        if (s.target) {
+            commitReveals(s.reveal ? "Paint reveal layer" : "Erase reveal layer", s.beforeLayers, revealLayersStore.get())
+            return
+        }
         const after = fogStore.get()
         if (after === s.before) return
         // The cells are already on screen; record the whole stroke as one step
@@ -180,7 +221,9 @@ export const FogOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
         e.preventDefault()
         e.stopPropagation()
         const before = fogStore.get()
-        if (!before.enabled) {
+        const target = brushTargetStore.get()
+        const targetExists = !!target && revealLayersStore.get().some((l) => l.id === target)
+        if (!before.enabled && !targetExists) {
             fogNoticeStore.set("Fog is off on this board. Turn it on (Shift+G) or Cover board first.")
             return
         }
@@ -188,7 +231,14 @@ export const FogOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
         const reveal = !(e.altKey || e.button === 2 || latest.current.brush.mode === "hide")
         const p = toWorld(e)
         e.currentTarget.setPointerCapture(e.pointerId)
-        stroke.current = { pointerId: e.pointerId, before, reveal, last: p }
+        stroke.current = {
+            pointerId: e.pointerId,
+            before,
+            target: targetExists ? target : null,
+            beforeLayers: revealLayersStore.get(),
+            reveal,
+            last: p,
+        }
         hover.current = p
         paint(p, p)
         schedule()

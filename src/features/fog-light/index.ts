@@ -7,6 +7,7 @@ import { FogLightLayer } from "./FogLightLayer"
 import { FogLightOverlays } from "./FogLightOverlays"
 import { LightBadge } from "./LightBadge"
 import { FogHelp, LightHelp } from "./help"
+import { VISION_PRESETS, applyVision, visionFeet } from "./vision"
 import {
     CandleIcon,
     DarknessIcon,
@@ -46,6 +47,16 @@ const lightMenu: HumbugMenuItem[] = [
         when: (h) => !!h.light,
         run: (h) => applyLight(h, undefined),
     },
+    // Vision: how far a token sees through the fog (shared with the party)
+    ...VISION_PRESETS.map(
+        (p): HumbugMenuItem => ({
+            id: `${FEATURE_ID}:vision-${p.feet}`,
+            label: `Vision: ${p.label}`,
+            icon: "eye",
+            when: (h) => h.type === "token" && visionFeet(h) !== p.feet,
+            run: (h) => applyVision(h, p.feet),
+        })
+    ),
 ]
 
 export const feature: FeatureModule = {

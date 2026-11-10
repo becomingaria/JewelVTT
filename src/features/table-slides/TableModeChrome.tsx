@@ -1,5 +1,6 @@
 import React from "react"
-import { useTableMode } from "../view-state"
+import { tableModeStore } from "../view-state"
+import { useStore } from "../store"
 import { toggleTableMode, usePresent } from "./state"
 import { useAwake, usePointerAutoHide } from "./use-awake"
 import { TableModeIcon } from "./icons"
@@ -10,7 +11,7 @@ import { TableModeIcon } from "./icons"
  * or keyboard focus. Esc deliberately doesn't exit (too easy to hit).
  */
 export const TableModeChrome: React.FC = () => {
-    const tableMode = useTableMode()
+    const tableMode = useStore(tableModeStore)
     const present = usePresent()
     usePointerAutoHide(tableMode || !!present)
     const showExit = tableMode && !present

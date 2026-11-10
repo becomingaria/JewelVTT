@@ -66,6 +66,19 @@ files in your folder, not editing core files.**
   `currentColor`, 1.8 stroke). Put your icons in your folder. **Don't add to
   `components/Icon.tsx`.**
 
+## Multiplayer
+
+`view-state.ts` has `netRoleStore` (`"solo" | "host" | "player"`). In a
+player's app the board mirrors the GM's (feature `net`), `useTableMode()`
+is true (players' view), and only `PLAYER_ALLOWED` tools, commands, menu
+items and hotkeys work. Anything a feature shows that's just for the GM
+(clocks, editors) should hide when the role is `"player"`. Board slices in
+`net/protocol.ts` `PRIVATE_SLICES` are never sent to players.
+
+Fog: `fog-light/effective-fog.ts` combines the painted fog, visible reveal
+layers and token vision (`fog-light/vision.ts`). Use it, not `fogStore`,
+when asking "can players see this?".
+
 ## Coordinates
 
 World units, with one grid square = `GRID_SIZE` (32). Convert with

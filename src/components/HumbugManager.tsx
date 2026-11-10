@@ -57,6 +57,7 @@ import {
 import {
     isHumbugHidden,
     isHumbugLayerLocked,
+    netRoleStore,
     useLayerState,
     useTableMode,
 } from "../features/view-state"
@@ -355,6 +356,8 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     const handleContextMenu = useCallback(
         (e: React.MouseEvent) => {
             e.preventDefault()
+            // Players can't add things to the GM's board this way
+            if (netRoleStore.get() === "player") return
 
             const rect = containerRef.current?.getBoundingClientRect()
             if (!rect) return
@@ -2100,6 +2103,7 @@ export const HumbugManager: React.FC<HumbugManagerProps> = ({
     // Copy/paste keyboard handler - always active regardless of undo manager
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (netRoleStore.get() === "player") return
             // Check if we're in an input field
             const target = e.target as HTMLElement
             if (

@@ -1,0 +1,310 @@
+/* Multiplayer panel: docked on the right, below the top bar */
+.net-panel {
+    position: fixed;
+    right: 12px;
+    top: 72px;
+    z-index: 960;
+    width: 340px;
+    max-height: calc((100vh - 96px - var(--apron-height, 0px)) / var(--ui-scale, 1));
+    display: flex;
+    flex-direction: column;
+    background: var(--jv-panel-bg, #fff);
+    color: var(--jv-panel-fg, #222);
+    border: var(--jv-border-w, 2px) solid var(--jv-panel-border, #222);
+    box-shadow: var(--jv-bevel-out, none), var(--jv-shadow, 3px 3px 0 rgba(0, 0, 0, 0.25));
+    zoom: var(--ui-scale, 1);
+}
+
+.net-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+}
+
+.net-titlebar h2 {
+    font: inherit;
+    font-weight: 700;
+    margin: 0;
+}
+
+.net-titlebar .jv-close {
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.net-body {
+    overflow-y: auto;
+    padding: 10px 12px 12px;
+    display: grid;
+    gap: 14px;
+}
+
+.net-body section {
+    display: grid;
+    gap: 6px;
+}
+
+.net-body h3 {
+    margin: 0;
+    font-size: 13px;
+    font-family: var(--jv-font-label, inherit);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.net-body form {
+    display: grid;
+    gap: 6px;
+}
+
+.net-hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--jv-muted, #555);
+}
+
+.net-error {
+    margin: 0;
+    font-size: 13px;
+    color: var(--jv-danger, #b00020);
+    font-weight: 600;
+}
+
+.net-status {
+    margin: 0;
+}
+
+.net-field {
+    display: grid;
+    gap: 3px;
+    font-size: 13px;
+}
+
+.net-input {
+    width: 100%;
+    min-height: 32px;
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 14px;
+    background: var(--jv-field-bg, #fff);
+    color: var(--jv-field-fg, #222);
+    border: 2px solid var(--jv-panel-border, #222);
+    border-radius: var(--jv-radius, 2px);
+}
+
+textarea.net-input {
+    resize: vertical;
+    font-family: var(--jv-font-mono, monospace);
+    font-size: 12px;
+    word-break: break-all;
+}
+
+.net-code {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+}
+
+.net-code .net-input {
+    font-family: var(--jv-font-mono, monospace);
+    font-size: 12px;
+}
+
+.net-live {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}
+
+.net-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.net-body .jv-button {
+    min-height: 32px;
+    padding: 4px 10px;
+}
+
+.net-toggle {
+    justify-self: start;
+}
+
+.net-danger {
+    color: var(--jv-danger, #b00020);
+}
+
+.net-players {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.net-player,
+.net-token {
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    background: var(--jv-panel-bg-alt, #f3f2ee);
+    border: 1px solid var(--jv-line, #ccc);
+}
+
+.net-player.is-knocking {
+    border: 2px dashed var(--jv-accent, #6c2fcf);
+}
+
+.net-player-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.net-badge {
+    font-size: 11px;
+    padding: 1px 6px;
+    border: 1px solid currentColor;
+}
+
+.net-facts {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 8px;
+    margin: 0;
+    font-size: 12px;
+}
+
+.net-facts dt {
+    color: var(--jv-muted, #555);
+}
+
+.net-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.net-bans ul {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 4px;
+}
+
+.net-bans li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.net-bans summary {
+    cursor: var(--cursor-pointer, pointer);
+    font-weight: 600;
+}
+
+.net-portraits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.net-portrait {
+    width: 44px;
+    height: 44px;
+    padding: 2px;
+    border: 2px solid var(--jv-panel-border, #222);
+    background: var(--jv-field-bg, #fff);
+}
+
+.net-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+}
+
+.net-upload {
+    position: relative;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+}
+
+.net-upload input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: var(--cursor-pointer, pointer);
+}
+
+.net-upload:focus-within {
+    outline: var(--jv-focus-width, 3px) solid var(--jv-focus, #f5b700);
+    outline-offset: 2px;
+}
+
+/* "Now sharing" button for players: top centre, flashes gently (1 Hz) */
+.net-share-btn {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 970;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 6px 16px;
+    font: inherit;
+    font-weight: 700;
+    color: var(--jv-accent-fg, #fff);
+    background: var(--jv-accent, #6c2fcf);
+    border: 2px solid var(--jv-panel-border, #222);
+    box-shadow: var(--jv-shadow, 3px 3px 0 rgba(0, 0, 0, 0.3));
+    zoom: var(--ui-scale, 1);
+}
+
+.net-share-btn:not(.is-following) {
+    animation: net-share-pulse 1s steps(2, jump-none) infinite;
+}
+
+.net-share-btn.is-following {
+    background: var(--jv-panel-bg, #fff);
+    color: var(--jv-panel-fg, #222);
+}
+
+.net-share-dot {
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+    box-shadow: 0 0 0 2px var(--jv-panel-border, #222);
+}
+
+@keyframes net-share-pulse {
+    from {
+        filter: none;
+    }
+    to {
+        filter: brightness(1.35);
+    }
+}
+
+html[data-reduced-motion] .net-share-btn {
+    animation: none;
+}
+
+/* A player's app: the GM's board, so the GM's board controls go away */
+html[data-net-role="player"] .hamburger-menu,
+html[data-net-role="player"] .scene-tabs,
+html[data-net-role="player"] .humbug-handles,
+html[data-net-role="player"] .lock-indicator {
+    display: none !important;
+}

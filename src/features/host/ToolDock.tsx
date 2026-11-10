@@ -1,9 +1,9 @@
 import React, { useSyncExternalStore } from "react"
 import { FEATURES, formatHotkeySpec } from "../registry"
 import { useMapKind } from "../map-kind"
-import { toggleActiveTool, useActiveTool, useTableMode } from "../view-state"
+import { PLAYER_ALLOWED, tableModeStore, toggleActiveTool, useActiveTool, useNetRole } from "../view-state"
 import { usePrefs } from "../prefs"
-import { createStore, type Store } from "../store"
+import { createStore, useStore, type Store } from "../store"
 import type { ToolDef, ToolGroup } from "../types"
 import { FeatureIcon } from "./FeatureIcon"
 import "./ToolDock.css"
@@ -51,11 +51,12 @@ const DockButton: React.FC<{ tool: ToolDef; active: boolean; hints: boolean }> =
 export const ToolDock: React.FC = () => {
     const kind = useMapKind()
     const active = useActiveTool()
-    const tableMode = useTableMode()
+    const tableMode = useStore(tableModeStore)
+    const player = useNetRole() === "player"
     const { hints } = usePrefs()
 
     const tools = FEATURES.flatMap((f) => f.tools ?? []).filter(
-        (t) => !t.mapKinds || t.mapKinds.includes(kind)
+        (t) => (!t.mapKinds || t.mapKinds.includes(kind)) && (!player || PLAYER_ALLOWED.tools.has(t.id))
     )
     if (!tools.length) return null
 

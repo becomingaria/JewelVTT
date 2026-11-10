@@ -153,8 +153,41 @@ const AUTOSAVE_KEY = "current"
 const AUTOSAVE_DELAY_MS = 800
 
 let autosaveEnabled = false
+let autosavePaused = false
 let autosaveTimer: number | undefined
 let lastSavedJson = ""
+
+/**
+ * Pause autosave (multiplayer: a player's screen mirrors the GM's board,
+ * which must never overwrite the player's own saved board).
+ */
+export function setAutosavePaused(paused: boolean) {
+    autosavePaused = paused
+    if (paused) {
+        window.clearTimeout(autosaveTimer)
+        autosaveTimer = undefined
+    }
+}
+
+// Live-sync hooks: notified whenever any (non-quiet) slice changes
+const changeListeners = new Set<() => void>()
+export function onBoardChange(listener: () => void) {
+    changeListeners.add(listener)
+    return () => {
+        changeListeners.delete(listener)
+    }
+}
+
+/** Every registered slice key */
+export const boardSliceKeys = () => [...slices.keys()]
+
+/**
+ * Set only the given slices (others untouched), without the "board loaded"
+ * side effects (undo reset, title cards). Used to mirror a shared board.
+ */
+export function patchBoardSlices(partial: Record<string, unknown>) {
+    for (const [key, value] of Object.entries(partial)) slices.get(key)?.set(value)
+}
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "error"
 const statusListeners = new Set<(s: AutosaveStatus) => void>()
@@ -168,6 +201,7 @@ export function onAutosaveStatus(listener: (s: AutosaveStatus) => void) {
 
 async function writeAutosave() {
     autosaveTimer = undefined
+    if (autosavePaused) return
     const file = snapshotBoard()
     const json = JSON.stringify(file.board)
     if (json === lastSavedJson) return
@@ -183,7 +217,8 @@ async function writeAutosave() {
 }
 
 export function markBoardDirty() {
-    if (!autosaveEnabled) return
+    changeListeners.forEach((l) => l())
+    if (!autosaveEnabled || autosavePaused) return
     window.clearTimeout(autosaveTimer)
     autosaveTimer = window.setTimeout(writeAutosave, AUTOSAVE_DELAY_MS)
 }
