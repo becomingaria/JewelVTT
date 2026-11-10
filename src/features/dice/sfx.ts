@@ -202,6 +202,18 @@ const SOUNDS: Record<SfxName, (c: Ctx, out: AudioNode, t: number) => void> = {
         tone(c, out, "square", 180, 180, t, 0.08, 0.1)
         tone(c, out, "square", 130, 120, t + 0.1, 0.16, 0.1)
     },
+    // A soft glassy bell: two sine notes, each with a quiet inharmonic
+    // overtone (what makes a bell sound like a bell), and a faint sparkle
+    chime: (c, out, t) => {
+        ;[
+            [note(19), 0],
+            [note(26), 0.09],
+        ].forEach(([f, dt]) => {
+            tone(c, out, "sine", f, f, t + dt, 1.4, 0.16)
+            tone(c, out, "sine", f * 2.76, f * 2.76, t + dt, 0.5, 0.035)
+        })
+        hiss(c, out, t, 0.25, 0.015, { type: "highpass", f0: 8000 })
+    },
 }
 
 const lastPlayed = new Map<SfxName, number>()

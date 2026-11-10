@@ -20,6 +20,8 @@ export type SfxName =
     | "torch-out"
     | "alert"
     | "error"
+    /** Soft bell (the jewel in the top bar) */
+    | "chime"
 
 type Engine = {
     play: (name: SfxName, volume: number) => void

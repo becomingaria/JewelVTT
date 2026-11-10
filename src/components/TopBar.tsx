@@ -51,6 +51,7 @@ const ExportMenu: React.FC<{
     )
 }
 import { Icon } from "./Icon"
+import { JewelLogo } from "./JewelLogo"
 import "./TopBar.css"
 
 interface TopBarProps {
@@ -292,6 +293,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                         <div className='hamburger-line'></div>
                     </button>
                 </div>
+                {/* The jewel sits left of the home button; click it for a sparkle */}
+                <div className='logo-container'>
+                    <JewelLogo />
+                </div>
                 <button
                     type='button'
                     className='top-bar-icon-button'
@@ -301,15 +306,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                     <Icon name='home' size={24} />
                 </button>
-                <div className='logo-container'>
-                    <img
-                        src='/jewelvtt.svg'
-                        alt='Jewel VTT'
-                        className='logo'
-                        width={44}
-                        height={34}
-                    />
-                </div>
             </div>
 
             {scenes.length > 0 && (
