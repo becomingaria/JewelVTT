@@ -1,0 +1,60 @@
+# Desktop packaging for Windows, macOS and Linux (electron-builder).
+# Releases are published to GitHub Releases, which the apps check on launch.
+appId: com.becomingaria.jewelvtt
+productName: Jewel VTT
+copyright: Freeware
+directories:
+    output: release
+    buildResources: build
+files:
+    - dist/**
+    - dist-electron/**
+    - package.json
+asar: true
+afterPack: scripts/after-pack.cjs
+
+# jewel://join/... room links open the app
+protocols:
+    - name: Jewel VTT room link
+      schemes: [jewel]
+
+publish:
+    provider: github
+    owner: becomingaria
+    repo: JewelVTT
+    releaseType: draft
+
+mac:
+    category: public.app-category.role-playing-games
+    # Freeware: no Apple Developer certificate. after-pack.cjs ad-hoc signs.
+    identity: null
+    target:
+        - target: dmg
+          arch: [arm64, x64]
+        # The zip is what update checks read (latest-mac.yml)
+        - target: zip
+          arch: [arm64, x64]
+
+dmg:
+    title: Jewel VTT ${version}
+
+win:
+    target:
+        - target: nsis
+          arch: [x64, arm64]
+
+nsis:
+    oneClick: true
+    perMachine: false
+    artifactName: Jewel-VTT-Setup-${version}-${arch}.${ext}
+
+linux:
+    category: Game
+    maintainer: becomingaria
+    synopsis: Old-school virtual tabletop
+    target:
+        # AppImage updates itself; deb is for people who prefer packages
+        - target: AppImage
+          arch: [x64, arm64]
+        - target: deb
+          arch: [x64]

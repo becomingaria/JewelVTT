@@ -11,6 +11,7 @@ import { feature as dungeon } from "./dungeon"
 import { feature as hexcrawl } from "./hexcrawl"
 import { feature as workflow } from "./workflow"
 import { feature as tableSlides } from "./table-slides"
+import { feature as desktop } from "./desktop"
 
 /** Every feature, in dock order. Each lives in its own folder. */
 export const FEATURES: FeatureModule[] = [
@@ -23,6 +24,7 @@ export const FEATURES: FeatureModule[] = [
     tracker,
     workflow,
     tableSlides,
+    desktop,
 ]
 
 export function mapKindDefaults(kind: MapKind): MapKindDefaults {

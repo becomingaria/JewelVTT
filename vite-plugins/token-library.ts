@@ -18,7 +18,7 @@ import type {
  *   alone is many GB); they are a local, dev-server feature.
  */
 
-interface LibraryConfig {
+export interface LibraryConfig {
     /** Folder name under public/ */
     dir: string
     /** Manifest file name served at the app base */
@@ -32,9 +32,9 @@ export const LIBRARIES: LibraryConfig[] = [
     { dir: "Maps_Library", manifest: "maps-library.json", thumbnails: true },
 ]
 
-const THUMB_ROUTE = "__library-thumb"
+export const THUMB_ROUTE = "__library-thumb"
 const THUMB_WIDTH = 360
-const IMAGE_EXTENSIONS = new Set([
+export const IMAGE_EXTENSIONS = new Set([
     ".png",
     ".jpg",
     ".jpeg",
@@ -102,7 +102,8 @@ function scanFolder(
     }
 }
 
-function buildManifest(publicDir: string, lib: LibraryConfig): LibraryFolder {
+/** Scan one library under `publicDir` (also used by the desktop app) */
+export function buildManifest(publicDir: string, lib: LibraryConfig): LibraryFolder {
     const libraryDir = path.join(publicDir, lib.dir)
     if (!fs.existsSync(libraryDir)) {
         return { name: "", path: [], folders: [], tokens: [], totalTokens: 0 }

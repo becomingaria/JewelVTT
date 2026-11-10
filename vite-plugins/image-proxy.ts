@@ -54,7 +54,8 @@ async function assertPublicHost(url: URL) {
     }
 }
 
-async function fetchImage(raw: string): Promise<{ type: string; body: Buffer }> {
+/** Fetch a public web image (also used by the desktop app's main process) */
+export async function fetchImage(raw: string): Promise<{ type: string; body: Buffer }> {
     let url = new URL(raw)
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
         await assertPublicHost(url)

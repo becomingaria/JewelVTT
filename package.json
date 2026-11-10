@@ -1,20 +1,22 @@
 {
     "name": "jewel-vtt",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.1.0",
     "type": "module",
     "scripts": {
         "dev": "vite",
         "start": "npm run dev",
         "build": "tsc -b && vite build",
         "lint": "eslint .",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "electron:main": "node scripts/build-electron.mjs",
+        "electron:dev": "node scripts/electron-dev.mjs",
+        "electron:start": "npm run build && npm run electron:main && node scripts/electron-start.mjs",
+        "dist": "npm run build && npm run electron:main && electron-builder --publish never",
+        "release": "npm run build && npm run electron:main && electron-builder --publish always"
     },
     "dependencies": {
-        "html2canvas": "^1.4.1",
-        "pngjs": "^7.0.0",
-        "react": "^19.1.0",
-        "react-dom": "^19.1.0"
+        "electron-updater": "6.8.11"
     },
     "devDependencies": {
         "@eslint/js": "^9.30.1",
@@ -22,13 +24,30 @@
         "@types/react": "^19.1.8",
         "@types/react-dom": "^19.1.6",
         "@vitejs/plugin-react": "^4.6.0",
+        "electron": "44.9.3",
+        "electron-builder": "26.18.0",
         "eslint": "^9.30.1",
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.20",
         "globals": "^16.3.0",
+        "html2canvas": "^1.4.1",
+        "pngjs": "^7.0.0",
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
         "sharp": "^0.34.5",
+        "trystero": "0.26.0",
         "typescript": "~5.8.3",
         "typescript-eslint": "^8.35.1",
         "vite": "^7.0.4"
-    }
+    },
+    "description": "Old-school virtual tabletop: dungeon and hex crawls, fog, dice and peer-to-peer play.",
+    "author": {
+        "name": "becomingaria"
+    },
+    "homepage": "https://github.com/becomingaria/JewelVTT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/becomingaria/JewelVTT.git"
+    },
+    "main": "dist-electron/main.cjs"
 }
