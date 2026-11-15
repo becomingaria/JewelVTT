@@ -80,6 +80,7 @@ export const PLAYER_ALLOWED = {
         "theme-readable-font",
         "theme-crt",
         "net:panel",
+        "net:my-token",
     ]),
     /** Right-click entries on their own tokens: light and vision */
     menu: (id: string) => id.startsWith("fog-light:light-") || id.startsWith("fog-light:vision-"),

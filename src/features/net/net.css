@@ -308,3 +308,179 @@ html[data-net-role="player"] .humbug-handles,
 html[data-net-role="player"] .lock-indicator {
     display: none !important;
 }
+
+/* ------------------------------------------------- characters & tokens */
+.net-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.net-name {
+    min-width: 0;
+    font-weight: 700;
+}
+
+.net-char-head {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    align-items: center;
+    gap: 6px;
+}
+
+.net-char-img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    image-rendering: pixelated;
+    border: 2px solid var(--jv-panel-border, #222);
+    background: var(--jv-field-bg, #fff);
+}
+
+.net-quiet {
+    justify-self: start;
+}
+
+.net-new-char {
+    display: grid;
+    gap: 6px;
+}
+
+.net-new-char summary {
+    cursor: var(--cursor-pointer, pointer);
+    font-weight: 600;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+}
+
+.net-new-char[open] {
+    padding: 8px;
+    background: var(--jv-panel-bg-alt, #f3f2ee);
+    border: 1px solid var(--jv-line, #ccc);
+}
+
+.net-new-char[open] > * + * {
+    margin-top: 6px;
+}
+
+.net-notice {
+    margin: 0;
+    padding: 6px 8px;
+    font-weight: 600;
+    border: 2px solid var(--jv-accent, #6c2fcf);
+}
+
+.net-rules {
+    display: grid;
+    gap: 6px;
+}
+
+.net-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.net-inline .net-input {
+    width: auto;
+}
+
+.net-mini-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.net-mini-list li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.net-mini-list li > span {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.net-mini-list img {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    image-rendering: pixelated;
+    border: 1px solid var(--jv-panel-border, #222);
+}
+
+.net-badge.is-frozen {
+    background: var(--jv-panel-fg, #222);
+    color: var(--jv-panel-bg, #fff);
+}
+
+/* ------------------------------------------- placing a character (player) */
+.net-place {
+    position: absolute;
+    inset: 0;
+    pointer-events: auto;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.net-ghost {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    outline: 3px solid #fff3b8;
+    box-shadow: 0 0 0 5px rgba(10, 8, 16, 0.85);
+}
+
+.net-ghost img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.75;
+    image-rendering: pixelated;
+}
+
+/* Not colour alone: dashed outline and a cross where it can't go */
+.net-ghost.is-blocked {
+    outline: 3px dashed #ff9db0;
+}
+
+.net-ghost.is-blocked img {
+    opacity: 0.35;
+}
+
+.net-ghost-x {
+    position: absolute;
+    font-weight: 900;
+    font-size: 20px;
+    color: #ff9db0;
+    text-shadow: 0 0 3px #000, 0 0 3px #000;
+}
+
+.net-place-banner {
+    position: absolute;
+    left: 50%;
+    bottom: calc(88px * var(--ui-scale, 1));
+    transform: translateX(-50%);
+    max-width: min(520px, calc(100% - 32px));
+    padding: 6px 12px;
+    font-weight: 700;
+    text-align: center;
+    pointer-events: none;
+    color: var(--jv-panel-fg, #222);
+    background: var(--jv-panel-bg, #fff);
+    border: 2px solid var(--jv-panel-border, #222);
+    box-shadow: var(--jv-shadow, 3px 3px 0 rgba(0, 0, 0, 0.3));
+}
+
+.net-player-head .jv-button,
+.net-mini-list .jv-button {
+    white-space: nowrap;
+}

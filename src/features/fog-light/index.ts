@@ -1,6 +1,6 @@
 import { createElement } from "react"
 import type { FeatureModule, HumbugMenuItem } from "../types"
-import { DARK_TOOL_ID, FEATURE_ID, FOG_KINDS, FOG_TOOL_ID, LIGHT_KINDS } from "./ids"
+import { DARK_TOOL_ID, FEATURE_ID, FOG_KINDS, FOG_TOOL_ID, LIGHT_KINDS, WALLS_TOOL_ID } from "./ids"
 import { coverBoard, revealEverything, setFogEnabled, toggleFog } from "./fog-store"
 import { DARKNESS_LABEL, LIGHT_PRESETS, applyLight, cycleDarkness, darkPressed, darknessStore } from "./light-store"
 import { FogLightLayer } from "./FogLightLayer"
@@ -8,6 +8,7 @@ import { FogLightOverlays } from "./FogLightOverlays"
 import { LightBadge } from "./LightBadge"
 import { FogHelp, LightHelp } from "./help"
 import { VISION_PRESETS, applyVision, visionFeet } from "./vision"
+import { blocksSight, setBlocksSight } from "./sight"
 import {
     CandleIcon,
     DarknessIcon,
@@ -16,6 +17,7 @@ import {
     LanternIcon,
     NoLightIcon,
     SparkleIcon,
+    WallIcon,
 } from "./icons"
 
 /* Feature: fog-light (dithered fog of war + torchlight) — see src/features/README.md */
@@ -57,6 +59,21 @@ const lightMenu: HumbugMenuItem[] = [
             run: (h) => applyVision(h, p.feet),
         })
     ),
+    // Line of sight: walls, pillars, closed doors... (switch per object)
+    {
+        id: `${FEATURE_ID}:blocks-sight-on`,
+        label: "Block sight",
+        icon: "eye-off",
+        when: (h) => h.type !== "map" && !blocksSight(h),
+        run: (h) => setBlocksSight(h, true),
+    },
+    {
+        id: `${FEATURE_ID}:blocks-sight-off`,
+        label: "Let sight through",
+        icon: "eye",
+        when: (h) => blocksSight(h),
+        run: (h) => setBlocksSight(h, false),
+    },
 ]
 
 export const feature: FeatureModule = {
@@ -74,6 +91,16 @@ export const feature: FeatureModule = {
             icon: createElement(FogIcon),
             hint: "Drag to reveal; Alt-drag to hide",
             hotkey: { key: "g" },
+            mapKinds: FOG_KINDS,
+            group: "play",
+            kind: "mode",
+        },
+        {
+            id: WALLS_TOOL_ID,
+            label: "Sight walls",
+            icon: createElement(WallIcon),
+            hint: "Draw walls on a map picture that block sight and light",
+            hotkey: { key: "b", shift: true },
             mapKinds: FOG_KINDS,
             group: "play",
             kind: "mode",

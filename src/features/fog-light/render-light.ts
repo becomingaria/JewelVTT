@@ -1,4 +1,6 @@
 import type { BoardCamera } from "../board-bridge"
+import type { GridShape } from "../../utils/board-styles"
+import { cellAt, cellKey, SQUARE } from "../grid"
 import { bayerThreshold, lightLevel, packRGBA, pickTexel, quantizeLight } from "./dither"
 import { cameraAffine, drawRegion, padBox, regionFor, visibleBox, type Region, type RGBA } from "./world-texture"
 
@@ -16,6 +18,15 @@ export interface LitSource {
     bright: number
     outer: number
     tint: RGBA | null
+    /** Cells this light can reach past walls (undefined = nothing in the way) */
+    mask?: ReadonlySet<string>
+    shape?: GridShape
+}
+
+/** Which cell a world point is in, as a key (fast path for squares) */
+function keyAt(x: number, y: number, shape: GridShape | undefined): string {
+    if (shape === "hex") return cellKey(cellAt({ x, y }, "hex"))
+    return `${Math.floor(x / SQUARE)},${Math.floor(y / SQUARE)}`
 }
 
 export interface DarkLook {
@@ -60,6 +71,8 @@ export class LightRenderer {
                 const dy = r.y0 + (j + 0.5) * t - s.y
                 for (let i = i0; i < i1; i++) {
                     const dx = r.x0 + (i + 0.5) * t - s.x
+                    // Walls: no light in cells the source can't reach
+                    if (s.mask && !s.mask.has(keyAt(s.x + dx, s.y + dy, s.shape))) continue
                     const L = lightLevel(Math.hypot(dx, dy), s.bright, s.outer, band)
                     const k = j * r.cols + i
                     if (L > level[k]) {

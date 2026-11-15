@@ -262,3 +262,14 @@ html[data-high-contrast] .fogl-btn:focus-visible {
     background: var(--jv-field-bg, #fff);
     color: var(--jv-field-fg, #222);
 }
+
+/* Sight walls tool: takes the pointer only while active */
+.fogl-walls.is-drawing {
+    pointer-events: auto;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.infinite-whiteboard-container.shift-pan-mode .fogl-walls.is-drawing {
+    pointer-events: none;
+}

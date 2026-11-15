@@ -1,14 +1,32 @@
 import React, { useEffect, useState } from "react"
 import type { Humbug, LightSource } from "../../types/humbug.types"
-import { loadParty, type PartyMember } from "../../utils/party"
+import { loadParty, MAX_PARTY, onPartyChanged, type PartyMember } from "../../utils/party"
 import { flyTo } from "../../utils/view-events"
 import { selectHumbugs, updateHumbugs, useHumbugs } from "../board-bridge"
 import { LIGHT_PRESETS } from "../fog-light/light-store"
 import { VISION_PRESETS, visionFeet } from "../fog-light/vision"
 import { useStore } from "../store"
-import { clientStore, followGm, leaveGame, requestAddToken, undoMyMove } from "./client"
+import {
+    addCharacter,
+    characterPrefsStore,
+    forgetCharacter,
+    placingFor,
+    prefsOf,
+    renameCharacter,
+    setPrefs,
+} from "./characters"
+import {
+    clientStore,
+    followGm,
+    leaveGame,
+    placingStore,
+    removeMyToken,
+    renameMyToken,
+    rulesStore,
+    undoMyMove,
+} from "./client"
 import { ownerOf } from "./filter"
-import { MAX_TOKENS_PER_PLAYER } from "./protocol"
+import { NET_EXT, type NetExt } from "./protocol"
 
 const STATUS_TEXT = {
     connecting: "Looking for the GM…",
@@ -19,23 +37,43 @@ const STATUS_TEXT = {
     ended: "Not connected",
 } as const
 
-/** Shrink a picture to a token-sized PNG (keeps the connection light) */
-async function toTokenImage(source: Blob): Promise<string> {
-    const bmp = await createImageBitmap(source)
-    const scale = Math.min(1, 256 / Math.max(bmp.width, bmp.height))
-    const canvas = document.createElement("canvas")
-    canvas.width = Math.max(1, Math.round(bmp.width * scale))
-    canvas.height = Math.max(1, Math.round(bmp.height * scale))
-    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL("image/png")
-}
-
 const lightIdOf = (h: Humbug) => {
     if (!h.light) return "none"
     const p = LIGHT_PRESETS.find((x) => x.light.bright === h.light!.bright && x.light.dim === h.light!.dim)
     return p?.id ?? "custom"
 }
 
+const charOf = (h: Humbug) => (h.ext?.[NET_EXT] as NetExt | undefined)?.char
+
+const LightSelect: React.FC<{ value: string; onChange: (id: string) => void; label: string }> = ({ value, onChange, label }) => (
+    <label className='net-field'>
+        <span>{label}</span>
+        <select className='net-input' value={value} onChange={(e) => onChange(e.currentTarget.value)}>
+            <option value='none'>None</option>
+            {LIGHT_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                    {p.label}
+                </option>
+            ))}
+            {value === "custom" && <option value='custom'>Set by the GM</option>}
+        </select>
+    </label>
+)
+
+const VisionSelect: React.FC<{ value: number; onChange: (feet: number) => void }> = ({ value, onChange }) => (
+    <label className='net-field'>
+        <span>Vision</span>
+        <select className='net-input' value={value} onChange={(e) => onChange(Number(e.currentTarget.value))}>
+            {VISION_PRESETS.map((p) => (
+                <option key={p.feet} value={p.feet}>
+                    {p.label}
+                </option>
+            ))}
+        </select>
+    </label>
+)
+
+/** A token of mine on the table */
 const MyToken: React.FC<{ h: Humbug }> = ({ h }) => {
     const name = (h.type === "token" && h.name) || "My token"
     const setLight = (id: string) => {
@@ -50,7 +88,15 @@ const MyToken: React.FC<{ h: Humbug }> = ({ h }) => {
     return (
         <li className='net-token'>
             <div className='net-player-head'>
-                <strong>{name}</strong>
+                <input
+                    key={name}
+                    className='net-input net-name'
+                    defaultValue={name}
+                    maxLength={40}
+                    aria-label={`Name of ${name}`}
+                    onBlur={(e) => e.currentTarget.value.trim() !== name && renameMyToken(h.id, e.currentTarget.value)}
+                    onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                />
                 <button
                     type='button'
                     className='jv-button'
@@ -62,102 +108,150 @@ const MyToken: React.FC<{ h: Humbug }> = ({ h }) => {
                     Go to
                 </button>
             </div>
-            <label className='net-field'>
-                <span>Light</span>
-                <select className='net-input' value={lightIdOf(h)} onChange={(e) => setLight(e.currentTarget.value)}>
-                    <option value='none'>None</option>
-                    {LIGHT_PRESETS.map((p) => (
-                        <option key={p.id} value={p.id}>
-                            {p.label}
-                        </option>
-                    ))}
-                    {lightIdOf(h) === "custom" && <option value='custom'>Set by the GM</option>}
-                </select>
-            </label>
-            <label className='net-field'>
-                <span>Vision</span>
-                <select className='net-input' value={visionFeet(h)} onChange={(e) => setVision(Number(e.currentTarget.value))}>
-                    {VISION_PRESETS.map((p) => (
-                        <option key={p.feet} value={p.feet}>
-                            {p.label}
-                        </option>
-                    ))}
-                </select>
-            </label>
+            <div className='net-two'>
+                <LightSelect label='Light' value={lightIdOf(h)} onChange={setLight} />
+                <VisionSelect value={visionFeet(h)} onChange={setVision} />
+            </div>
+            <button type='button' className='jv-button net-quiet' onClick={() => removeMyToken(h.id)}>
+                Take off the table
+            </button>
         </li>
     )
 }
 
-const AddToken: React.FC<{ defaultName: string }> = ({ defaultName }) => {
-    const [party, setParty] = useState<PartyMember[]>([])
-    const [name, setName] = useState(defaultName)
+/** One of my saved characters */
+const Character: React.FC<{
+    m: PartyMember
+    onTable: boolean
+    canPlace: boolean
+    why: string
+}> = ({ m, onTable, canPlace, why }) => {
+    useStore(characterPrefsStore)
+    const prefs = prefsOf(m.id)
+    const placing = useStore(placingStore)
     const [busy, setBusy] = useState(false)
     const [note, setNote] = useState("")
-    useEffect(() => {
-        void loadParty().then(setParty)
-    }, [])
+    const isPlacing = placing?.char === m.id
 
-    const send = async (load: () => Promise<Blob>) => {
+    const place = async () => {
+        if (isPlacing) return placingStore.set(null)
         setBusy(true)
         setNote("")
         try {
-            requestAddToken(name, await toTokenImage(await load()))
-            setNote("Sent to the GM. Your token appears in a moment.")
+            placingStore.set(await placingFor(m))
         } catch {
-            setNote("Couldn't read that picture. Try a PNG or JPEG.")
+            setNote("Couldn't read this character's picture.")
         } finally {
             setBusy(false)
         }
     }
 
     return (
-        <section aria-labelledby='net-add-title'>
-            <h3 id='net-add-title'>Add my token</h3>
+        <li className='net-token net-char'>
+            <div className='net-char-head'>
+                <img className='net-char-img' src={m.imageUrl} alt='' />
+                <input
+                    key={m.name}
+                    className='net-input net-name'
+                    defaultValue={m.name}
+                    maxLength={40}
+                    aria-label={`Name of ${m.name}`}
+                    onBlur={(e) => e.currentTarget.value.trim() !== m.name && void renameCharacter(m.id, e.currentTarget.value)}
+                    onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                />
+                <button
+                    type='button'
+                    className='jv-button'
+                    aria-label={`Forget ${m.name}`}
+                    title='Remove from my characters'
+                    onClick={() => void forgetCharacter(m.id)}
+                >
+                    <span aria-hidden='true'>×</span>
+                </button>
+            </div>
+            <div className='net-two'>
+                <LightSelect label='Starts with light' value={prefs.light} onChange={(light) => setPrefs(m.id, { light })} />
+                <VisionSelect value={prefs.vision} onChange={(vision) => setPrefs(m.id, { vision })} />
+            </div>
+            {onTable ? (
+                <p className='net-hint'>On the table.</p>
+            ) : (
+                <button
+                    type='button'
+                    className={`jv-button ${isPlacing ? "" : "jv-button-primary"}`}
+                    aria-pressed={isPlacing}
+                    disabled={busy || (!canPlace && !isPlacing)}
+                    title={canPlace ? "Then click a spot on the map you can see" : why}
+                    onClick={() => void place()}
+                >
+                    {isPlacing ? "Cancel placing" : "Place on map"}
+                </button>
+            )}
+            {note && (
+                <p className='net-error' role='alert'>
+                    {note}
+                </p>
+            )}
+        </li>
+    )
+}
+
+const NewCharacter: React.FC<{ defaultName: string; full: boolean }> = ({ defaultName, full }) => {
+    const [name, setName] = useState(defaultName)
+    const [note, setNote] = useState("")
+    const [busy, setBusy] = useState(false)
+    if (full) return <p className='net-hint'>You have {MAX_PARTY} characters, the most this app keeps.</p>
+    return (
+        <details className='net-new-char'>
+            <summary>New character…</summary>
             <label className='net-field'>
                 <span>Name</span>
                 <input className='net-input' value={name} maxLength={40} onChange={(e) => setName(e.currentTarget.value)} />
             </label>
-            {party.length > 0 && (
-                <div className='net-portraits' role='group' aria-label='Pick a portrait from My Party'>
-                    {party.map((m) => (
-                        <button
-                            key={m.id}
-                            type='button'
-                            className='net-portrait'
-                            disabled={busy}
-                            aria-label={`Use ${m.name || "this portrait"}`}
-                            onClick={() => void send(async () => (await fetch(m.imageUrl)).blob())}
-                        >
-                            <img src={m.imageUrl} alt='' />
-                        </button>
-                    ))}
-                </div>
-            )}
             <label className='jv-button net-upload'>
-                Upload a picture…
+                {busy ? "Saving…" : "Choose a picture…"}
                 <input
                     type='file'
                     accept='image/*'
                     disabled={busy}
                     onChange={(e) => {
                         const f = e.currentTarget.files?.[0]
-                        if (f) void send(async () => f)
                         e.currentTarget.value = ""
+                        if (!f) return
+                        setBusy(true)
+                        void addCharacter(name, f).then((err) => {
+                            setBusy(false)
+                            setNote(err ?? `Saved ${name.trim() || "your character"} in this app.`)
+                        })
                     }}
                 />
             </label>
             <p className='net-hint' role='status' aria-live='polite'>
                 {note}
             </p>
-        </section>
+        </details>
     )
 }
 
 export const PlayerView: React.FC<{ defaultName: string }> = ({ defaultName }) => {
     const client = useStore(clientStore)
+    const rules = useStore(rulesStore)
     const humbugs = useHumbugs()
+    const [party, setParty] = useState<PartyMember[]>([])
+    useEffect(() => {
+        const load = () => void loadParty().then(setParty)
+        load()
+        return onPartyChanged(load)
+    }, [])
     if (!client) return null
     const mine = client.you ? humbugs.filter((h) => ownerOf(h) === client.you) : []
+    const placed = new Set(mine.map(charOf).filter(Boolean))
+    const room = mine.length < rules.maxTokens
+    const why = rules.frozen
+        ? "The GM has paused your tokens"
+        : room
+          ? ""
+          : `You have ${rules.maxTokens} token${rules.maxTokens === 1 ? "" : "s"} on the table, the most the GM allows`
 
     return (
         <div className='net-body'>
@@ -182,8 +276,15 @@ export const PlayerView: React.FC<{ defaultName: string }> = ({ defaultName }) =
 
             {client.status === "connected" && (
                 <>
+                    {rules.frozen && (
+                        <p className='net-notice' role='status'>
+                            The GM has paused your tokens. You can still look around and roll.
+                        </p>
+                    )}
                     <section aria-labelledby='net-mine-title'>
-                        <h3 id='net-mine-title'>My tokens</h3>
+                        <h3 id='net-mine-title'>
+                            On the table ({mine.length} of {rules.maxTokens})
+                        </h3>
                         {mine.length ? (
                             <ul className='net-players'>
                                 {mine.map((h) => (
@@ -191,13 +292,42 @@ export const PlayerView: React.FC<{ defaultName: string }> = ({ defaultName }) =
                                 ))}
                             </ul>
                         ) : (
-                            <p className='net-hint'>Add your character below. Drag it on the board to move.</p>
+                            <p className='net-hint'>Nothing yet. Place one of your characters below.</p>
                         )}
-                        <button type='button' className='jv-button' onClick={() => undoMyMove()}>
-                            Undo my last move
-                        </button>
+                        {mine.length > 0 && (
+                            <>
+                                <p className='net-hint'>
+                                    Drag your token to move it
+                                    {rules.fenced ? ", within what the party can see" : ""}.
+                                </p>
+                                <button type='button' className='jv-button' onClick={() => undoMyMove()}>
+                                    Undo my last move
+                                </button>
+                            </>
+                        )}
                     </section>
-                    {mine.length < MAX_TOKENS_PER_PLAYER && <AddToken defaultName={defaultName} />}
+
+                    <section aria-labelledby='net-chars-title'>
+                        <h3 id='net-chars-title'>My characters</h3>
+                        <p className='net-hint'>
+                            Kept in this app for any game. Place one, then click a spot on the map you can see
+                            {rules.approve ? " (the GM approves new tokens)" : ""}.
+                        </p>
+                        {party.length > 0 && (
+                            <ul className='net-players'>
+                                {party.map((m) => (
+                                    <Character
+                                        key={m.id}
+                                        m={m}
+                                        onTable={placed.has(m.id)}
+                                        canPlace={room && !rules.frozen}
+                                        why={why}
+                                    />
+                                ))}
+                            </ul>
+                        )}
+                        <NewCharacter defaultName={party.length ? "" : defaultName} full={party.length >= MAX_PARTY} />
+                    </section>
                 </>
             )}
 

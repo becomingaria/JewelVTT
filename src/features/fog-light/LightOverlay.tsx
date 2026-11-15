@@ -12,6 +12,9 @@ import { flickerFactor } from "./dither"
 import { LightRenderer, type DarkLook, type LitSource } from "./render-light"
 import { parseColour, sizeCanvas } from "./world-texture"
 import { darkLook, useThemeTick } from "./looks"
+import { lineOfSight, sightWorld, standingIn, useWalls, worldBlocks } from "./sight"
+import { sightVersionStore } from "../services"
+import { cellAt, cellKey, cellsWithin } from "../grid"
 import "./fog-light.css"
 
 /** Redraw rate while torches flicker (the wobble itself is ~2 Hz) */
@@ -53,9 +56,14 @@ export const LightOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
     const lights = humbugs.filter((h) => isLit(h) && !isHumbugHidden(h, layers, false))
     const flickering = !reduced && darkness !== "daylight" && lights.some((h) => h.light?.flicker)
 
-    const latest = useRef({ camera, darkness, tableMode, lights, kind, reduced, themeTick })
+    const walls = useWalls()
+    const sightVersion = useStore(sightVersionStore)
+    /** Lit cells per light, worked out again only when it or the walls move */
+    const masks = useRef(new Map<string, { key: string; cells: ReadonlySet<string> }>())
+
+    const latest = useRef({ camera, darkness, tableMode, lights, kind, reduced, themeTick, humbugs })
     useEffect(() => {
-        latest.current = { camera, darkness, tableMode, lights, kind, reduced, themeTick }
+        latest.current = { camera, darkness, tableMode, lights, kind, reduced, themeTick, humbugs }
     })
 
     const draw = useCallback(() => {
@@ -73,20 +81,42 @@ export const LightOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
         if (!dl) return
 
         const now = performance.now() / 1000
+        const shape = L.camera.gridShape
+        const world = sightWorld(shape, L.humbugs)
+        const blocked = worldBlocks(world)
+        const keep = new Set<string>()
+        const maskFor = (hb: Humbug, cx: number, cy: number, outer: number) => {
+            if (!blocked) return undefined
+            const key = `${world.key}|${cx},${cy},${outer}`
+            keep.add(hb.id)
+            const hit = masks.current.get(hb.id)
+            if (hit?.key === key) return hit.cells
+            const centre = cellAt({ x: cx, y: cy }, shape)
+            const cells = cellsWithin(centre, outer / GRID_SIZE + 1, shape).map(cellKey)
+            const lit = lineOfSight({ x: cx, y: cy }, cells, shape, world, outer + 64, standingIn(hb, shape, world))
+            masks.current.set(hb.id, { key, cells: lit })
+            return lit
+        }
         const sources: LitSource[] = L.lights.map((hb) => {
             const light = hb.light!
             const size = humbugFootprint(hb)
             const f = light.flicker && !L.reduced ? flickerFactor(now, phaseOf(hb.id)) : 1
             const bright = feetToWorld(L.kind, Math.max(0, light.bright)) * f
             const outer = feetToWorld(L.kind, Math.max(0, light.bright) + Math.max(0, light.dim)) * f
+            const x = hb.position.x + size.width / 2
+            const y = hb.position.y + size.height / 2
+            const fullOuter = feetToWorld(L.kind, Math.max(0, light.bright) + Math.max(0, light.dim))
             return {
-                x: hb.position.x + size.width / 2,
-                y: hb.position.y + size.height / 2,
+                x,
+                y,
                 bright,
                 outer,
                 tint: light.color ? parseColour(light.color, [255, 200, 120, 255]) : null,
+                mask: maskFor(hb, x, y, fullOuter),
+                shape,
             }
         })
+        for (const id of masks.current.keys()) if (!keep.has(id)) masks.current.delete(id)
         renderer.draw(ctx, L.camera, sources, dl, w, h, dpr)
     }, [renderer])
 
@@ -96,7 +126,7 @@ export const LightOverlay: React.FC<BoardOverlayProps> = ({ camera }) => {
 
     useEffect(() => {
         schedule()
-    }, [camera, darkness, tableMode, humbugs, layers, kind, reduced, themeTick, schedule])
+    }, [camera, darkness, tableMode, humbugs, layers, kind, reduced, themeTick, walls, sightVersion, schedule])
 
     useEffect(() => {
         if (!flickering) return

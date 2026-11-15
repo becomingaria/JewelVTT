@@ -4,7 +4,7 @@ import { registerFogApi } from "../services"
 import { useStore } from "../store"
 import { useActiveTool } from "../view-state"
 import { useMapKind } from "../map-kind"
-import { FOG_KINDS, FOG_TOOL_ID } from "./ids"
+import { FOG_KINDS, FOG_TOOL_ID, WALLS_TOOL_ID } from "./ids"
 import {
     EMPTY_FOG,
     deserializeFog,
@@ -21,12 +21,15 @@ import { isRevealedKey, fogShape } from "./fog-store"
 import { effectiveFog } from "./effective-fog"
 import { deserializeReveals, revealLayersStore, serializeReveals, type RevealLayer } from "./reveal-store"
 import { recomputeVision, setVisionShapeSource } from "./vision"
+import { deserializeWalls, wallsStore, type Wall } from "./sight"
+import { WallsStrip } from "./WallsStrip"
 
 /** App-level: saves fog and darkness with the board, shows the brush strip */
 export const FogLightLayer: React.FC = () => {
     const fog = useStore(fogStore)
     const darkness = useStore(darknessStore)
-    const active = useActiveTool() === FOG_TOOL_ID
+    const tool = useActiveTool()
+    const active = tool === FOG_TOOL_ID
     const kind = useMapKind()
 
     useBoardSlice<FogState, FogSaved>("fog-light:fog", fog, (v) => fogStore.set(v ?? EMPTY_FOG), {
@@ -41,6 +44,12 @@ export const FogLightLayer: React.FC = () => {
         (v) => revealLayersStore.set(v ?? []),
         { serialize: serializeReveals, deserialize: deserializeReveals }
     )
+
+    const walls = useStore(wallsStore)
+    useBoardSlice<readonly Wall[], unknown>("fog-light:walls", walls, (v) => wallsStore.set(v ?? []), {
+        serialize: (w) => [...w],
+        deserialize: deserializeWalls,
+    })
 
     useEffect(() => {
         // Vision cells live on the fog's grid
@@ -57,5 +66,8 @@ export const FogLightLayer: React.FC = () => {
         return unsubscribe
     }, [])
 
-    return active && FOG_KINDS.includes(kind) ? <FogBrushStrip /> : null
+    if (!FOG_KINDS.includes(kind)) return null
+    if (active) return <FogBrushStrip />
+    if (tool === WALLS_TOOL_ID) return <WallsStrip />
+    return null
 }

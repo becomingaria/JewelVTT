@@ -8,6 +8,7 @@ import {
     formatBytes,
     safeHttpUrl,
 } from "../utils/documents"
+import { blocksSight, defaultBlocksSight, withBlocksSight } from "../features/fog-light/sight"
 import "./HumbugModal.css"
 
 /** One grid square in world units (and 5 ft at the table) */
@@ -52,6 +53,9 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
     const [size, setSize] = useState(() => defaultSize(type))
     // Once the user types a size, stop auto-sizing (e.g. from a map's shape)
     const [sizeTouched, setSizeTouched] = useState(false)
+
+    // Line of sight: null = untouched (the object's current or default setting)
+    const [blocks, setBlocks] = useState<boolean | null>(null)
 
     // Text-specific state
     const [content, setContent] = useState("")
@@ -114,6 +118,7 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
 
     // Populate form with existing humbug data when editing
     useEffect(() => {
+        setBlocks(null)
         if (existingHumbug) {
             setOpacity(existingHumbug.opacity)
 
@@ -414,7 +419,14 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
             }
         }
 
-        onCreate({ ...baseData, ...specificData })
+        // Only touch ext when the switch was changed (other features keep theirs)
+        const sightData: Record<string, unknown> = {}
+        if (blocks !== null) {
+            const def = defaultBlocksSight(existingHumbug ?? { type, ext: undefined })
+            sightData.ext = withBlocksSight(existingHumbug?.ext, blocks === def ? undefined : blocks)
+        }
+
+        onCreate({ ...baseData, ...specificData, ...sightData })
         onClose()
     }
 
@@ -1000,6 +1012,29 @@ export const HumbugModal: React.FC<HumbugModalProps> = ({
                                     className='opacity-slider'
                                 />
                             </div>
+
+                            {type !== "map" && (
+                                <div className='form-group'>
+                                    <label>
+                                        <input
+                                            type='checkbox'
+                                            checked={
+                                                blocks ??
+                                                (existingHumbug
+                                                    ? blocksSight(existingHumbug)
+                                                    : defaultBlocksSight({ type, ext: undefined }))
+                                            }
+                                            onChange={(e) => setBlocks(e.target.checked)}
+                                            aria-describedby='humbug-blocks-sight-hint'
+                                        />
+                                        Blocks sight
+                                    </label>
+                                    <div id='humbug-blocks-sight-hint' className='form-hint'>
+                                        Tokens and lights can't see past it, like a wall or a closed door. On by default for
+                                        pillars, statues, crates and closed doors.
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

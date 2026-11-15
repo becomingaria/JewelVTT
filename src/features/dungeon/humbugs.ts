@@ -48,6 +48,14 @@ export const PALETTE: PaletteEntry[] = [
     { id: "bones", label: "Bones", stamp: "bones" },
 ]
 
+/** The fog-light extras without a manual "Blocks sight" (the door's state decides) */
+function withoutBlocksSight(v: unknown): Record<string, unknown> | undefined {
+    if (!v || typeof v !== "object") return undefined
+    const rest = { ...(v as Record<string, unknown>) }
+    delete rest.blocksSight
+    return Object.keys(rest).length ? rest : undefined
+}
+
 export const dungeonExt = (h: Humbug): DungeonExt | undefined => {
     const d = h.ext?.[FEATURE_ID] as DungeonExt | undefined
     return d && typeof d === "object" && "stamp" in d ? d : undefined
@@ -87,7 +95,8 @@ export function labelHumbug(room: number, cell: Cell): TextHumbug {
     }
 }
 
-/** Change a stamp's state: sprite, layer and ext together, one undo step */
+/** Change a stamp's state: sprite, layer and ext together, one undo step.
+ *  A door's own "Blocks sight" setting is cleared, so opening it lets sight through. */
 export function setStampState(h: Humbug, state: StampState) {
     const d = dungeonExt(h)
     if (!d || d.stamp === "label" || h.type !== "image") return
@@ -98,7 +107,7 @@ export function setStampState(h: Humbug, state: StampState) {
             changes: {
                 imageUrl: spriteUrl(d.stamp, state),
                 layer: isHiddenState(d.stamp, state) ? "gm" : "objects",
-                ext: { ...h.ext, [FEATURE_ID]: ext },
+                ext: { ...h.ext, [FEATURE_ID]: ext, "fog-light": withoutBlocksSight(h.ext?.["fog-light"]) },
             } as Partial<Humbug>,
         },
     ])

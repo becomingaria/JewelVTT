@@ -9,6 +9,10 @@ import {
 import { showToast } from "../../utils/toast"
 import { flyTo } from "../../utils/view-events"
 import { cameraStore, humbugsStore } from "../board-bridge"
+import { humbugFootprint } from "../../utils/humbug.utils"
+import { cellAt, cellKey } from "../grid"
+import { isCellVisible } from "../fog-light/effective-fog"
+import { fogShape } from "../fog-light/fog-store"
 import { auditStore } from "../dice/audit"
 import { playSfx } from "../sound"
 import { createStore } from "../store"
@@ -18,9 +22,11 @@ import { formatCode, parseCode, type RoomCode } from "./code"
 import { ownerOf } from "./filter"
 import { getIdentity } from "./identity"
 import {
+    DEFAULT_MAX_TOKENS,
     PLAYER_LOCAL_SLICES,
     type NoticeMsg,
     type PlayerRequest,
+    type PlayerRules,
     type ShareMsg,
     type StateMsg,
 } from "./protocol"
@@ -47,6 +53,20 @@ export interface ClientState {
 }
 
 export const clientStore = createStore<ClientState | null>(null)
+
+/** The GM's rules for this player */
+export const DEFAULT_RULES: PlayerRules = { maxTokens: DEFAULT_MAX_TOKENS, frozen: false, fenced: true, approve: false }
+export const rulesStore = createStore<PlayerRules>(DEFAULT_RULES)
+
+/** A character waiting to be put on the map (the player clicks a spot) */
+export interface Placing {
+    name: string
+    image: string
+    char?: string
+    light?: LightSource
+    vision?: number
+}
+export const placingStore = createStore<Placing | null>(null)
 const setClient = (patch: Partial<ClientState>) => clientStore.set((c) => (c ? { ...c, ...patch } : c))
 
 interface Conn {
@@ -65,7 +85,7 @@ let lastShare: ShareMsg["view"]
 let connectTimer = 0
 
 // --------------------------------------------------- own-token changes
-type TokenPatch = { position?: Point; light?: LightSource | null; vision?: number }
+type TokenPatch = { position?: Point; light?: LightSource | null; vision?: number; name?: string }
 
 /** What each of my tokens should look like after the GM's latest state */
 let expected = new Map<string, Humbug>()
@@ -85,7 +105,8 @@ function overlayPending(list: Humbug[]): Humbug[] {
         const confirmed =
             (!p.patch.position || same(p.patch.position, h.position)) &&
             (!("light" in p.patch) || same(p.patch.light ?? undefined, h.light)) &&
-            (p.patch.vision === undefined || p.patch.vision === visionOf(h))
+            (p.patch.vision === undefined || p.patch.vision === visionOf(h)) &&
+            (p.patch.name === undefined || (h.type === "token" && h.name === p.patch.name))
         if (confirmed || now - p.at > 5000) {
             pending.delete(h.id)
             return h
@@ -96,6 +117,7 @@ function overlayPending(list: Humbug[]): Humbug[] {
         if (p.patch.vision !== undefined) {
             next.ext = { ...h.ext, "fog-light": { ...(h.ext?.["fog-light"] as object), vision: p.patch.vision } }
         }
+        if (p.patch.name !== undefined && next.type === "token") next.name = p.patch.name
         return next
     })
 }
@@ -108,25 +130,43 @@ function watchMyTokens() {
     patchTimer = window.setTimeout(sendMyChanges, 180)
 }
 
+/** Can the party see where this token would stand? (the GM checks too) */
+function spotVisible(position: Point, h: Humbug): boolean {
+    const size = humbugFootprint(h)
+    return isCellVisible(cellKey(cellAt({ x: position.x + size.width / 2, y: position.y + size.height / 2 }, fogShape())))
+}
+
 function sendMyChanges() {
     const you = clientStore.get()?.you
     if (!conn || !you) return
+    const rules = rulesStore.get()
+    let refused = ""
     for (const h of humbugsStore.get()) {
         if (ownerOf(h) !== you) continue
         const exp = expected.get(h.id)
         if (!exp) continue
         const patch: TokenPatch = {}
         if (!same(h.position, exp.position)) {
-            patch.position = h.position
-            myMoves.push({ id: h.id, from: exp.position })
-            if (myMoves.length > 50) myMoves.shift()
+            if (rules.frozen) refused = "The GM has paused your tokens for now."
+            else if (rules.fenced && !spotVisible(h.position, h)) refused = "You can only move where the party can see."
+            else {
+                patch.position = h.position
+                myMoves.push({ id: h.id, from: exp.position })
+                if (myMoves.length > 50) myMoves.shift()
+            }
         }
         if (!same(h.light, exp.light)) patch.light = h.light ?? null
         if (visionOf(h) !== visionOf(exp)) patch.vision = visionOf(h)
         if (!Object.keys(patch).length) continue
-        expected.set(h.id, h)
+        expected.set(h.id, { ...h, position: patch.position ?? exp.position })
         pending.set(h.id, { patch, at: Date.now() })
         conn.send({ t: "patch", id: h.id, ...patch })
+    }
+    if (refused) {
+        // Back where the GM has it
+        showToast(refused)
+        playSfx("error")
+        reapply()
     }
 }
 
@@ -141,6 +181,21 @@ export function undoMyMove(): boolean {
 }
 
 export const canUndoMove = () => myMoves.length > 0
+
+/** Rename one of my tokens on the table */
+export function renameMyToken(id: string, name: string) {
+    const clean = name.trim().slice(0, 40)
+    if (!conn || !clean) return
+    const prev = pending.get(id)?.patch ?? {}
+    pending.set(id, { patch: { ...prev, name: clean }, at: Date.now() })
+    conn.send({ t: "patch", id, name: clean })
+    reapply()
+}
+
+/** Take one of my tokens off the table */
+export function removeMyToken(id: string) {
+    conn?.send({ t: "remove", id })
+}
 
 // ------------------------------------------------------- rolls to the GM
 /** Audit entries already known (the GM's, or ones we've sent) */
@@ -199,6 +254,16 @@ function onState(msg: StateMsg) {
     if (clientStore.get()?.status !== "connected") {
         setClient({ status: "connected", message: undefined, you: msg.you })
     }
+    if (msg.rules && typeof msg.rules === "object") {
+        const r = msg.rules
+        rulesStore.set({
+            maxTokens: typeof r.maxTokens === "number" ? r.maxTokens : DEFAULT_MAX_TOKENS,
+            frozen: !!r.frozen,
+            fenced: !!r.fenced,
+            approve: !!r.approve,
+        })
+        if (r.frozen) placingStore.set(null)
+    }
     hostSlices = { ...hostSlices, ...msg.slices }
     applySlices(msg.slices)
     if (firstState) {
@@ -243,6 +308,11 @@ export function followGm(on: boolean) {
 function onNotice(msg: NoticeMsg) {
     switch (msg?.kind) {
         case "toast":
+            if (msg.revert) {
+                // The GM said no: put the token back where the GM has it
+                pending.delete(msg.revert)
+                reapply()
+            }
             if (msg.text) showToast(msg.text)
             return
         case "migrate":
@@ -352,6 +422,8 @@ export async function leaveGame(message?: string, status: ClientState["status"] 
     if (old) void old.room.leave()
     pending.clear()
     myMoves.length = 0
+    placingStore.set(null)
+    rulesStore.set(DEFAULT_RULES)
     expected = new Map()
     hostSlices = {}
     lastShare = undefined
@@ -365,7 +437,7 @@ export async function leaveGame(message?: string, status: ClientState["status"] 
     if (message) showToast(message)
 }
 
-/** Ask the GM to put my token on the table */
-export function requestAddToken(name: string, image: string) {
-    conn?.send({ t: "add-token", name, image })
+/** Ask the GM to put my character on the table at a spot (top-left, world units) */
+export function requestAddToken(c: Placing, at?: Point) {
+    conn?.send({ t: "add-token", name: c.name, image: c.image, char: c.char, light: c.light ?? null, vision: c.vision, at })
 }

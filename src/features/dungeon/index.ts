@@ -9,6 +9,7 @@ import { FEATURE_ID, PALETTE_TOOL, ROOMS_TOOL, STAMP_TOOL } from "./model"
 import { requestPanelFocus } from "./panel-focus"
 import { paletteOpenStore, panelStore, togglePanel } from "./state"
 import { activeToolStore } from "../view-state"
+import "./sight"
 
 /*
  * Feature: dungeon. Graph-paper dungeon building: rooms and corridors with

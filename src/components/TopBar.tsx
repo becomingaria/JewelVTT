@@ -52,6 +52,7 @@ const ExportMenu: React.FC<{
 }
 import { Icon } from "./Icon"
 import { JewelLogo } from "./JewelLogo"
+import { MyTokenButton } from "../features/net/MyTokenButton"
 import "./TopBar.css"
 
 interface TopBarProps {
@@ -306,6 +307,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                     <Icon name='home' size={24} />
                 </button>
+                {/* Players: centre on my token (again for the next one) */}
+                <MyTokenButton />
             </div>
 
             {scenes.length > 0 && (

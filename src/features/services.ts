@@ -104,3 +104,40 @@ export const fog = {
     isRevealed: (cell: Cell) => fogApi?.isRevealed(cell) ?? true,
     enabled: () => fogApi?.enabled() ?? false,
 }
+
+// ----------------------------------------------------------------- sight
+/**
+ * Walls that block line of sight, contributed by features (the dungeon
+ * floor's walls, for one). Owned by the fog-light feature, which reads
+ * them for vision and light. World units.
+ */
+export interface SightSegment {
+    x1: number
+    y1: number
+    x2: number
+    y2: number
+}
+
+export interface SightSource {
+    segments: () => readonly SightSegment[]
+    /**
+     * Cells to show beside what a token can see (the wall itself, so the
+     * edge of a room is drawn). Optional.
+     */
+    besides?: (visible: ReadonlySet<string>) => Iterable<string>
+    /** Call back whenever the segments change; returns an unsubscribe */
+    subscribe: (onChange: () => void) => () => void
+}
+
+const sightSources = new Map<string, { source: SightSource; off: () => void }>()
+/** Bumps whenever any source's walls change */
+export const sightVersionStore = createStore(0)
+const bumpSight = () => sightVersionStore.set((n) => n + 1)
+
+export function registerSightSource(id: string, source: SightSource) {
+    sightSources.get(id)?.off()
+    sightSources.set(id, { source, off: source.subscribe(bumpSight) })
+    bumpSight()
+}
+
+export const sightSourceList = (): SightSource[] => [...sightSources.values()].map((s) => s.source)

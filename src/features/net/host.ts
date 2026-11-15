@@ -1,5 +1,5 @@
 import type { Room } from "trystero"
-import type { Humbug, LightSource, TokenHumbug } from "../../types/humbug.types"
+import type { Humbug, LightSource, Point, TokenHumbug } from "../../types/humbug.types"
 import { onBoardChange } from "../../utils/board-store"
 import { snapForGrid } from "../../utils/humbug.utils"
 import { showToast } from "../../utils/toast"
@@ -8,9 +8,14 @@ import {
     cameraStore,
     humbugBase,
     humbugsStore,
+    removeHumbugs,
     updateHumbugs,
     viewCentreWorld,
 } from "../board-bridge"
+import { cellAt, cellKey } from "../grid"
+import { isCellVisible } from "../fog-light/effective-fog"
+import { fogShape } from "../fog-light/fog-store"
+import { humbugFootprint } from "../../utils/humbug.utils"
 import { logEvent } from "../services"
 import { recordAudit, sanitizeAuditEntry } from "../dice/audit"
 import { playSfx } from "../sound"
@@ -21,10 +26,13 @@ import { formatCode, newRoom, type RoomCode } from "./code"
 import { buildPlayerBoard, ownerOf, personalize } from "./filter"
 import { getIdentity } from "./identity"
 import {
-    MAX_TOKENS_PER_PLAYER,
+    DEFAULT_MAX_TOKENS,
+    MAX_TOKENS_LIMIT,
     NET_EXT,
+    type NetExt,
     type NoticeMsg,
     type PlayerRequest,
+    type PlayerRules,
     type ShareMsg,
     type StateMsg,
 } from "./protocol"
@@ -63,7 +71,33 @@ export interface Moderation {
     bannedIps: string[]
 }
 
+/** The GM's rules for players (kept between sessions) */
+export interface TableRules {
+    /** Players move only where the party can see, or the GM revealed */
+    fenced: boolean
+    /** New tokens wait for the GM's OK */
+    approve: boolean
+    maxTokens: number
+}
+
+/** A token waiting for the GM's OK */
+export interface Placement {
+    id: string
+    peerId: string
+    deviceId: string
+    playerName: string
+    token: TokenHumbug
+}
+
 export const hostStore = createStore<HostState | null>(null)
+export const tableRulesStore = createPersistentStore<TableRules>("jewel:net:rules", {
+    fenced: true,
+    approve: false,
+    maxTokens: DEFAULT_MAX_TOKENS,
+})
+/** Devices whose tokens are frozen (this session) */
+export const frozenStore = createStore<ReadonlySet<string>>(new Set())
+export const placementsStore = createStore<readonly Placement[]>([])
 export const playersStore = createStore<readonly PlayerConn[]>([])
 export const moderationStore = createPersistentStore<Moderation>("jewel:net:moderation", {
     people: {},
@@ -198,8 +232,12 @@ async function syncNow() {
         rev++
         for (const p of playersStore.get()) {
             if (p.status !== "connected" || !session) continue
-            const mine = personalize(shared, p.deviceId)
+            const rules = rulesFor(p.deviceId)
+            const mine = personalize(shared, p.deviceId, rules.frozen)
             const last = sent.get(p.peerId) ?? new Map<string, string>()
+            const rulesJson = JSON.stringify(rules)
+            const rulesChanged = last.get("\u0000rules") !== rulesJson
+            last.set("\u0000rules", rulesJson)
             const changed: Record<string, unknown> = {}
             for (const [k, v] of Object.entries(mine)) {
                 const json = JSON.stringify(v)
@@ -209,7 +247,9 @@ async function syncNow() {
                 }
             }
             sent.set(p.peerId, last)
-            if (Object.keys(changed).length) session.sendState({ rev, you: p.deviceId, slices: changed }, p.peerId)
+            if (Object.keys(changed).length || rulesChanged) {
+                session.sendState({ rev, you: p.deviceId, slices: changed, rules: rulesChanged ? rules : undefined }, p.peerId)
+            }
         }
     } finally {
         syncing = false
@@ -218,6 +258,94 @@ async function syncNow() {
             scheduleSync()
         }
     }
+}
+
+// ---------------------------------------------------------------- rules
+export function rulesFor(deviceId: string): PlayerRules {
+    const r = tableRulesStore.get()
+    return { maxTokens: r.maxTokens, frozen: frozenStore.get().has(deviceId), fenced: r.fenced, approve: r.approve }
+}
+
+export function setRules(patch: Partial<TableRules>) {
+    tableRulesStore.set((r) => {
+        const next = { ...r, ...patch }
+        next.maxTokens = Math.max(1, Math.min(MAX_TOKENS_LIMIT, Math.round(next.maxTokens) || DEFAULT_MAX_TOKENS))
+        return next
+    })
+}
+
+export function setFrozen(deviceId: string, frozen: boolean) {
+    frozenStore.set((s) => {
+        const next = new Set(s)
+        if (frozen) next.add(deviceId)
+        else next.delete(deviceId)
+        return next
+    })
+}
+
+/** Freeze or unfreeze every connected player */
+export function freezeAll(frozen: boolean) {
+    frozenStore.set(frozen ? new Set(playersStore.get().map((p) => p.deviceId)) : new Set())
+}
+
+/** Tokens a device controls */
+export const tokensOf = (deviceId: string, list: readonly Humbug[] = humbugsStore.get()) =>
+    list.filter((h) => ownerOf(h) === deviceId)
+
+/** Can players see this spot (where a token of this size would stand)? */
+function spotVisible(position: Point, size: { width: number; height: number }): boolean {
+    const centre = { x: position.x + size.width / 2, y: position.y + size.height / 2 }
+    return isCellVisible(cellKey(cellAt(centre, fogShape())))
+}
+
+/** Give a token to a player (they can move it and set its light and vision) */
+export function giveToken(h: Humbug, deviceId: string) {
+    if (h.type !== "token") return
+    const name = playersStore.get().find((p) => p.deviceId === deviceId)?.name ?? "the player"
+    const fog = h.ext?.["fog-light"] as { vision?: number } | undefined
+    updateHumbugs([
+        {
+            id: h.id,
+            changes: {
+                ext: {
+                    ...h.ext,
+                    [NET_EXT]: { ...(h.ext?.[NET_EXT] as NetExt | undefined), owner: deviceId },
+                    tracker: { ...(h.ext?.tracker as object), side: "party" },
+                    // A token that can't see would leave its player in the dark
+                    "fog-light": { ...fog, vision: fog?.vision || 60 },
+                },
+            },
+        },
+    ])
+    showToast(`${h.name || "Token"} now belongs to ${name}`)
+}
+
+/** Take a token back from its player */
+export function takeBack(h: Humbug) {
+    const ext = { ...h.ext }
+    delete ext[NET_EXT]
+    updateHumbugs([{ id: h.id, changes: { ext } }])
+}
+
+function refuse(peerId: string, text: string, revert?: string) {
+    session?.sendNotice({ kind: "toast", text, revert }, peerId)
+}
+
+/** Let a waiting token onto the table */
+export function allowPlacement(id: string) {
+    const pl = placementsStore.get().find((x) => x.id === id)
+    if (!pl) return
+    placementsStore.set((list) => list.filter((x) => x.id !== id))
+    addHumbugs([pl.token])
+    logEvent({ kind: "system", text: `${pl.playerName} placed ${pl.token.name}` })
+    session?.sendNotice({ kind: "toast", text: `The GM let ${pl.token.name} onto the table.` }, pl.peerId)
+}
+
+export function denyPlacement(id: string) {
+    const pl = placementsStore.get().find((x) => x.id === id)
+    if (!pl) return
+    placementsStore.set((list) => list.filter((x) => x.id !== id))
+    session?.sendNotice({ kind: "toast", text: `The GM didn't place ${pl.token.name}.` }, pl.peerId)
 }
 
 // ------------------------------------------------------------ requests
@@ -247,43 +375,68 @@ function handleRequest(req: PlayerRequest, peerId: string) {
             return
         }
         case "add-token": {
-            const mine = humbugsStore.get().filter((h) => ownerOf(h) === p.deviceId)
-            if (mine.length >= MAX_TOKENS_PER_PLAYER) {
-                session?.sendNotice({ kind: "toast", text: `You can have up to ${MAX_TOKENS_PER_PLAYER} tokens.` }, peerId)
-                return
+            const rules = rulesFor(p.deviceId)
+            if (rules.frozen) return refuse(peerId, "The GM has paused your tokens for now.")
+            const waiting = placementsStore.get().filter((x) => x.deviceId === p.deviceId).length
+            if (tokensOf(p.deviceId).length + waiting >= rules.maxTokens) {
+                return refuse(peerId, `You can have up to ${rules.maxTokens} token${rules.maxTokens === 1 ? "" : "s"} on the table.`)
             }
             const image = typeof req.image === "string" ? req.image : ""
             if (!/^data:image\/(png|jpe?g|webp|gif|avif);/i.test(image) || image.length > 12_000_000) {
-                session?.sendNotice({ kind: "toast", text: "That image couldn't be used. Try a PNG or JPEG." }, peerId)
-                return
+                return refuse(peerId, "That image couldn't be used. Try a PNG or JPEG.")
             }
             const name = String(req.name ?? "").slice(0, 40).trim() || p.name
-            const centre = viewCentreWorld()
-            const offset = mine.length * 32 + playersStore.get().indexOf(p) * 64
-            const position = snapForGrid(
-                { x: centre.x - 16 + offset, y: centre.y - 16 },
-                { width: 32, height: 32 },
-                cameraStore.get()?.gridShape ?? "square"
-            )
+            const size = { width: 32, height: 32 }
+            const shape = cameraStore.get()?.gridShape ?? "square"
+            let position: Point
+            if (req.at && isFiniteNum(req.at.x) && isFiniteNum(req.at.y)) {
+                position = snapForGrid({ x: req.at.x, y: req.at.y }, size, shape)
+                // Only where the party can see (or the GM revealed)
+                if (!spotVisible(position, size)) return refuse(peerId, "Pick a spot you can see, not under the fog.")
+            } else {
+                const centre = viewCentreWorld()
+                position = snapForGrid({ x: centre.x - 16, y: centre.y - 16 }, size, shape)
+            }
+            const vision = isFiniteNum(req.vision) ? Math.max(0, Math.min(240, req.vision)) : 60
             const token: TokenHumbug = {
                 ...humbugBase(position),
                 type: "token",
                 imageUrl: image,
-                size: { width: 32, height: 32 },
-                originalSize: { width: 32, height: 32 },
+                size,
+                originalSize: size,
                 borderColor: "#6c2fcf",
                 borderWidth: 2,
                 name,
                 layer: "tokens",
+                light: sanitizeLight(req.light),
                 ext: {
-                    [NET_EXT]: { owner: p.deviceId },
+                    [NET_EXT]: {
+                        owner: p.deviceId,
+                        char: typeof req.char === "string" ? req.char.slice(0, 80) : undefined,
+                    } satisfies NetExt,
                     tracker: { side: "party" },
-                    "fog-light": { vision: 60 },
+                    "fog-light": { vision },
                 },
             }
+            if (rules.approve) {
+                placementsStore.set((list) => [
+                    ...list,
+                    { id: token.id, peerId, deviceId: p.deviceId, playerName: p.name, token },
+                ])
+                playSfx("alert")
+                showToast(`${p.name} wants to place ${name}. Open Multiplayer to allow it.`)
+                return refuse(peerId, `Asked the GM to place ${name}.`)
+            }
             addHumbugs([token])
-            showToast(`${p.name} added ${name} to the table`)
-            logEvent({ kind: "system", text: `${p.name} added ${name}` })
+            showToast(`${p.name} placed ${name}`)
+            logEvent({ kind: "system", text: `${p.name} placed ${name}` })
+            return
+        }
+        case "remove": {
+            const h = humbugsStore.get().find((x) => x.id === req.id)
+            if (!h || ownerOf(h) !== p.deviceId) return
+            removeHumbugs([h.id])
+            logEvent({ kind: "system", text: `${p.name} took ${(h.type === "token" && h.name) || "a token"} off the table` })
             return
         }
         case "patch": {
@@ -291,7 +444,17 @@ function handleRequest(req: PlayerRequest, peerId: string) {
             if (!h || ownerOf(h) !== p.deviceId) return
             const changes: Partial<Humbug> = {}
             if (req.position && isFiniteNum(req.position.x) && isFiniteNum(req.position.y)) {
-                changes.position = { x: req.position.x, y: req.position.y }
+                const rules = rulesFor(p.deviceId)
+                const to = { x: req.position.x, y: req.position.y }
+                if (rules.frozen) return refuse(peerId, "The GM has paused your tokens for now.", h.id)
+                if (rules.fenced && !spotVisible(to, humbugFootprint(h))) {
+                    return refuse(peerId, "You can only move where the party can see.", h.id)
+                }
+                changes.position = to
+            }
+            if (typeof req.name === "string" && h.type === "token") {
+                const name = req.name.slice(0, 40).trim()
+                if (name) (changes as Partial<TokenHumbug>).name = name
             }
             if ("light" in req) changes.light = sanitizeLight(req.light)
             if (isFiniteNum(req.vision)) {
@@ -339,6 +502,7 @@ async function openSession(code: RoomCode): Promise<Session> {
         knocks.delete(peerId)
         sent.delete(peerId)
         setPlayers((ps) => ps.filter((x) => x.peerId !== peerId))
+        placementsStore.set((list) => list.filter((x) => x.peerId !== peerId))
         if (p?.status === "connected") logEvent({ kind: "system", text: `${p.name} left the game` })
     }
 
@@ -360,7 +524,13 @@ export async function startHosting(knock = true) {
     session = await openSession(code)
     hostStore.set({ code, link: formatCode(code), knock, sharing: false })
     netRoleStore.set("host")
-    unsubscribers = [onBoardChange(scheduleSync), humbugsStore.subscribe(scheduleSync), cameraStore.subscribe(onCamera)]
+    unsubscribers = [
+        onBoardChange(scheduleSync),
+        humbugsStore.subscribe(scheduleSync),
+        cameraStore.subscribe(onCamera),
+        tableRulesStore.subscribe(scheduleSync),
+        frozenStore.subscribe(scheduleSync),
+    ]
 }
 
 export async function stopHosting() {
@@ -377,6 +547,8 @@ export async function stopHosting() {
     kicked.clear()
     hostStore.set(null)
     playersStore.set([])
+    placementsStore.set([])
+    frozenStore.set(new Set())
     netRoleStore.set("solo")
     window.setTimeout(() => void old.room.leave(), 800)
 }

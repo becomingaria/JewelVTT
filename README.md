@@ -111,10 +111,20 @@ Open **Multiplayer** in the tool dock.
 -   **GM:** "Host this board", then send players the room link
     (`jewel://join/...`). Knock to join, private labels, device and IP
     display, kick, ban (device and IP), new room code (keep or drop
-    players), and "Share my view".
--   **Players:** paste the link and Join. Add a token, move it (and undo),
-    choose light and vision, roll dice, look around, and follow the GM's
-    shared view. A player's own saved board comes back when they leave.
+    players), and "Share my view". Each player's tokens are listed under
+    their name; right-click any token to **Give to** a player, **Pause** a
+    player (or everyone), set tokens per player, require approval for new
+    tokens, and keep moves to where the party can see.
+-   **Players:** paste the link and Join. Save characters in **My
+    characters** (kept in your app), **Place on map** on a spot the party
+    can see, move (and undo), rename, take off the table, choose light and
+    vision, roll dice, look around, and follow the GM's shared view. The
+    person button next to home (or `J`) jumps to your token. A player's own
+    saved board comes back when they leave.
+
+Sight is blocked by walls: dungeon walls, **Sight walls** the GM draws over
+a map picture (`Shift+B`), closed doors, and any object with **Blocks
+sight** on (Edit dialog or right-click). Light stops at walls too.
 
 No servers: apps find each other through free public Nostr relays (the room
 secret encrypts that), then connect directly with WebRTC. The GM's app

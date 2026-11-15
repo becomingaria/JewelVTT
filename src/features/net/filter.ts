@@ -150,15 +150,15 @@ export function buildPlayerBoard(): Record<string, unknown> {
     return out
 }
 
-/** One player's copy: only their own tokens are movable */
-export function personalize(board: Record<string, unknown>, deviceId: string): Record<string, unknown> {
+/** One player's copy: only their own tokens are movable (and not while frozen) */
+export function personalize(board: Record<string, unknown>, deviceId: string, frozen = false): Record<string, unknown> {
     const humbugs = board.humbugs as Humbug[] | undefined
     if (!humbugs) return board
     return {
         ...board,
         humbugs: humbugs.map((h) => {
-            const mine = ownerOf(h) === deviceId
-            return mine === !h.locked ? h : { ...h, locked: !mine }
+            const free = ownerOf(h) === deviceId && !frozen
+            return free === !h.locked ? h : { ...h, locked: !free }
         }),
     }
 }

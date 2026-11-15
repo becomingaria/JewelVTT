@@ -79,6 +79,18 @@ Fog: `fog-light/effective-fog.ts` combines the painted fog, visible reveal
 layers and token vision (`fog-light/vision.ts`). Use it, not `fogStore`,
 when asking "can players see this?".
 
+Line of sight (`fog-light/sight.ts`): vision and light stop at walls. Walls
+come from the GM's sight walls (`fog-light:walls`, private), from objects
+whose "Blocks sight" is on (`ext["fog-light"].blocksSight`, else
+`defaultBlocksSight`), and from other features through
+`registerSightSource()` in `services.ts` (the dungeon registers its floor's
+walls). A player's app doesn't work out vision itself: the GM's app sends
+the fog with sight already applied.
+
+Players' tokens: the GM's `TableRules` (`net/host.ts`) fence moves to what
+the party can see, limit tokens per player and can require approval;
+players can be paused. The GM's app checks every request again.
+
 ## Coordinates
 
 World units, with one grid square = `GRID_SIZE` (32). Convert with
@@ -96,7 +108,7 @@ Shift (hold to pan).
 | Feature | Keys |
 |---|---|
 | theme | `⌘,` (settings) |
-| fog-light | `G`, `Shift+G` |
+| fog-light | `G`, `Shift+G`, `Shift+B` (sight walls) |
 | dice | `R`, `Shift+R`, `Y`, `Shift+Y` |
 | tracker | `N`, `Shift+N`, `U`, `Shift+U` |
 | measure | `L`, `Shift+L`, `Q` |
@@ -104,6 +116,7 @@ Shift (hold to pan).
 | hexcrawl | `E`, `Shift+E`, `X`, `Shift+X` |
 | workflow | `⌘K`, `⌘G`, `⌘⇧G`, `Shift+A` |
 | table-slides | `Shift+T`, `Shift+P`, `O`, and PageUp/PageDown/arrows/Space while presenting |
+| net | `J` (go to my token) |
 
 Hotkeys never fire while typing (the host checks for this). Esc always drops
 the active tool first.

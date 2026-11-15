@@ -93,3 +93,11 @@ export const EyeIcon: React.FC<{ open: boolean }> = ({ open }) => (
         {open ? <rect x='10' y='10' width='4' height='4' /> : <path d='M4 4l16 16' />}
     </IconFrame>
 )
+
+/** A brick wall with an eye blocked behind it */
+export const WallIcon: React.FC = () => (
+    <IconFrame>
+        <path d='M3 6h18v12H3z' />
+        <path d='M3 10h18M3 14h18M9 6v4M15 6v4M6 10v4M12 10v4M18 10v4M9 14v4M15 14v4' />
+    </IconFrame>
+)

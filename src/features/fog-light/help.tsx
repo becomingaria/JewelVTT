@@ -33,6 +33,23 @@ export const FogHelp: React.FC = () => (
             area fades out in chunky dithered pixels, and nothing hidden ever
             shows through it.
         </p>
+        <p>
+            <strong>Line of sight.</strong> Tokens with vision (right-click:{" "}
+            <em>Vision</em>) or a light see through the fog, but not through
+            walls. Dungeon rooms have walls already. For a map picture, pick{" "}
+            <strong>Sight walls</strong> in the dock (<Key>Shift+B</Key>) and
+            drag along the walls in the picture; ends snap to grid corners
+            (hold <Key>Alt</Key> to draw freely, right-drag to erase). Only you
+            see these lines.
+        </p>
+        <p>
+            Any object can <strong>block sight</strong>: tick it in the
+            object's Edit dialog, or right-click it and choose{" "}
+            <em>Block sight</em> / <em>Let sight through</em>. Pillars,
+            statues, crates and closed or secret doors block sight already;
+            open a door and the party sees through it. Lights stop at walls
+            too.
+        </p>
     </>
 )
 
