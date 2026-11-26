@@ -1,0 +1,17 @@
+# The web version of Jewel VTT (the same app as the desktop build, minus the art
+# libraries, which are local files). Players open a GM's link straight into it:
+# https://<site>/#join/<room>/<secret>/<host>. One page, so no redirects needed.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Electron is only for the desktop installers; don't download it on Netlify.
+  ELECTRON_SKIP_BINARY_DOWNLOAD = "1"
+
+# Vite fingerprints everything under assets/, so it can be cached for good.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

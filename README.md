@@ -76,6 +76,21 @@ src/
 -   `npm run preview` - Preview production build
 -   `npm run lint` - Run ESLint
 
+## On the web (Netlify)
+
+The same app runs as a website: `netlify.toml` builds it (`npm run build` →
+`dist/`, Node 22, no Electron download). Everything works in the browser,
+including hosting and joining games, except:
+
+-   the built-in art libraries (local files, too big to host): the drawer
+    says so and offers **My Folder** (pick a folder on your computer, in
+    Chrome and Edge) instead; uploads and image links work as usual;
+-   cropping an image from a site that blocks it (the dev server's image
+    fetcher isn't on the website);
+-   auto-updates and `jewel://` links (desktop only).
+
+Boards are kept in the browser that made them.
+
 ## Desktop app (Windows, macOS, Linux)
 
 Jewel VTT also runs as a desktop app built with Electron.
@@ -108,14 +123,19 @@ Installed apps check for a new release when they open:
 
 Open **Multiplayer** in the tool dock.
 
--   **GM:** "Host this board", then send players the room link
-    (`jewel://join/...`). Knock to join, private labels, device and IP
+-   **GM:** "Host this board", then send players the room link. On the
+    website it's a web address (`https://<site>/#join/...`) that opens the
+    game in the player's browser with the join form filled in, nothing to
+    install; keep the GM's tab open while playing. The desktop app shares
+    `jewel://join/...` links, or web links too when built with
+    `VITE_WEB_URL=https://<site>/` (e.g. in the release workflow), so a GM on
+    the desktop app can invite players who only have a browser. Knock to join, private labels, device and IP
     display, kick, ban (device and IP), new room code (keep or drop
     players), and "Share my view". Each player's tokens are listed under
     their name; right-click any token to **Give to** a player, **Pause** a
     player (or everyone), set tokens per player, require approval for new
     tokens, and keep moves to where the party can see.
--   **Players:** paste the link and Join. Save characters in **My
+-   **Players:** open the link (or paste it, web or `jewel://`) and Join. Save characters in **My
     characters** (kept in your app), **Place on map** on a spot the party
     can see, move (and undo), rename, take off the table, choose light and
     vision, roll dice, look around, and follow the GM's shared view. The

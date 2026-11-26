@@ -5,6 +5,7 @@ import type {
     TokenLibraryToken,
 } from "../types/token-library.types"
 import { Icon } from "./Icon"
+import { desktop } from "../desktop"
 import {
     ASSET_SUBFOLDERS,
     isLocalFolderSupported,
@@ -357,6 +358,18 @@ export const TokenLibraryDrawer: React.FC<TokenLibraryDrawerProps> = ({
         if (!lib || !currentFolder) {
             return (
                 <div className='token-library-message'>Loading library…</div>
+            )
+        }
+
+        // The website ships without the art libraries (they're local files: the desktop app's folder, or public/ in dev)
+        if (lib.totalTokens === 0 && source === "library" && import.meta.env.PROD && !desktop) {
+            return (
+                <div className='token-library-message'>
+                    The built-in {info.noun} library comes with the desktop app.
+                    {isLocalFolderSupported()
+                        ? " In the browser, choose My Folder to use images from a folder on this computer, or upload an image (or give its link) in a token's or map's settings."
+                        : " In this browser, upload an image (or give its link) in a token's or map's settings."}
+                </div>
             )
         }
 

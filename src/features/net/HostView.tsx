@@ -4,6 +4,7 @@ import { flyTo } from "../../utils/view-events"
 import { humbugFootprint } from "../../utils/humbug.utils"
 import { selectHumbugs, useHumbugs } from "../board-bridge"
 import { useStore } from "../store"
+import { formatCode, shareLink } from "./code"
 import {
     allowPlacement,
     answerKnock,
@@ -222,6 +223,9 @@ export const HostView: React.FC = () => {
     const [confirmNew, setConfirmNew] = useState(false)
     if (!host) return null
 
+    // A web address when there is one (opens in any browser, and the app accepts it too), else jewel://
+    const link = shareLink(host.code)
+    const web = link !== formatCode(host.code)
     const knocking = players.filter((p) => p.status === "knocking")
     const connected = players.filter((p) => p.status === "connected")
 
@@ -229,14 +233,18 @@ export const HostView: React.FC = () => {
         <div className='net-body'>
             <section aria-labelledby='net-code-title'>
                 <h3 id='net-code-title'>Room link</h3>
-                <p className='net-hint'>Send this to your players. They paste it into Jewel VTT (or click it).</p>
+                <p className='net-hint'>
+                    {web
+                        ? "Send this to your players. It opens the game in their browser, nothing to install (the desktop app can paste it too). Keep this window open while you play."
+                        : "Send this to your players. They paste it into Jewel VTT (or click it)."}
+                </p>
                 <div className='net-code'>
-                    <input className='net-input' readOnly value={host.link} aria-label='Room link' onFocus={(e) => e.currentTarget.select()} />
+                    <input className='net-input' readOnly value={link} aria-label='Room link' onFocus={(e) => e.currentTarget.select()} />
                     <button
                         type='button'
                         className='jv-button jv-button-primary'
                         onClick={() =>
-                            void copy(host.link).then((ok) => {
+                            void copy(link).then((ok) => {
                                 setCopied(ok)
                                 window.setTimeout(() => setCopied(false), 2000)
                             })

@@ -3,6 +3,7 @@ import { desktop } from "../../desktop"
 import { createStore, useStore } from "../store"
 import { useNetRole } from "../view-state"
 import { clientStore, followGm, joinGame } from "./client"
+import { WEB_JOIN } from "./code"
 import { startHosting } from "./host"
 import { HostView } from "./HostView"
 import { PlayerView } from "./PlayerView"
@@ -63,7 +64,7 @@ const StartView: React.FC = () => {
                             className='net-input'
                             rows={3}
                             value={link}
-                            placeholder='jewel://join/…'
+                            placeholder='Paste the link (https://…#join/… or jewel://join/…)'
                             onChange={(e) => setLink(e.currentTarget.value)}
                             aria-invalid={!!error}
                             aria-describedby={error ? "net-join-error" : undefined}
@@ -149,7 +150,25 @@ const ShareButton: React.FC = () => {
     )
 }
 
+/** The web version: a player link (https://<site>/#join/…) opens the join form, filled in. */
+function useWebJoinLink() {
+    useEffect(() => {
+        if (desktop) return
+        const take = () => {
+            if (!window.location.hash.toLowerCase().startsWith(WEB_JOIN)) return
+            pendingLinkStore.set(window.location.href)
+            openPanel()
+            // Take the code out of the address bar, so a reload or a shared screenshot doesn't carry it
+            history.replaceState(null, "", window.location.pathname + window.location.search)
+        }
+        take()
+        window.addEventListener("hashchange", take)
+        return () => window.removeEventListener("hashchange", take)
+    }, [])
+}
+
 export const NetLayer: React.FC = () => {
+    useWebJoinLink()
     // jewel:// links: the app was opened with one, or got one while running
     useEffect(() => {
         if (!desktop) return
