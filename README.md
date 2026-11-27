@@ -78,6 +78,7 @@ src/
 
 ## On the web (Netlify)
 
+Live at **https://jewelvtt.netlify.app/** (Netlify builds `main` on every push).
 The same app runs as a website: `netlify.toml` builds it (`npm run build` →
 `dist/`, Node 22, no Electron download). Everything works in the browser,
 including hosting and joining games, except:
@@ -127,9 +128,10 @@ Open **Multiplayer** in the tool dock.
     website it's a web address (`https://<site>/#join/...`) that opens the
     game in the player's browser with the join form filled in, nothing to
     install; keep the GM's tab open while playing. The desktop app shares
-    `jewel://join/...` links, or web links too when built with
-    `VITE_WEB_URL=https://<site>/` (e.g. in the release workflow), so a GM on
-    the desktop app can invite players who only have a browser. Knock to join, private labels, device and IP
+    web links too (`VITE_WEB_URL` in `.env.production`, read by every
+    production build), so a GM on the desktop app can invite players who
+    only have a browser. In `npm run electron:dev` it shares
+    `jewel://join/...` links. Knock to join, private labels, device and IP
     display, kick, ban (device and IP), new room code (keep or drop
     players), and "Share my view". Each player's tokens are listed under
     their name; right-click any token to **Give to** a player, **Pause** a
